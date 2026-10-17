@@ -1,7 +1,8 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 import { InlineRenderer } from '../src/render/inline'
 import { Popover } from '../src/ui/popover'
-import { UI_TAG, createUiRoot } from '../src/ui/root'
+import { UI_TAG } from '../src/guard'
+import { createUiRoot } from '../src/ui/root'
 import { loadArticle, rangeForText, shadowOf, textNodes } from './helpers'
 
 let article: HTMLElement

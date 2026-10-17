@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { InlineRenderer, MARK_TAG } from '../src/render/inline'
+import { MARK_TAG } from '../src/guard'
+import { InlineRenderer } from '../src/render/inline'
 import type { MarkSpec } from '../src/render/types'
 import { loadArticle, rangeAcross, rangeForText, seeded, shadowOf, textNodes } from './helpers'
 
@@ -139,10 +140,11 @@ describe('InlineRenderer: gloss', () => {
 })
 
 describe('InlineRenderer: Phase 0 exit criterion', () => {
-  const blocks = ['#p1', '#p2', '#p3', '#p4', '#list']
+  const blocks = ['#p1', '#p2', '#p3', '#p4', '#list li:first-child', '#list li:last-child']
 
   it('round-trips 300 random ranges exactly', () => {
     const random = seeded(533)
+    let applied = 0
     for (let i = 0; i < 300; i++) {
       article = loadArticle()
       const block = article.querySelector(blocks[i % blocks.length]!)!
@@ -158,21 +160,25 @@ describe('InlineRenderer: Phase 0 exit criterion', () => {
       }
       const range = rangeAcross(startNode, startOffset, endNode, endOffset)
       const expectedOriginal = range.toString()
-      const before = snapshot()
-      const mark = renderer.apply(range, {
+      const spec: MarkSpec = {
         action: random() < 0.5 ? 'replace' : 'gloss',
         transform: 'simplify',
         text: 'rewritten'
-      })
-      if (!expectedOriginal.trim()) {
+      }
+      const allowed = renderer.check(range, spec).ok
+      const before = snapshot()
+      const mark = renderer.apply(range, spec)
+      if (!allowed) {
         expect(mark).toBeNull()
         expectExact(before)
         continue
       }
+      applied++
       expect(mark?.original).toBe(expectedOriginal)
       renderer.restore(mark!.id)
       expectExact(before)
     }
+    expect(applied).toBeGreaterThan(200)
   })
 
   it('restores several marks in any order exactly', () => {

@@ -1,22 +1,47 @@
+import { blockOf } from '../blocks'
 import { describeMark } from '../copy'
 import { el } from '../dom'
-import { stripWrappingParens, wordCount } from '../text'
+import { findTextRange } from '../find'
+import { MARK_TAG, checkRange } from '../guard'
+import { normalizeWhitespace, stripWrappingParens, wordCount } from '../text'
 import { MARK_CSS, StyleSheets } from '../ui/styles'
 import { containedRoots, normalizeRange, siblingRuns, type SplitPair } from './split'
-import type { DropListener, GlossPlacement, Mark, MarkSpec, RangeCheck, Renderer } from './types'
+import type {
+  GlossPlacement,
+  Mark,
+  MarkSpec,
+  RangeCheck,
+  Renderer,
+  RendererEvent,
+  RendererListener
+} from './types'
 
-export const MARK_TAG = 'hoot-lens-mark'
 const INLINE_GLOSS_MAX_WORDS = 5
+const MAX_REAPPLIES = 3
+const MAX_DROPPED = 24
 
 interface Segment {
   host: HTMLElement
   shadow: ShadowRoot
   nodes: Node[]
+  text: string
 }
 
 interface Entry {
   mark: InlineMark
   segments: Segment[]
+  block: Element | null
+  blockText: string
+  reapplies: number
+}
+
+interface Dropped {
+  id: string
+  spec: MarkSpec
+  original: string
+  scope: Element | null
+  blockText: string
+  reapplies: number
 }
 
 class InlineMark implements Mark {
@@ -36,6 +61,7 @@ class InlineMark implements Mark {
 export interface InlineRendererOptions {
   document: Document
   shadowMode?: ShadowRootMode
+  reapplyDelayMs?: number
 }
 
 export class InlineRenderer implements Renderer {
@@ -43,49 +69,29 @@ export class InlineRenderer implements Renderer {
   readonly #doc: Document
   readonly #mode: ShadowRootMode
   readonly #styles: StyleSheets
+  readonly #reapplyDelay: number
   readonly #entries = new Map<string, Entry>()
   readonly #hosts = new WeakSet<Node>()
-  readonly #dropListeners = new Set<DropListener>()
+  readonly #listeners = new Set<RendererListener>()
   #pending: SplitPair[] = []
+  #dropped: Dropped[] = []
+  #observer: MutationObserver | null = null
+  #reapplyTimer: ReturnType<typeof setTimeout> | null = null
   #seq = 0
 
   constructor(options: InlineRendererOptions) {
     this.#doc = options.document
     this.#mode = options.shadowMode ?? 'closed'
     this.#styles = new StyleSheets(this.#doc)
+    this.#reapplyDelay = options.reapplyDelayMs ?? 100
   }
 
-  check(range: Range): RangeCheck {
-    if (range.collapsed) return { ok: false, reason: 'collapsed' }
-    if (!range.startContainer.isConnected || !range.endContainer.isConnected) {
-      return { ok: false, reason: 'detached' }
-    }
-    if (!range.toString().trim()) return { ok: false, reason: 'no-text' }
-    return { ok: true }
+  check(range: Range, spec?: MarkSpec): RangeCheck {
+    return checkRange(range, spec?.action)
   }
 
   apply(range: Range, spec: MarkSpec): Mark | null {
-    if (!this.check(range).ok) return null
-    const original = range.toString()
-    const { range: normalized, splits } = normalizeRange(range)
-    this.#pending.push(...splits)
-    const runs = siblingRuns(containedRoots(normalized))
-    if (!runs.length) {
-      this.#mergePending()
-      return null
-    }
-    const id = `inline-${++this.#seq}`
-    const segments = runs.map((nodes) => this.#wrap(nodes, id))
-    const anchor = this.#render(segments, spec, original)
-    const mark = new InlineMark(
-      id,
-      spec,
-      original,
-      anchor,
-      segments.map((segment) => segment.host)
-    )
-    this.#entries.set(id, { mark, segments })
-    return mark
+    return this.#apply(range, spec, 0)?.mark ?? null
   }
 
   restore(id: string): boolean {
@@ -94,6 +100,7 @@ export class InlineRenderer implements Renderer {
     this.#entries.delete(id)
     this.#unwrap(entry)
     this.#mergePending()
+    this.#syncObserver()
     return true
   }
 
@@ -111,14 +118,51 @@ export class InlineRenderer implements Renderer {
     return [...this.#entries.values()].map((entry) => entry.mark)
   }
 
-  onDrop(listener: DropListener): () => void {
-    this.#dropListeners.add(listener)
-    return () => this.#dropListeners.delete(listener)
+  subscribe(listener: RendererListener): () => void {
+    this.#listeners.add(listener)
+    return () => this.#listeners.delete(listener)
   }
 
   destroy(): void {
     this.restoreAll()
-    this.#dropListeners.clear()
+    this.#dropped = []
+    if (this.#reapplyTimer) clearTimeout(this.#reapplyTimer)
+    this.#observer?.disconnect()
+    this.#observer = null
+    this.#listeners.clear()
+  }
+
+  #apply(range: Range, spec: MarkSpec, reapplies: number): Entry | null {
+    if (!this.check(range, spec).ok) return null
+    const original = range.toString()
+    const block = blockOf(range.startContainer)
+    const { range: normalized, splits } = normalizeRange(range)
+    this.#pending.push(...splits)
+    const runs = siblingRuns(containedRoots(normalized))
+    if (!runs.length) {
+      this.#mergePending()
+      return null
+    }
+    const id = `inline-${++this.#seq}`
+    const segments = runs.map((nodes) => this.#wrap(nodes, id))
+    const anchor = this.#render(segments, spec, original)
+    const mark = new InlineMark(
+      id,
+      spec,
+      original,
+      anchor,
+      segments.map((segment) => segment.host)
+    )
+    const entry: Entry = {
+      mark,
+      segments,
+      block,
+      blockText: normalizeWhitespace(block?.textContent ?? ''),
+      reapplies
+    }
+    this.#entries.set(id, entry)
+    this.#syncObserver()
+    return entry
   }
 
   #wrap(nodes: Node[], id: string): Segment {
@@ -132,7 +176,7 @@ export class InlineRenderer implements Renderer {
     const shadow = host.attachShadow({ mode: this.#mode })
     this.#styles.apply(shadow, MARK_CSS)
     this.#hosts.add(host)
-    return { host, shadow, nodes }
+    return { host, shadow, nodes, text: host.textContent ?? '' }
   }
 
   #render(segments: Segment[], spec: MarkSpec, original: string): HTMLElement {
@@ -209,6 +253,96 @@ export class InlineRenderer implements Renderer {
       }
     }
   }
+
+  #syncObserver(): void {
+    const needed = this.#entries.size > 0 || this.#dropped.length > 0
+    if (needed && !this.#observer) {
+      const Observer = this.#doc.defaultView?.MutationObserver ?? globalThis.MutationObserver
+      if (!Observer) return
+      this.#observer = new Observer(() => this.#onMutations())
+      this.#observer.observe(this.#doc.body ?? this.#doc.documentElement, {
+        childList: true,
+        subtree: true,
+        characterData: true
+      })
+    } else if (!needed && this.#observer) {
+      this.#observer.disconnect()
+      this.#observer = null
+    }
+  }
+
+  #onMutations(): void {
+    for (const entry of [...this.#entries.values()]) {
+      if (!isIntact(entry)) this.#drop(entry)
+    }
+    if (this.#dropped.length && !this.#reapplyTimer) {
+      this.#reapplyTimer = setTimeout(() => {
+        this.#reapplyTimer = null
+        this.#reapply()
+      }, this.#reapplyDelay)
+    }
+  }
+
+  #drop(entry: Entry): void {
+    const { mark } = entry
+    this.#entries.delete(mark.id)
+    this.#unwrap(entry)
+    this.#mergePending()
+    if (entry.reapplies < MAX_REAPPLIES) {
+      const scope = entry.block?.isConnected ? entry.block : (entry.block?.parentElement ?? null)
+      this.#dropped.push({
+        id: mark.id,
+        spec: mark.spec,
+        original: mark.original,
+        scope,
+        blockText: entry.blockText,
+        reapplies: entry.reapplies + 1
+      })
+      if (this.#dropped.length > MAX_DROPPED) this.#dropped.shift()
+    }
+    this.#emit({ type: 'dropped', mark })
+    this.#syncObserver()
+  }
+
+  #reapply(): void {
+    const remaining: Dropped[] = []
+    for (const dropped of this.#dropped) {
+      const entry = this.#findAndApply(dropped)
+      if (entry) this.#emit({ type: 'reapplied', mark: entry.mark, previousId: dropped.id })
+      else remaining.push(dropped)
+    }
+    this.#dropped = remaining
+    this.#syncObserver()
+  }
+
+  #findAndApply(dropped: Dropped): Entry | null {
+    const root = dropped.scope?.isConnected ? dropped.scope : this.#doc.body
+    if (!root) return null
+    const candidates = [root, ...Array.from(root.querySelectorAll('*'))]
+    for (const candidate of candidates) {
+      if (blockOf(candidate) !== candidate && candidate !== root) continue
+      if (normalizeWhitespace(candidate.textContent ?? '') !== dropped.blockText) continue
+      const range = findTextRange(candidate, dropped.original)
+      if (!range || blockOf(range.startContainer) !== candidate) continue
+      const entry = this.#apply(range, dropped.spec, dropped.reapplies)
+      if (entry) return entry
+    }
+    return null
+  }
+
+  #emit(event: RendererEvent): void {
+    for (const listener of this.#listeners) listener(event)
+  }
+}
+
+function isIntact(entry: Entry): boolean {
+  return entry.segments.every(
+    ({ host, nodes, text }) =>
+      host.isConnected &&
+      host.childNodes.length === nodes.length &&
+      nodes.every((node, index) => host.childNodes[index] === node) &&
+      host.textContent === text
+  )
 }
 
 function glossPlacement(spec: MarkSpec, original: string): GlossPlacement {

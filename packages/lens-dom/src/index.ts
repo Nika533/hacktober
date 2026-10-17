@@ -1,17 +1,21 @@
 export type { MarkAction, Transform } from './contract'
 export { COPY, TRANSFORM_LABEL, describeMark } from './copy'
-export { InlineRenderer, MARK_TAG, type InlineRendererOptions } from './render/inline'
+export { blockOf } from './blocks'
+export { findTextRange } from './find'
+export { MARK_TAG, MAX_SPAN_CHARS, UI_TAG, checkRange, isInsideLens } from './guard'
+export { InlineRenderer, type InlineRendererOptions } from './render/inline'
 export type {
   ApplyOptions,
   BlockReason,
-  DropListener,
   GlossPlacement,
   Mark,
   MarkSpec,
   RangeCheck,
-  Renderer
+  Renderer,
+  RendererEvent,
+  RendererListener
 } from './render/types'
 export { Popover, type PopoverHandlers } from './ui/popover'
 export { placeNear, type Placement } from './ui/position'
-export { UI_TAG, createUiRoot, type UiRoot, type UiRootOptions } from './ui/root'
+export { createUiRoot, type UiRoot, type UiRootOptions } from './ui/root'
 export { StyleSheets } from './ui/styles'

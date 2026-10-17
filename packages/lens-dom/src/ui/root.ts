@@ -1,7 +1,6 @@
 import { el } from '../dom'
+import { UI_TAG } from '../guard'
 import { StyleSheets, TOKENS_CSS } from './styles'
-
-export const UI_TAG = 'hoot-lens-ui'
 
 export const UI_BASE_CSS = `
 ${TOKENS_CSS}

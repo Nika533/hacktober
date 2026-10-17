@@ -26,6 +26,7 @@ export type BlockReason =
   | 'quote'
   | 'link'
   | 'hidden'
+  | 'embedded'
   | 'marked'
   | 'lens-ui'
   | 'multi-block'
@@ -38,7 +39,10 @@ export interface ApplyOptions {
   animate?: boolean
 }
 
-export type DropListener = (mark: Mark) => void
+export type RendererEvent =
+  { type: 'dropped'; mark: Mark } | { type: 'reapplied'; mark: Mark; previousId: string }
+
+export type RendererListener = (event: RendererEvent) => void
 
 export interface Renderer {
   readonly kind: string
@@ -48,6 +52,6 @@ export interface Renderer {
   restoreAll(options?: ApplyOptions): number
   get(id: string): Mark | undefined
   marks(): Mark[]
-  onDrop(listener: DropListener): () => void
+  subscribe(listener: RendererListener): () => void
   destroy(): void
 }
