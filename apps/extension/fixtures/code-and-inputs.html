@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fitting a model in code</title>
+    <link rel="stylesheet" href="./fixture.css" />
+  </head>
+  <body>
+    <main id="article" data-fixture="code-and-inputs">
+      <h1>Fitting a model in code</h1>
+      <p id="p-plain">
+        Lens may change this sentence about heteroscedasticity, because it is ordinary prose.
+      </p>
+      <pre data-lens-expect="never"><code>model = sm.OLS(y, X).fit(cov_type="HC3")
+print(model.summary())  # heteroscedasticity-robust</code></pre>
+      <p>
+        Call <code data-lens-expect="never">fit_robust()</code> to get
+        <kbd data-lens-expect="never">HC3</kbd> errors, then read
+        <samp data-lens-expect="never">Durbin-Watson: 2.01</samp>.
+      </p>
+      <blockquote data-lens-expect="never">
+        All models are wrong, but some are useful — and the residuals tell you which.
+      </blockquote>
+      <p>
+        The reviewer wrote
+        <q data-lens-expect="never">the heteroscedasticity correction is missing</q> twice.
+      </p>
+      <form>
+        <label
+          >Model name <input data-lens-expect="never" value="heteroscedasticity check"
+        /></label>
+        <label
+          >Notes
+          <textarea data-lens-expect="never">
+The residuals fan out; consider weighted least squares.</textarea>
+        </label>
+        <label
+          >Estimator
+          <select data-lens-expect="never">
+            <option>Ordinary least squares</option>
+            <option>Weighted least squares</option>
+          </select>
+        </label>
+        <button type="button" data-lens-expect="never">Recompute standard errors</button>
+      </form>
+      <div class="editable" contenteditable="true" data-lens-expect="never">
+        This editable note mentions heteroscedasticity and must never change.
+      </div>
+      <div role="textbox" data-lens-expect="never">A custom text box about multicollinearity.</div>
+      <p>
+        Read the
+        <a href="#docs" data-lens-expect="never">variance inflation factor documentation</a>
+        before you drop variables.
+      </p>
+      <svg width="200" height="24" role="img" aria-label="chart" data-lens-expect="never">
+        <text x="0" y="16">heteroscedasticity</text>
+      </svg>
+    </main>
+  </body>
+</html>
