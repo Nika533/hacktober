@@ -1,0 +1,58 @@
+.overlay-root {
+  position: absolute;
+  inset: 0;
+  cursor: crosshair;
+  touch-action: none;
+  overflow: hidden;
+}
+
+.overlay-shot {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  pointer-events: none;
+}
+
+.overlay-canvas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.overlay-toolbar {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px;
+  cursor: default;
+  transition: opacity 160ms ease;
+}
+
+.overlay-seg {
+  display: flex;
+  gap: 2px;
+}
+.overlay-seg-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  padding: 5px 12px;
+  border-radius: var(--radius-chip);
+  cursor: pointer;
+}
+.overlay-seg-btn:hover {
+  color: var(--text);
+}
+.overlay-seg-btn.active {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.overlay-hint {
+  color: var(--text-3);
+}
