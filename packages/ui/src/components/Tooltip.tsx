@@ -62,36 +62,59 @@ export function Tooltip({
 
   useEffect(() => () => clearTimeout(timer.current), [])
 
+  const tipEl = useRef<HTMLDivElement | null>(null)
+
+  /** Places the tip next to the trigger; false when the trigger is off screen. */
+  const place = useCallback((): boolean => {
+    const tip = tipEl.current
+    const trigger = anchorRef.current?.firstElementChild
+    if (!tip || !trigger) return false
+    const r = trigger.getBoundingClientRect()
+    if (r.bottom < 0 || r.top > window.innerHeight) return false
+    const p = placeTooltip(
+      r,
+      { width: tip.offsetWidth, height: tip.offsetHeight },
+      { width: window.innerWidth, height: window.innerHeight },
+      placement
+    )
+    tip.style.top = `${p.top}px`
+    tip.style.left = `${p.left}px`
+    tip.dataset.side = p.side
+    return true
+  }, [placement])
+
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') close()
     }
-    document.addEventListener('keydown', onKey)
-    window.addEventListener('scroll', close, true)
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      window.removeEventListener('scroll', close, true)
+    // Follow the trigger when the page scrolls (Tab scrolls a focused button
+    // into view right after the tip opens); hide once it leaves the screen.
+    let frame = 0
+    const onScroll = (): void => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        if (!place()) close()
+      })
     }
-  }, [open, close])
+    document.addEventListener('keydown', onKey)
+    window.addEventListener('scroll', onScroll, true)
+    return () => {
+      cancelAnimationFrame(frame)
+      document.removeEventListener('keydown', onKey)
+      window.removeEventListener('scroll', onScroll, true)
+    }
+  }, [open, close, place])
 
   // Runs once per mount of the tip: lift it into the top layer and place it.
   const tipRef = useCallback(
     (tip: HTMLDivElement | null): void => {
-      const trigger = anchorRef.current?.firstElementChild
-      if (!tip || !trigger) return
+      tipEl.current = tip
+      if (!tip) return
       if (typeof tip.showPopover === 'function') tip.showPopover()
-      const p = placeTooltip(
-        trigger.getBoundingClientRect(),
-        { width: tip.offsetWidth, height: tip.offsetHeight },
-        { width: window.innerWidth, height: window.innerHeight },
-        placement
-      )
-      tip.style.top = `${p.top}px`
-      tip.style.left = `${p.left}px`
-      tip.dataset.side = p.side
+      place()
     },
-    [placement]
+    [place]
   )
 
   const trigger = describe

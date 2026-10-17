@@ -20,7 +20,9 @@
   },
   "dependencies": {
     "lucide-react": "1.55.0",
-    "motion": "14.1.0"
+    "motion": "14.1.0",
+    "react-markdown": "10.1.0",
+    "remark-gfm": "4.0.1"
   },
   "peerDependencies": {
     "react": "^19.3.0",

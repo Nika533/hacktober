@@ -12,3 +12,8 @@
 @import './components/Slider.css';
 @import './components/Toast.css';
 @import './components/Dialog.css';
+@import './components/Chip.css';
+@import './chat/Markdown.css';
+@import './chat/Transcript.css';
+@import './chat/Composer.css';
+@import './chat/chips.css';

@@ -1,0 +1,164 @@
+/* Answer prose: compact rhythm for a chat column, headings scaled to the
+   body so a model's "# Title" doesn't shout. */
+.hoot-md {
+  font-size: 0.875rem;
+  line-height: 1.375rem;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.hoot-md > :first-child {
+  margin-top: 0;
+}
+.hoot-md > :last-child {
+  margin-bottom: 0;
+}
+.hoot-md p,
+.hoot-md ul,
+.hoot-md ol,
+.hoot-md blockquote,
+.hoot-md .hoot-md-code,
+.hoot-md .hoot-md-table {
+  margin: 0 0 var(--space-2-5);
+}
+.hoot-md h1,
+.hoot-md h2,
+.hoot-md h3,
+.hoot-md h4 {
+  margin: var(--space-4) 0 var(--space-1-5);
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+.hoot-md h1 {
+  font-size: 1.125rem;
+  line-height: 1.5rem;
+}
+.hoot-md h2 {
+  font-size: 1rem;
+  line-height: 1.375rem;
+}
+.hoot-md h3,
+.hoot-md h4 {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.hoot-md ul,
+.hoot-md ol {
+  padding-inline-start: 1.25rem;
+}
+.hoot-md li + li {
+  margin-top: var(--space-1);
+}
+.hoot-md li > p {
+  margin: 0;
+}
+.hoot-md a {
+  color: var(--accent-text);
+  text-underline-offset: 2px;
+}
+.hoot-md blockquote {
+  padding-inline-start: var(--space-3);
+  border-inline-start: 3px solid var(--stroke-strong);
+  color: var(--text-2);
+}
+.hoot-md hr {
+  margin: var(--space-4) 0;
+  border: 0;
+  border-top: 1px solid var(--stroke);
+}
+.hoot-md-inline {
+  padding: 0.0625rem 0.3125rem;
+  border-radius: var(--radius-xs);
+  background: var(--fill-sunken);
+  font-family: var(--font-mono);
+  font-size: 0.8125em;
+}
+
+/* ---- code blocks ---- */
+.hoot-md-code {
+  overflow: hidden;
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-md);
+  background: var(--fill-sunken);
+}
+.hoot-md-code__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-0-5) var(--space-1) var(--space-0-5) var(--space-3);
+  border-bottom: 1px solid var(--stroke);
+  font-family: var(--font-small);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--text-2);
+}
+.hoot-md-code__copy {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 0.75rem;
+  cursor: default;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-press) var(--ease-out);
+}
+.hoot-md-code__copy > svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+.hoot-md-code__copy:hover {
+  background: var(--fill-hover);
+  color: var(--text-1);
+}
+.hoot-md-code__copy:active {
+  transform: scale(var(--press-scale));
+}
+.hoot-md-code pre {
+  margin: 0;
+  padding: var(--space-2-5) var(--space-3);
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  tab-size: 2;
+}
+.hoot-md-code pre:focus-visible {
+  outline-offset: -2px;
+}
+
+/* ---- tables ---- */
+.hoot-md-table {
+  overflow-x: auto;
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-md);
+}
+.hoot-md-table:focus-visible {
+  outline-offset: -2px;
+}
+.hoot-md table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  font-variant-numeric: tabular-nums;
+}
+.hoot-md th,
+.hoot-md td {
+  padding: var(--space-1-5) var(--space-3);
+  text-align: start;
+  border-bottom: 1px solid var(--stroke);
+}
+.hoot-md th {
+  font-weight: 600;
+  background: var(--fill-sunken);
+}
+.hoot-md tr:last-child td {
+  border-bottom: 0;
+}

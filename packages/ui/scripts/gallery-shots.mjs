@@ -57,10 +57,24 @@ try {
     if (v.axe) await axe(page, v.name)
 
     if (v.axe) {
+      // Chat: the resting conversation, then a fresh question mid-stream.
+      const chat = page.locator('section', {
+        has: page.getByRole('heading', { name: 'Chat', exact: true })
+      })
+      await chat.screenshot({ path: resolve(out, `chat-${v.name}.png`) })
+      const box = chat.getByRole('textbox', { name: 'Message Hoot' })
+      await box.fill('Why the dip in Q3?')
+      await box.press('Enter')
+      await page.waitForTimeout(700)
+      await chat.screenshot({ path: resolve(out, `chat-streaming-${v.name}.png`) })
+      await axe(page, `${v.name} + streaming`)
+      await chat.getByRole('button', { name: 'Stop answering' }).click()
+
       // Overlays: keyboard tooltip, then the destructive confirm.
+      // Tab from the previous button so focus is keyboard focus (:focus-visible).
+      await page.getByRole('button', { name: 'New chat' }).focus()
       await page.keyboard.press('Tab')
-      await page.getByRole('button', { name: 'Open in Studio' }).focus()
-      await page.locator('.hoot-tooltip').waitFor()
+      await page.locator('.hoot-tooltip').waitFor({ timeout: 3000 })
       const section = page.locator('section', {
         has: page.getByRole('heading', { name: 'Icon buttons' })
       })

@@ -23,6 +23,7 @@ import { TextField } from '../components/TextField'
 import { useConfirm } from '../components/confirmContext'
 import { useToast } from '../components/toastContext'
 import { applyAccent, applyTheme, type ThemePreference } from '../theme'
+import { ChatDemo } from './ChatDemo'
 import './gallery.css'
 
 type ModelChoice = 'flash-lite' | 'flash' | 'argon'
@@ -136,6 +137,10 @@ export function Gallery({
               </figure>
             ))}
           </div>
+        </Section>
+
+        <Section title="Chat" wide>
+          <ChatDemo />
         </Section>
 
         <Section title="Buttons">
