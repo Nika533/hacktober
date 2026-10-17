@@ -1,4 +1,11 @@
-import { InlineRenderer, Popover, createUiRoot, type Mark } from '../src/index'
+import {
+  InlineRenderer,
+  OverlayRenderer,
+  Popover,
+  createUiRoot,
+  type Mark,
+  type Renderer
+} from '../src/index'
 
 const REWRITES: Record<string, string> = {
   heteroscedasticity: 'heteroscedasticity (when the spread of errors changes across values)',
@@ -6,8 +13,13 @@ const REWRITES: Record<string, string> = {
   BLUE: 'BLUE (the best linear unbiased estimator)'
 }
 
-const renderer = new InlineRenderer({ document, shadowMode: 'open' })
+const params = new URLSearchParams(location.search)
 const ui = createUiRoot({ document, shadowMode: 'open' })
+const renderer: Renderer =
+  params.get('renderer') === 'overlay'
+    ? new OverlayRenderer({ document, root: ui })
+    : new InlineRenderer({ document, shadowMode: 'open' })
+const action = params.get('action') === 'gloss' ? 'gloss' : 'replace'
 const popover = new Popover(ui, { restore: (mark) => renderer.restore(mark.id) })
 let hideTimer = 0
 
@@ -44,6 +56,10 @@ popover.element.addEventListener('keydown', (event) => {
   mark?.anchor.focus()
 })
 
+renderer.subscribe((event) => {
+  if (event.type === 'reapplied') watch(event.mark)
+})
+
 document.addEventListener('pointerup', (event) => {
   if (event.composedPath().includes(ui.host)) return
   requestAnimationFrame(() => {
@@ -51,7 +67,7 @@ document.addEventListener('pointerup', (event) => {
     if (!selection || selection.isCollapsed || !selection.rangeCount) return
     const range = selection.getRangeAt(0)
     const mark = renderer.apply(range, {
-      action: 'replace',
+      action,
       transform: 'define',
       text: rewriteFor(range.toString())
     })
@@ -60,4 +76,4 @@ document.addEventListener('pointerup', (event) => {
   })
 })
 
-Object.assign(window, { __hootLens: { renderer, popover } })
+Object.assign(window, { __hootLens: { renderer, popover, ui } })

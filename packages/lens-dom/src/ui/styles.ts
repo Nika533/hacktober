@@ -1,6 +1,27 @@
+export const ACCENT = '#5b8def'
+
+export const HIGHLIGHT_REPLACE = 'hoot-lens-replace'
+export const HIGHLIGHT_GLOSS = 'hoot-lens-gloss'
+
+export const HIGHLIGHT_CSS = `
+::highlight(${HIGHLIGHT_REPLACE}) {
+  color: transparent;
+}
+::highlight(${HIGHLIGHT_GLOSS}) {
+  background-color: color-mix(in srgb, ${ACCENT} 12%, transparent);
+  text-decoration: underline dotted color-mix(in srgb, ${ACCENT} 60%, transparent);
+}
+@media (prefers-contrast: more) {
+  ::highlight(${HIGHLIGHT_GLOSS}) {
+    background-color: transparent;
+    text-decoration: underline solid ${ACCENT};
+  }
+}
+`
+
 export const TOKENS_CSS = `
 :host {
-  --hl-accent: #5b8def;
+  --hl-accent: ${ACCENT};
   --hl-on-accent: #ffffff;
   --hl-tint: color-mix(in srgb, var(--hl-accent) 12%, transparent);
   --hl-underline: color-mix(in srgb, var(--hl-accent) 60%, transparent);
@@ -12,6 +33,7 @@ export const TOKENS_CSS = `
   --hl-text: #1d1d1f;
   --hl-text-2: rgba(29, 29, 31, 0.62);
   --hl-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(0, 0, 0, 0.14);
+  --hl-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.12), 0 6px 18px rgba(0, 0, 0, 0.16);
   --hl-font: 'Segoe UI Variable', system-ui, 'Segoe UI', sans-serif;
   --hl-radius: 12px;
   --hl-radius-btn: 8px;
@@ -113,6 +135,23 @@ export class StyleSheets {
     const style = this.#doc.createElement('style')
     style.textContent = css
     root.prepend(style)
+  }
+
+  applyDocument(css: string): () => void {
+    const doc = this.#doc
+    const sheet = 'adoptedStyleSheets' in doc ? this.#sheet(css) : null
+    if (sheet) {
+      if (!doc.adoptedStyleSheets.includes(sheet)) {
+        doc.adoptedStyleSheets = [...doc.adoptedStyleSheets, sheet]
+      }
+      return () => {
+        doc.adoptedStyleSheets = doc.adoptedStyleSheets.filter((item) => item !== sheet)
+      }
+    }
+    const style = doc.createElement('style')
+    style.textContent = css
+    ;(doc.head ?? doc.documentElement).append(style)
+    return () => style.remove()
   }
 
   #sheet(css: string): CSSStyleSheet | null {

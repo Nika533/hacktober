@@ -3,7 +3,17 @@ export { COPY, TRANSFORM_LABEL, describeMark } from './copy'
 export { blockOf } from './blocks'
 export { findTextRange } from './find'
 export { MARK_TAG, MAX_SPAN_CHARS, UI_TAG, checkRange, isInsideLens } from './guard'
+export {
+  DynamicPageDetector,
+  STRONG_MARKERS,
+  WEAK_MARKERS,
+  frameworkMarkers,
+  isDynamic,
+  type DynamicPageDetectorOptions,
+  type DynamicSignals
+} from './render/detect'
 export { InlineRenderer, type InlineRendererOptions } from './render/inline'
+export { OverlayRenderer, type OverlayRendererOptions } from './render/overlay'
 export type {
   ApplyOptions,
   BlockReason,
