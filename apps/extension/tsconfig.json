@@ -1,17 +1,23 @@
 {
-  "extends": "../../tsconfig.base.json",
-  "include": [
-    "src/**/*",
-    "test/**/*",
-    "e2e/**/*",
-    "scripts/*.ts",
-    "fixtures/**/*.tsx",
-    "playwright.config.ts"
-  ],
   "compilerOptions": {
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
-    "types": ["chrome", "node"],
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "jsx": "react-jsx",
-    "allowImportingTsExtensions": true
-  }
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["node", "chrome"],
+    "paths": {
+      "@hoot/lens-dom": ["../../packages/lens-dom/src/index.ts"]
+    }
+  },
+  "include": ["src", "tests", "e2e", "scripts/*.ts", "fixtures/**/*.tsx", "playwright.config.ts"]
 }

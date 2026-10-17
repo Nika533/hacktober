@@ -37,6 +37,8 @@ export const COPY = {
   paused: 'Lens is paused on this site',
   ask: 'Make this clearer?',
   thinking: 'Hoot is making this clearer…',
+  skipped: 'Hoot left this as it is.',
+  unavailable: 'Hoot isn’t available right now.',
   restored: 'Restored the original.',
   restoredAll: 'Restored everything on this page.'
 } as const

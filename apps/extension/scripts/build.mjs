@@ -1,46 +1,42 @@
-/**
- * Builds the unpacked extension into dist/: bundles each entry with esbuild
- * and copies static/ (manifest.json, HTML pages) next to them.
- * `--watch` rebuilds on change.
- */
-import { cpSync, mkdirSync, rmSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { build } from 'esbuild'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import * as esbuild from 'esbuild'
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const outdir = join(root, 'dist')
-const watch = process.argv.includes('--watch')
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const dev = process.argv.includes('--dev')
+const outdir = resolve(root, dev ? 'dist/dev' : 'dist/prod')
+const pkg = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'))
 
-rmSync(outdir, { recursive: true, force: true })
-mkdirSync(outdir, { recursive: true })
-cpSync(join(root, 'static'), outdir, { recursive: true })
+await rm(outdir, { recursive: true, force: true })
+await mkdir(outdir, { recursive: true })
 
-const common = {
+const shared = {
   bundle: true,
   target: 'chrome120',
-  sourcemap: watch ? 'inline' : false,
-  minify: !watch,
-  logLevel: 'info',
+  legalComments: 'none',
+  minify: !dev,
+  sourcemap: dev ? 'inline' : false,
+  define: { __HOOT_DEV__: String(dev) },
+  alias: { '@hoot/lens-dom': resolve(root, '../../packages/lens-dom/src/index.ts') },
+  logLevel: 'info'
+}
+
+await build({
+  ...shared,
+  entryPoints: { content: resolve(root, 'src/content/index.ts') },
+  format: 'iife',
   outdir
-}
+})
+await build({
+  ...shared,
+  entryPoints: { sw: resolve(root, 'src/sw/index.ts') },
+  format: 'esm',
+  outdir
+})
 
-const builds = [
-  // Content scripts can't be modules: one self-contained IIFE.
-  { ...common, entryPoints: { content: join(root, 'src/content/index.ts') }, format: 'iife' },
-  {
-    ...common,
-    entryPoints: {
-      sw: join(root, 'src/sw.ts'),
-      options: join(root, 'src/options/index.ts'),
-      viewer: join(root, 'src/viewer/index.ts')
-    },
-    format: 'esm'
-  }
-]
-
-if (watch) {
-  for (const options of builds) await (await esbuild.context(options)).watch()
-} else {
-  await Promise.all(builds.map((options) => esbuild.build(options)))
-}
+const manifest = JSON.parse(await readFile(resolve(root, 'manifest.json'), 'utf8'))
+manifest.version = pkg.version === '0.0.0' ? '0.1.0' : pkg.version
+if (dev) manifest.name = `${manifest.name} (dev)`
+await writeFile(resolve(outdir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`)
+console.log(`Built ${dev ? 'dev' : 'production'} extension in ${outdir}`)

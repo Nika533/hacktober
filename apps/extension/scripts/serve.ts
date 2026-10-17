@@ -50,7 +50,11 @@ export async function serveFixtures(
   return {
     url: `http://127.0.0.1:${port}`,
     crossOriginUrl: `http://localhost:${port}`,
-    close: () => new Promise<void>((done) => server.close(() => done()))
+    close: () =>
+      new Promise<void>((done) => {
+        server.close(() => done())
+        server.closeAllConnections()
+      })
   }
 }
 

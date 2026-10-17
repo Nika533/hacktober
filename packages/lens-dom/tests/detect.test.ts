@@ -18,7 +18,7 @@ describe('dynamic page detection', () => {
     expect(isDynamic({ strong: [], weak: [], mutationsPerSecond: 0.5 })).toBe(false)
     expect(isDynamic({ strong: [], weak: [], mutationsPerSecond: 12 })).toBe(true)
     expect(isDynamic({ strong: [], weak: ['#root'], mutationsPerSecond: 0 })).toBe(false)
-    expect(isDynamic({ strong: [], weak: ['#root'], mutationsPerSecond: 2 })).toBe(true)
+    expect(isDynamic({ strong: [], weak: ['#root'], mutationsPerSecond: 0.3 })).toBe(true)
   })
 
   it('counts page mutations during the first seconds, ignoring Lens elements', async () => {

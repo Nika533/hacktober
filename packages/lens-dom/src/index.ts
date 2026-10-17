@@ -1,4 +1,27 @@
-export type { MarkAction, Transform } from './contract'
+export {
+  LensError,
+  type AssessResult,
+  type DomainRisk,
+  type ExplainRequest,
+  type LensBackend,
+  type LensContext,
+  type LensEventKind,
+  type LensFeedback,
+  type LensMode,
+  type LensSettingsView,
+  type MarkAction,
+  type ProfileView,
+  type RewriteRequest,
+  type RewriteResult,
+  type Transform
+} from './contract'
+export {
+  createLens,
+  pageBlockReason,
+  type CreateLensOptions,
+  type Lens,
+  type RendererChoice
+} from './controller'
 export { COPY, TRANSFORM_LABEL, announceChange, changedCount, describeMark } from './copy'
 export { blockOf, isBlock } from './blocks'
 export {

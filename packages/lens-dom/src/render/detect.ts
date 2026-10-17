@@ -23,7 +23,6 @@ export interface DynamicSignals {
 }
 
 export const MUTATION_RATE_DYNAMIC = 8
-export const MUTATION_RATE_WITH_WEAK_MARKER = 1
 
 export function frameworkMarkers(doc: Document): { strong: string[]; weak: string[] } {
   const found = (selectors: readonly string[]): string[] =>
@@ -40,7 +39,7 @@ export function frameworkMarkers(doc: Document): { strong: string[]; weak: strin
 export function isDynamic(signals: DynamicSignals): boolean {
   if (signals.strong.length) return true
   if (signals.mutationsPerSecond >= MUTATION_RATE_DYNAMIC) return true
-  return signals.weak.length > 0 && signals.mutationsPerSecond >= MUTATION_RATE_WITH_WEAK_MARKER
+  return signals.weak.length > 0 && signals.mutationsPerSecond > 0
 }
 
 export interface DynamicPageDetectorOptions {

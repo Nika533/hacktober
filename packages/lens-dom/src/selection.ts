@@ -1,5 +1,6 @@
 import { blockOf } from './blocks'
 import { isElement } from './dom'
+import { trimRange } from './find'
 import { isInsideLens } from './guard'
 import { normalizeWhitespace, wordCount } from './text'
 
@@ -126,9 +127,9 @@ export class SelectionWatcher {
     const selection = this.#doc.getSelection()
     if (!selection || selection.isCollapsed || !selection.rangeCount) return null
     if (inEditable(this.#doc)) return null
-    const range = selection.getRangeAt(0)
+    const range = trimRange(selection.getRangeAt(0))
     const text = normalizeWhitespace(range.toString())
-    return text ? { range: range.cloneRange(), text } : null
+    return text ? { range, text } : null
   }
 
   #ownSelection(): boolean {

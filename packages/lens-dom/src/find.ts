@@ -18,6 +18,47 @@ function lensTextNodes(root: Node): Text[] {
   return nodes
 }
 
+function textNodesIn(range: Range): Text[] {
+  const root = range.commonAncestorContainer
+  if (!isElement(root) && root.nodeType === 3) return [root as Text]
+  const walker = ownerDocument(root).createTreeWalker(root, 4)
+  const nodes: Text[] = []
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (range.intersectsNode(node)) nodes.push(node as Text)
+  }
+  return nodes
+}
+
+export function trimRange(range: Range): Range {
+  const trimmed = range.cloneRange()
+  const nodes = textNodesIn(range)
+  const bounds = (node: Text): [number, number] => [
+    node === range.startContainer ? range.startOffset : 0,
+    node === range.endContainer ? range.endOffset : node.length
+  ]
+  const first = nodes.find((node) => {
+    const [from, to] = bounds(node)
+    const index = node.data.slice(from, to).search(/\S/)
+    if (index >= 0) trimmed.setStart(node, from + index)
+    return index >= 0
+  })
+  if (!first) {
+    trimmed.collapse(true)
+    return trimmed
+  }
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    const node = nodes[i] as Text
+    const [from, to] = bounds(node)
+    const slice = node.data.slice(from, to)
+    const trailing = slice.length - slice.trimEnd().length
+    if (trailing < slice.length) {
+      trimmed.setEnd(node, to - trailing)
+      break
+    }
+  }
+  return trimmed
+}
+
 export function findTextRange(root: Node, needle: string): Range | null {
   if (!needle) return null
   const nodes = lensTextNodes(root)

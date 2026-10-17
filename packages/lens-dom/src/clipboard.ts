@@ -7,25 +7,30 @@ export type CopyMode = 'original' | 'visible'
 const SKIP_TAGS = new Set(['script', 'style', 'template', 'noscript'])
 const KEEP_SPACES = new Set(['pre', 'pre-wrap', 'break-spaces'])
 
-type Part = string | number
+type Part = number | { text: string; collapse: boolean }
 
 function join(parts: Part[]): string {
   let out = ''
   let pending = 0
+  let softSpace = false
   for (const part of parts) {
     if (typeof part === 'number') {
       pending = Math.max(pending, part)
       continue
     }
+    let { text } = part
+    if (!text) continue
     if (pending) {
-      if (part === ' ' || part === '') continue
-      out = out.replace(/ $/, '')
+      if (part.collapse && !text.trim()) continue
+      if (softSpace) out = out.replace(/ $/, '')
       if (out) out += '\n'.repeat(pending)
       pending = 0
-      out += part.replace(/^ /, '')
-      continue
+      if (part.collapse) text = text.replace(/^ /, '')
+    } else if (part.collapse && softSpace && out.endsWith(' ')) {
+      text = text.replace(/^ /, '')
     }
-    out += part
+    out += text
+    softSpace = part.collapse
   }
   return out.replace(/^ | $/g, '')
 }
@@ -45,9 +50,10 @@ export function serializeRange(
     const end = node === range.endContainer ? range.endOffset : node.length
     let data = node.data.slice(start, end)
     const mode = whiteSpace(node)
+    const collapse = !KEEP_SPACES.has(mode)
     if (mode === 'pre-line') data = data.replace(/[\t\r\f ]+/g, ' ')
-    else if (!KEEP_SPACES.has(mode)) data = data.replace(/[\t\n\r\f ]+/g, ' ')
-    parts.push(data)
+    else if (collapse) data = data.replace(/[\t\n\r\f ]+/g, ' ')
+    parts.push({ text: data, collapse })
   }
   const walk = (node: Node): void => {
     for (let child = node.firstChild; child; child = child.nextSibling) {
@@ -61,11 +67,11 @@ export function serializeRange(
       }
       const replaced = override(child)
       if (replaced !== null) {
-        parts.push(replaced)
+        parts.push({ text: replaced, collapse: true })
         continue
       }
       if (child.localName === 'br') {
-        parts.push('\n')
+        parts.push({ text: '\n', collapse: false })
         continue
       }
       const weight = isBlock(child) ? (child.localName === 'p' ? 2 : 1) : 0

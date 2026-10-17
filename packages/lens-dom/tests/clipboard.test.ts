@@ -89,6 +89,21 @@ describe('copy behaviour', () => {
     expect(copySelection(range).text).toMatch(/^The OLS \(ordinary least squares\) estimator/)
   })
 
+  it('collapses spaces across element and mark boundaries like the browser', () => {
+    const p2 = article.querySelector('#p2')!
+    const range = document.createRange()
+    range.selectNodeContents(p2)
+    expect(serializeRange(range, () => null)).toMatch(
+      /^The OLS estimator\u00a0is still unbiased, but/
+    )
+    renderer.apply(findTextRange(p2, 'OLS  ')!, {
+      action: 'replace',
+      transform: 'expand',
+      text: 'ordinary least squares'
+    })
+    expect(copySelection(range).text).toMatch(/^The OLS estimator\u00a0is still unbiased, but/)
+  })
+
   it('collapses source whitespace but keeps block breaks', () => {
     const range = document.createRange()
     range.selectNodeContents(article.querySelector('#list')!)
