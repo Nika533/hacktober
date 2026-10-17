@@ -1,0 +1,19 @@
+{
+  "name": "@hoot/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Contracts and pure logic shared by every Hoot package (owner: C)",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./schemas": "./src/schemas.ts",
+    "./testing": "./src/testing/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  }
+}

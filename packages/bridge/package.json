@@ -1,0 +1,20 @@
+{
+  "name": "@hoot/bridge",
+  "version": "0.0.0",
+  "private": true,
+  "description": "hoot-bridge native messaging host and pipe client (owner: C)",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@hoot/core": "*"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

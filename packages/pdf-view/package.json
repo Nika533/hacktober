@@ -1,0 +1,17 @@
+{
+  "name": "@hoot/pdf-view",
+  "version": "0.0.0",
+  "private": true,
+  "description": "PDF.js document view, overlay renderer and reflow mode (owner: d3)",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@hoot/core": "*"
+  }
+}

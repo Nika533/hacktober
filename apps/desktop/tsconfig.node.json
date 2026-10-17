@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "include": [
+    "electron.vite.config.ts",
+    "vitest.config.mts",
+    "vitest.live.config.mts",
+    "playwright.config.ts",
+    "src/main/**/*",
+    "src/preload/**/*",
+    "test/**/*",
+    "test-live/**/*",
+    "e2e/**/*"
+  ],
+  "compilerOptions": {
+    "types": ["node", "electron-vite/node"]
+  }
+}
