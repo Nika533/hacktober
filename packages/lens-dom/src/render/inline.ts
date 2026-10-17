@@ -1,18 +1,21 @@
 import { blockOf } from '../blocks'
 import { describeMark } from '../copy'
-import { el } from '../dom'
+import { el, prefersReducedMotion } from '../dom'
 import { MARK_TAG, checkRange } from '../guard'
 import { stripWrappingParens, wordCount } from '../text'
+import { DURATION, dematerialize, easing, materialize, play, settled } from '../ui/motion'
 import { MARK_CSS, StyleSheets } from '../ui/styles'
 import { Lifecycle, blockTextOf, locate, remember, type Remembered } from './lifecycle'
 import { containedRoots, normalizeRange, siblingRuns, type SplitPair } from './split'
 import type {
+  ApplyOptions,
   GlossPlacement,
   Mark,
   MarkSpec,
   RangeCheck,
   Renderer,
-  RendererListener
+  RendererListener,
+  RestoreOptions
 } from './types'
 
 const INLINE_GLOSS_MAX_WORDS = 5
@@ -30,6 +33,7 @@ interface Entry {
   block: Element | null
   blockText: string
   reapplies: number
+  animation: Animation | null
 }
 
 class InlineMark implements Mark {
@@ -80,24 +84,40 @@ export class InlineRenderer implements Renderer {
     return checkRange(range, spec?.action)
   }
 
-  apply(range: Range, spec: MarkSpec): Mark | null {
-    return this.#apply(range, spec, 0)?.mark ?? null
+  apply(range: Range, spec: MarkSpec, options: ApplyOptions = {}): Mark | null {
+    const entry = this.#apply(range, spec, 0)
+    if (entry && options.animate) this.#animateIn(entry)
+    return entry?.mark ?? null
   }
 
-  restore(id: string): boolean {
+  restore(id: string, options: RestoreOptions = {}): boolean {
     const entry = this.#entries.get(id)
     if (!entry) return false
     this.#entries.delete(id)
-    this.#unwrap(entry)
-    this.#mergePending()
-    this.#lifecycle.sync()
+    entry.animation?.cancel()
+    entry.animation = null
+    if (options.animate) this.#animateOut(entry)
+    else this.#finishRestore(entry)
     return true
   }
 
-  restoreAll(): number {
+  restoreAll(options: RestoreOptions = {}): number {
     const ids = [...this.#entries.keys()].reverse()
-    for (const id of ids) this.restore(id)
+    for (const id of ids) this.restore(id, options)
     return ids.length
+  }
+
+  visibleText(host: Element): string | null {
+    const id = (host as HTMLElement).dataset?.hootLens
+    const entry = id ? this.#entries.get(id) : undefined
+    const index = entry?.segments.findIndex((segment) => segment.host === host) ?? -1
+    if (!entry || index < 0) return null
+    const { spec, original } = entry.mark
+    if (spec.action === 'replace') return index === 0 ? spec.text : ''
+    const text = host.textContent ?? ''
+    if (index !== entry.segments.length - 1) return text
+    const note = stripWrappingParens(spec.text)
+    return glossPlacement(spec, original) === 'inline' ? `${text} (${note})` : `${text}\n${note}`
   }
 
   get(id: string): Mark | undefined {
@@ -133,10 +153,90 @@ export class InlineRenderer implements Renderer {
     const anchor = this.#render(segments, spec, original)
     const hosts = segments.map((segment) => segment.host)
     const mark = new InlineMark(id, spec, original, anchor, hosts)
-    const entry: Entry = { mark, segments, block, blockText: blockTextOf(block), reapplies }
+    const entry: Entry = {
+      mark,
+      segments,
+      block,
+      blockText: blockTextOf(block),
+      reapplies,
+      animation: null
+    }
     this.#entries.set(id, entry)
     this.#lifecycle.sync()
     return entry
+  }
+
+  #animateIn(entry: Entry): void {
+    const isReduced = prefersReducedMotion(this.#doc)
+    const ease = easing(this.#doc)
+    const { anchor, spec } = entry.mark
+    if (spec.action === 'gloss' || isReduced) {
+      const target = spec.action === 'gloss' ? this.#glossOf(entry) : anchor
+      if (!target) return
+      entry.animation = play(target, materialize(isReduced), {
+        duration: isReduced ? DURATION.reducedFade : DURATION.swapHalf * 2,
+        easing: ease
+      })
+      return
+    }
+    const text = anchor.textContent ?? ''
+    anchor.replaceChildren(this.#doc.createElement('slot'))
+    const out = play(anchor, dematerialize(false), {
+      duration: DURATION.swapHalf,
+      easing: ease,
+      fill: 'forwards'
+    })
+    if (!out) {
+      anchor.textContent = text
+      return
+    }
+    entry.animation = out
+    void settled(out).then(() => {
+      if (entry.animation !== out) return
+      anchor.textContent = text
+      out.cancel()
+      entry.animation = play(anchor, materialize(false), {
+        duration: DURATION.swapHalf,
+        easing: ease
+      })
+    })
+  }
+
+  #animateOut(entry: Entry): void {
+    const isReduced = prefersReducedMotion(this.#doc)
+    const ease = easing(this.#doc)
+    const { anchor, spec } = entry.mark
+    const target = spec.action === 'gloss' ? this.#glossOf(entry) : anchor
+    const out = target
+      ? play(target, dematerialize(isReduced), {
+          duration: isReduced ? DURATION.reducedFade : DURATION.swapHalf,
+          easing: ease,
+          fill: 'forwards'
+        })
+      : null
+    void settled(out).then(() => {
+      if (spec.action === 'gloss' || isReduced || !out) {
+        this.#finishRestore(entry)
+        return
+      }
+      anchor.replaceChildren(this.#doc.createElement('slot'))
+      out.cancel()
+      const back = play(anchor, materialize(false), {
+        duration: DURATION.swapHalf,
+        easing: ease
+      })
+      void settled(back).then(() => this.#finishRestore(entry))
+    })
+  }
+
+  #glossOf(entry: Entry): HTMLElement | null {
+    return entry.segments[entry.segments.length - 1]?.shadow.querySelector('.gloss') ?? null
+  }
+
+  #finishRestore(entry: Entry): void {
+    this.#unwrap(entry)
+    this.#mergePending()
+    this.#lifecycle.sync()
   }
 
   #wrap(nodes: Node[], id: string): Segment {

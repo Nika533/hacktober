@@ -1,13 +1,22 @@
 import { blockOf } from '../blocks'
 import { describeMark } from '../copy'
-import { el, isElement } from '../dom'
+import { el, isElement, prefersReducedMotion } from '../dom'
 import { checkRange } from '../guard'
 import { stripWrappingParens } from '../text'
+import { DURATION, dematerialize, easing, materialize, play, settled } from '../ui/motion'
 import { viewportOf } from '../ui/position'
 import type { UiRoot } from '../ui/root'
 import { HIGHLIGHT_CSS, HIGHLIGHT_GLOSS, HIGHLIGHT_REPLACE } from '../ui/styles'
 import { Lifecycle, blockTextOf, locate, remember, type Remembered } from './lifecycle'
-import type { Mark, MarkSpec, RangeCheck, Renderer, RendererListener } from './types'
+import type {
+  ApplyOptions,
+  Mark,
+  MarkSpec,
+  RangeCheck,
+  Renderer,
+  RendererListener,
+  RestoreOptions
+} from './types'
 
 export const OVERLAY_CSS = `
 .ov-box {
@@ -158,21 +167,38 @@ export class OverlayRenderer implements Renderer {
     return checkRange(range, spec?.action)
   }
 
-  apply(range: Range, spec: MarkSpec): Mark | null {
-    return this.#apply(range, spec, 0)?.mark ?? null
+  apply(range: Range, spec: MarkSpec, options: ApplyOptions = {}): Mark | null {
+    const entry = this.#apply(range, spec, 0)
+    if (entry && options.animate) {
+      const isReduced = prefersReducedMotion(this.#doc)
+      play(entry.box, materialize(isReduced), {
+        duration: isReduced ? DURATION.reducedFade : DURATION.swapHalf * 2,
+        easing: easing(this.#doc)
+      })
+    }
+    return entry?.mark ?? null
   }
 
-  restore(id: string): boolean {
+  restore(id: string, options: RestoreOptions = {}): boolean {
     const entry = this.#entries.get(id)
     if (!entry) return false
-    this.#remove(entry)
+    this.#forget(entry)
+    if (options.animate) {
+      const isReduced = prefersReducedMotion(this.#doc)
+      const out = play(entry.box, dematerialize(isReduced), {
+        duration: isReduced ? DURATION.reducedFade : DURATION.swapHalf * 2,
+        easing: easing(this.#doc),
+        fill: 'forwards'
+      })
+      void settled(out).then(() => this.#teardown(entry))
+    } else this.#teardown(entry)
     this.#lifecycle.sync()
     return true
   }
 
-  restoreAll(): number {
+  restoreAll(options: RestoreOptions = {}): number {
     const ids = [...this.#entries.keys()].reverse()
-    for (const id of ids) this.restore(id)
+    for (const id of ids) this.restore(id, options)
     return ids.length
   }
 
@@ -236,12 +262,20 @@ export class OverlayRenderer implements Renderer {
     return entry
   }
 
-  #remove(entry: Entry): void {
+  #forget(entry: Entry): void {
     this.#entries.delete(entry.mark.id)
+    if (!this.#entries.size) this.#stopListening()
+  }
+
+  #teardown(entry: Entry): void {
     entry.box.remove()
     this.#highlights?.replace.delete(entry.range)
     this.#highlights?.gloss.delete(entry.range)
-    if (!this.#entries.size) this.#stopListening()
+  }
+
+  #remove(entry: Entry): void {
+    this.#forget(entry)
+    this.#teardown(entry)
   }
 
   #layout(entry: Entry): void {

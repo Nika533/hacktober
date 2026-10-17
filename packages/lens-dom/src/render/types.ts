@@ -39,6 +39,10 @@ export interface ApplyOptions {
   animate?: boolean
 }
 
+export interface RestoreOptions {
+  animate?: boolean
+}
+
 export type RendererEvent =
   { type: 'dropped'; mark: Mark } | { type: 'reapplied'; mark: Mark; previousId: string }
 
@@ -48,8 +52,8 @@ export interface Renderer {
   readonly kind: string
   check(range: Range, spec?: MarkSpec): RangeCheck
   apply(range: Range, spec: MarkSpec, options?: ApplyOptions): Mark | null
-  restore(id: string, options?: ApplyOptions): boolean
-  restoreAll(options?: ApplyOptions): number
+  restore(id: string, options?: RestoreOptions): boolean
+  restoreAll(options?: RestoreOptions): number
   get(id: string): Mark | undefined
   marks(): Mark[]
   subscribe(listener: RendererListener): () => void
