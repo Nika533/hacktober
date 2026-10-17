@@ -8,7 +8,26 @@ export {
   type CopyControllerOptions,
   type CopyMode
 } from './clipboard'
+export {
+  PARAGRAPH_MAX,
+  SPAN_MAX,
+  clampText,
+  extractContext,
+  headingPath,
+  languageOf,
+  windowAround,
+  type PageContext
+} from './context'
 export { findTextRange } from './find'
+export {
+  SelectionWatcher,
+  sizeClass,
+  type SelectionCandidate,
+  type SelectionListener,
+  type SelectionSignals,
+  type SelectionWatcherOptions,
+  type SizeClass
+} from './selection'
 export { MARK_TAG, MAX_SPAN_CHARS, UI_TAG, checkRange, isInsideLens } from './guard'
 export {
   DynamicPageDetector,

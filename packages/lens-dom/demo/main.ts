@@ -4,9 +4,11 @@ import {
   InlineRenderer,
   LensUi,
   OverlayRenderer,
+  SelectionWatcher,
   TRANSFORM_LABEL,
   announceChange,
   createUiRoot,
+  extractContext,
   type Mark,
   type MarkSpec,
   type Renderer
@@ -114,21 +116,38 @@ renderer.subscribe((event) => {
   sync()
 })
 
-document.addEventListener('pointerup', (event) => {
-  if (paused || event.composedPath().includes(root.host)) return
-  requestAnimationFrame(() => {
-    const selection = document.getSelection()
-    if (!selection || selection.isCollapsed || !selection.rangeCount) {
-      ui.hideChip()
-      return
-    }
-    const range = selection.getRangeAt(0)
-    if (!renderer.check(range, { action, transform: 'define', text: '' }).ok) return
-    pending = range.cloneRange()
-    const rects = Array.from(range.getClientRects())
-    const last = rects[rects.length - 1] ?? range.getBoundingClientRect()
-    ui.showChip(last)
-  })
-})
+const log: Array<{ type: string; at: number; detail?: unknown }> = []
 
-Object.assign(window, { __hootLens: { renderer, ui, root, copy, TRANSFORM_LABEL } })
+const watcher = new SelectionWatcher(
+  { document },
+  {
+    settled: (candidate) => {
+      log.push({
+        type: 'settled',
+        at: performance.now(),
+        detail: { signals: candidate.signals, context: extractContext(candidate.range) }
+      })
+      if (paused || candidate.signals.sizeClass === 'multi-paragraph') return
+      if (!renderer.check(candidate.range, { action, transform: 'define', text: '' }).ok) return
+      pending = candidate.range
+      const rects = Array.from(candidate.range.getClientRects())
+      ui.showChip(rects[rects.length - 1] ?? candidate.range.getBoundingClientRect())
+    },
+    dwell: (candidate) =>
+      log.push({ type: 'dwell', at: performance.now(), detail: candidate.signals }),
+    cleared: () => {
+      log.push({ type: 'cleared', at: performance.now() })
+      pending = null
+      ui.hideChip()
+    },
+    copied: (info) => {
+      log.push({ type: 'copied', at: performance.now(), detail: info })
+      pending = null
+      ui.hideChip()
+    }
+  }
+)
+
+Object.assign(window, {
+  __hootLens: { renderer, ui, root, copy, watcher, log, TRANSFORM_LABEL }
+})
