@@ -28,6 +28,12 @@ describe('Persistence', () => {
     expect(await store.loadSettings()).toEqual(DEFAULT_SETTINGS)
   })
 
+  it('replaces a pre-Gemini model id with the default model', async () => {
+    const legacy = { ...DEFAULT_SETTINGS, model: 'claude-sonnet-5-5', translateTo: 'German' }
+    await store.writeJson('settings.json', legacy)
+    expect(await store.loadSettings()).toEqual({ ...DEFAULT_SETTINGS, translateTo: 'German' })
+  })
+
   it('round-trips the session index and session files', async () => {
     const session = {
       id: 's1',

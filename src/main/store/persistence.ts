@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs'
 import path from 'path'
 import type { Pin, Session, SessionMeta, Settings } from '../../shared/types'
-import { DEFAULT_SETTINGS } from '../../shared/types'
+import { DEFAULT_SETTINGS, isModelId } from '../../shared/types'
 
 /**
  * File layout under <root>:
@@ -10,7 +10,7 @@ import { DEFAULT_SETTINGS } from '../../shared/types'
  *   sessions/<id>.json
  *   pins.json
  *   attachments/<id>.png
- *   secret.bin
+ *   gemini-key.bin
  */
 export interface SessionIndex {
   activeId: string | null
@@ -73,7 +73,10 @@ export class Persistence {
 
   async loadSettings(): Promise<Settings> {
     const raw = await this.readJson<Partial<Settings>>('settings.json')
-    return { ...DEFAULT_SETTINGS, ...(raw ?? {}) }
+    const settings = { ...DEFAULT_SETTINGS, ...(raw ?? {}) }
+    // Settings saved before the Gemini switch name a Claude model.
+    if (!isModelId(settings.model)) settings.model = DEFAULT_SETTINGS.model
+    return settings
   }
 
   saveSettings(settings: Settings): Promise<void> {
@@ -135,7 +138,9 @@ export class Persistence {
   }
 
   secretPath(): string {
-    return this.p('secret.bin')
+    // Not secret.bin: that file may hold a pre-Gemini Anthropic key, which
+    // must never be sent to Google.
+    return this.p('gemini-key.bin')
   }
 }
 

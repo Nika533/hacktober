@@ -4,9 +4,9 @@ import type { AppState, ModelId, Settings } from '../../../shared/types'
 import { toAccelerator } from '../../../shared/accelerator'
 
 const MODELS: { id: ModelId; label: string; sub: string }[] = [
-  { id: 'claude-haiku-5-5', label: 'Haiku', sub: 'fastest' },
-  { id: 'claude-sonnet-5-5', label: 'Sonnet', sub: 'balanced' },
-  { id: 'claude-opus-5-5', label: 'Opus', sub: 'smartest' }
+  { id: 'gemini-3.5-flash-lite', label: 'Flash-Lite', sub: 'fastest' },
+  { id: 'gemini-3.8-flash', label: 'Flash', sub: 'balanced' },
+  { id: 'gemini-4-argon', label: 'Argon', sub: 'smartest · paid tier' }
 ]
 
 const COLLAPSE_OPTS: { label: string; ms: number }[] = [
@@ -155,7 +155,7 @@ export function SettingsPane({ state }: { state: AppState }): React.JSX.Element 
                 <input
                   className="text-field t-body"
                   type="password"
-                  placeholder="sk-ant-…"
+                  placeholder="AIza…"
                   value={key}
                   onChange={(e) => {
                     setKey(e.target.value)
@@ -186,10 +186,10 @@ export function SettingsPane({ state }: { state: AppState }): React.JSX.Element 
             className="link-btn t-small"
             onClick={(e) => {
               e.preventDefault()
-              window.hoot.settings.openExternal('https://console.anthropic.com/settings/keys')
+              window.hoot.settings.openExternal('https://aistudio.google.com/apikey')
             }}
           >
-            Get a key at console.anthropic.com
+            Get a key at aistudio.google.com
           </a>
         </section>
 

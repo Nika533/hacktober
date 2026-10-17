@@ -7,7 +7,8 @@ import type { DebouncedWriter, Persistence } from './store/persistence'
 import type { SecretStore } from './store/secrets'
 import type { BuddyWindow } from './windows/buddy'
 import { buildMessages, titleFrom } from './ai/conversation'
-import { createAnthropicClient, type AiClient } from './ai/client'
+import { createGeminiClient, type AiClient } from './ai/client'
+import { mapAiError } from './ai/errors'
 import { createFakeClient } from './ai/fake'
 import { readImage, readText, writeText } from './clipboard'
 import {
@@ -34,7 +35,8 @@ export interface IpcDeps {
   notes: NoteManager
 }
 
-const MAX_TOKENS = 2048
+// Gemini counts thinking tokens against this cap, so leave headroom.
+const MAX_TOKENS = 8192
 const DELETE_UNDO_MS = 5000
 
 let abort: AbortController | null = null
@@ -64,26 +66,6 @@ function upsertMeta(session: Session): void {
   const list = getState().sessions.filter((m) => m.id !== meta.id)
   list.unshift(meta)
   getState().sessions = list
-}
-
-function mapError(e: unknown): string {
-  const anyErr = e as { status?: number; message?: string; name?: string; code?: string }
-  if (anyErr?.status === 401) return '401'
-  if (anyErr?.status === 429) return '429'
-  if (anyErr?.status === 529) return '529'
-  const msg = String(anyErr?.message ?? '').toLowerCase()
-  if (msg.includes('overloaded')) return '529'
-  if (
-    anyErr?.code === 'ENOTFOUND' ||
-    anyErr?.code === 'ECONNREFUSED' ||
-    anyErr?.code === 'ETIMEDOUT' ||
-    anyErr?.name === 'TypeError' ||
-    msg.includes('fetch failed') ||
-    msg.includes('network')
-  ) {
-    return 'network'
-  }
-  return 'unknown'
 }
 
 function settleMood(mood: 'celebrate' | 'error'): void {
@@ -155,7 +137,7 @@ export function registerIpc(deps: IpcDeps): {
         finish('error', 'no-key')
         return
       }
-      const client: AiClient = deps.fakeAi ? createFakeClient() : createAnthropicClient(key)
+      const client: AiClient = deps.fakeAi ? createFakeClient() : createGeminiClient(key)
 
       // Preload attachment images so buildMessages stays synchronous.
       const imgCache = new Map<string, { base64: string; mediaType: 'image/png' }>()
@@ -197,10 +179,9 @@ export function registerIpc(deps: IpcDeps): {
       if (abort?.signal.aborted) finish('stopped')
       else finish('done')
     } catch (e) {
-      const wasAbort =
-        abort?.signal.aborted || (e as { name?: string })?.name === 'APIUserAbortError'
+      const wasAbort = abort?.signal.aborted || (e as { name?: string })?.name === 'AbortError'
       if (wasAbort) finish('stopped')
-      else finish('error', mapError(e))
+      else finish('error', mapAiError(e))
     }
   }
 
@@ -311,7 +292,7 @@ export function registerIpc(deps: IpcDeps): {
     return getState().sessions.filter((m) => m.title.toLowerCase().includes(needle))
   })
   ipcMain.handle(IPC.settingsValidateApiKey, async (_e, key: string) => {
-    const client = deps.fakeAi ? createFakeClient() : createAnthropicClient(key)
+    const client = deps.fakeAi ? createFakeClient() : createGeminiClient(key)
     return client.validateKey(key)
   })
 

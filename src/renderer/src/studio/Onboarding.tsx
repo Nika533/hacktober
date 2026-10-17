@@ -46,14 +46,14 @@ export function Onboarding({ state }: { state: AppState }): React.JSX.Element {
         </div>
       ) : step === 1 ? (
         <div className="ob-step">
-          <div className="ob-title">Add your Anthropic API key</div>
+          <div className="ob-title">Add your Gemini API key</div>
           <div className="ob-sub t-body">
-            Hoot uses Claude to answer. Your key stays on this PC.
+            Hoot uses Google Gemini to answer. Your key stays on this PC.
           </div>
           <input
             className="text-field t-body ob-key"
             type="password"
-            placeholder="sk-ant-…"
+            placeholder="AIza…"
             autoFocus
             value={key}
             onChange={(e) => {
