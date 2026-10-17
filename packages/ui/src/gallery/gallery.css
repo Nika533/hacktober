@@ -1,0 +1,195 @@
+.gallery {
+  min-height: 100vh;
+  padding: var(--space-8) var(--space-8) var(--space-12);
+  background: var(--pane-base);
+  color: var(--text-1);
+}
+.gallery p,
+.gallery h1,
+.gallery h2,
+.gallery figure,
+.gallery dl,
+.gallery dd {
+  margin: 0;
+}
+
+.gallery__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4) var(--space-6);
+  max-width: 72rem;
+  margin: 0 auto var(--space-8);
+}
+.gallery__heading {
+  flex: 1 1 18rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.gallery__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.gallery__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr));
+  gap: var(--space-4);
+  max-width: 72rem;
+  margin: 0 auto;
+}
+.gallery__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-lg);
+  background: var(--surface-solid);
+}
+.gallery__section--wide {
+  grid-column: 1 / -1;
+}
+.gallery__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.gallery__stack {
+  display: flex;
+  flex-direction: column;
+}
+
+.gallery__owls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+}
+.gallery__owl {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.gallery__keys {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  font-size: 0.875rem;
+}
+
+.gallery__materials {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  border-radius: var(--radius-md);
+  /* a busy backdrop so translucency is visible */
+  background:
+    repeating-linear-gradient(135deg, var(--accent-subtle) 0 12px, transparent 12px 24px),
+    var(--fill-sunken);
+}
+.gallery__mat {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: var(--space-0-5);
+  width: 11rem;
+  height: 6.5rem;
+  padding: var(--space-3);
+  font-size: 0.8125rem;
+  color: var(--text-1);
+}
+.gallery__mat strong {
+  font-weight: 600;
+}
+.gallery__mat.hoot-material--chrome,
+.gallery__mat.hoot-material--pane {
+  border-radius: var(--radius-md);
+}
+.gallery__chip {
+  padding: var(--space-1-5) var(--space-3);
+  font-size: 0.8125rem;
+}
+
+.gallery__type {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.gallery__swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.gallery__swatches li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-2);
+}
+.gallery__swatch {
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: 0 0 auto;
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-sm);
+}
+.gallery__swatch[data-token='text-1'] {
+  background: var(--text-1);
+}
+.gallery__swatch[data-token='text-2'] {
+  background: var(--text-2);
+}
+.gallery__swatch[data-token='text-3'] {
+  background: var(--text-3);
+}
+.gallery__swatch[data-token='accent'] {
+  background: var(--accent);
+}
+.gallery__swatch[data-token='accent-text'] {
+  background: var(--accent-text);
+}
+.gallery__swatch[data-token='accent-subtle'] {
+  background: var(--accent-subtle);
+}
+.gallery__swatch[data-token='surface'] {
+  background: var(--surface);
+}
+.gallery__swatch[data-token='surface-raised'] {
+  background: var(--surface-raised);
+}
+.gallery__swatch[data-token='fill-sunken'] {
+  background: var(--fill-sunken);
+}
+.gallery__swatch[data-token='stroke-strong'] {
+  background: var(--stroke-strong);
+}
+.gallery__swatch[data-token='danger'] {
+  background: var(--danger);
+}
+.gallery__swatch[data-token='success'] {
+  background: var(--success);
+}
+.gallery__swatch[data-token='warning'] {
+  background: var(--warning);
+}
+
+@media (max-width: 40rem) {
+  .gallery {
+    padding: var(--space-4);
+  }
+  .gallery__grid {
+    grid-template-columns: 1fr;
+  }
+}
