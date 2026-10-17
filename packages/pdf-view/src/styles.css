@@ -1,0 +1,166 @@
+/*
+ * pdf-view styles. Uses @hoot/ui tokens when present (Studio, Reader) and
+ * falls back to system colours elsewhere (the extension viewer).
+ */
+.hoot-pdf {
+  /* Paper is document content, not UI chrome: PDFs are printed on white. */
+  --hoot-pdf-paper: #fff;
+  --hoot-pdf-backdrop: var(--fill-sunken, Canvas);
+  --hoot-pdf-shadow: var(--shadow-1, 0 0 0 1px GrayText);
+  --hoot-pdf-text: var(--text-1, CanvasText);
+  --hoot-pdf-text-2: var(--text-2, CanvasText);
+  --hoot-pdf-selection: var(--selection, Highlight);
+
+  position: relative;
+  box-sizing: border-box;
+  height: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--hoot-pdf-backdrop);
+  color: var(--hoot-pdf-text);
+}
+.hoot-pdf:focus-visible {
+  outline-offset: -2px;
+}
+
+/* ---- pages ---- */
+/* Hosts may not set a global border-box (the extension viewer doesn't). */
+.hoot-pdf *,
+.hoot-pdf *::before,
+.hoot-pdf *::after {
+  box-sizing: border-box;
+}
+.hoot-pdf__pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px 24px;
+  width: max-content;
+  min-width: 100%;
+}
+.hoot-pdf__pages[hidden] {
+  display: none;
+}
+.hoot-pdf-page {
+  position: relative;
+  flex: 0 0 auto;
+  background: var(--hoot-pdf-paper);
+  box-shadow: var(--hoot-pdf-shadow);
+  /* Paper stays light in dark mode; the canvas paints the page itself. */
+  color-scheme: only light;
+}
+.hoot-pdf-page > canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/*
+ * Text layer. The contract PDF.js's TextLayer expects (same variables as
+ * pdf_viewer.css): transparent, absolutely placed runs sized from
+ * --total-scale-factor and per-span --font-height / --scale-x / --rotate.
+ */
+.hoot-pdf-text {
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  line-height: 1;
+  text-align: initial;
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  caret-color: CanvasText;
+  z-index: 0;
+}
+.hoot-pdf-text :is(span, br) {
+  position: absolute;
+  color: transparent;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+  user-select: text;
+}
+.hoot-pdf-text > :not(.markedContent),
+.hoot-pdf-text .markedContent span:not(.markedContent) {
+  --font-height: 0;
+  --scale-x: 1;
+  --rotate: 0deg;
+  z-index: 1;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+.hoot-pdf-text .markedContent {
+  display: contents;
+}
+.hoot-pdf-text ::selection {
+  background: var(--hoot-pdf-selection);
+  color: transparent;
+}
+.hoot-pdf-text br::selection {
+  background: transparent;
+}
+.hoot-pdf-text .endOfContent {
+  position: absolute;
+  inset: 100% 0 0;
+  display: block;
+  z-index: 0;
+  cursor: default;
+  user-select: none;
+}
+.hoot-pdf-text.selecting .endOfContent {
+  top: 0;
+}
+
+/* ---- reflow ---- */
+.hoot-pdf-reflow {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 4rem;
+  font-family: var(--font-text, system-ui, sans-serif);
+  font-size: 1rem;
+  line-height: 1.65;
+  color: var(--hoot-pdf-text);
+  background: var(--surface-solid, Canvas);
+  min-height: 100%;
+  user-select: text;
+}
+.hoot-pdf-reflow[hidden] {
+  display: none;
+}
+.hoot-pdf-reflow__page + .hoot-pdf-reflow__page {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--stroke, GrayText);
+}
+.hoot-pdf-reflow h2,
+.hoot-pdf-reflow h3 {
+  font-family: var(--font-display, system-ui, sans-serif);
+  font-weight: 600;
+  margin: 1.75em 0 0.5em;
+}
+.hoot-pdf-reflow h2 {
+  font-size: 1.625rem;
+  line-height: 1.2;
+  letter-spacing: -0.018em;
+}
+.hoot-pdf-reflow h3 {
+  font-size: 1.1875rem;
+  line-height: 1.3;
+  letter-spacing: -0.008em;
+}
+.hoot-pdf-reflow__page > :first-child {
+  margin-top: 0;
+}
+.hoot-pdf-reflow p {
+  margin: 0 0 1em;
+}
+.hoot-pdf-reflow__empty {
+  color: var(--hoot-pdf-text-2);
+}
