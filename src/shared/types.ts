@@ -2,7 +2,12 @@ export type BuddyMode = 'hidden' | 'dot' | 'pill' | 'card'
 
 export type OwlMood = 'idle' | 'listening' | 'thinking' | 'talking' | 'celebrate' | 'error'
 
-export type ModelId = 'claude-haiku-5-5' | 'claude-sonnet-5-5' | 'claude-opus-5-5'
+export const MODEL_IDS = ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-4-argon'] as const
+
+export type ModelId = (typeof MODEL_IDS)[number]
+
+export const isModelId = (v: unknown): v is ModelId =>
+  typeof v === 'string' && (MODEL_IDS as readonly string[]).includes(v)
 
 export type QuickActionId = 'explain' | 'extract' | 'translate' | 'summarize' | 'fix'
 
@@ -151,7 +156,7 @@ export interface AppState {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  model: 'claude-sonnet-5-5',
+  model: 'gemini-3.8-flash',
   summonHotkey: 'CommandOrControl+Shift+Space',
   captureHotkey: 'CommandOrControl+Alt+Space',
   launchAtLogin: false,

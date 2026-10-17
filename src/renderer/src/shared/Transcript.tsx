@@ -12,7 +12,7 @@ function ErrorBody({ m, onRetry }: { m: Message; onRetry: () => void }): React.J
           className="msg-error-cta"
           onClick={() => window.hoot.windows.openSettings()}
         >
-          Add your Anthropic API key
+          Add your Gemini API key
         </button>
       </div>
     )
@@ -23,10 +23,12 @@ function ErrorBody({ m, onRetry }: { m: Message; onRetry: () => void }): React.J
       : m.error === '429'
         ? 'Rate limited — try again in a moment.'
         : m.error === '529'
-          ? 'Claude is busy right now. Try again shortly.'
+          ? 'Gemini is busy right now. Try again shortly.'
           : m.error === 'network'
-            ? "Can't reach Claude. Check your connection."
-            : 'Something went wrong. Please try again.'
+            ? "Can't reach Gemini. Check your connection."
+            : m.error === 'blocked'
+              ? 'Gemini declined to answer that one. Try rephrasing.'
+              : 'Something went wrong. Please try again.'
   return (
     <div className="msg-error">
       <span className="t-small">{text}</span>

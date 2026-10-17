@@ -46,7 +46,7 @@ export function createFakeClient(): AiClient {
       return { stopReason: 'end_turn' }
     },
     async validateKey(key) {
-      return key.startsWith('sk-ant-')
+      return key.startsWith('AIza')
     }
   }
 }

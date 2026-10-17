@@ -2,8 +2,8 @@ import { safeStorage } from 'electron'
 import { promises as fs } from 'fs'
 
 /**
- * API key storage: safeStorage-encrypted secret.bin.
- * Fallbacks: ANTHROPIC_API_KEY env var, then in-memory only when the OS
+ * Gemini API key storage: safeStorage-encrypted gemini-key.bin.
+ * Fallbacks: GEMINI_API_KEY env var, then in-memory only when the OS
  * encryption backend is unavailable (never written to disk in that case).
  */
 export class SecretStore {
@@ -26,7 +26,7 @@ export class SecretStore {
       }
     }
     if (this.memoryKey) return this.memoryKey
-    const env = process.env.ANTHROPIC_API_KEY
+    const env = process.env.GEMINI_API_KEY
     return env && env.length > 0 ? env : null
   }
 

@@ -426,7 +426,7 @@ test('hoot milestone B flow', async () => {
   await expect(studioPage.locator('.settings-scroll')).toBeVisible({ timeout: 10000 })
 
   const settingsFile = path.join(hootDir, 'settings.json')
-  await studioPage.getByRole('button', { name: /Opus/ }).click()
+  await studioPage.getByRole('button', { name: /Argon/ }).click()
   await expect
     .poll(() => {
       try {
@@ -435,9 +435,9 @@ test('hoot milestone B flow', async () => {
         return ''
       }
     })
-    .toBe('claude-opus-5-5')
+    .toBe('gemini-4-argon')
 
-  await studioPage.locator('input[type="password"]').fill('sk-ant-test')
+  await studioPage.locator('input[type="password"]').fill('AIza-test')
   await studioPage.getByRole('button', { name: 'Save' }).click()
   await expect(studioPage.getByText('Connected')).toBeVisible({ timeout: 10000 })
   await expect.poll(async () => (await hooks.getState()).hasApiKey).toBe(true)
