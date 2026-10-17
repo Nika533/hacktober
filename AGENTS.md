@@ -1,124 +1,137 @@
-# Hoot — AI desktop buddy
+# Hoot: rules for every builder
 
-Windows-first Electron app: a floating owl that lives as a Dot → Pill → Card →
-Studio (B) with circle-anything capture (B), sticky pins (C), streaming Gemini
-(`@google/genai`, `src/main/ai/client.ts`).
+Hoot is a Windows-first AI desktop buddy (a floating owl: Dot → Pill → Card →
+Studio, circle-anything capture, sticky pins, streaming Gemini chat) plus
+**Hoot Lens**, which rewrites text you don't understand in place, in the
+browser and in local PDFs.
 
-## Environment quirks
+Read in this order before writing code:
 
-- **Windows + PowerShell: use `npm.cmd` / `npx.cmd`, never `npm`/`npx`** — the
-  execution policy blocks the `.ps1` shims.
-- Node 24, no Rust/Python needed.
-- `.devin/` is managed — never delete or overwrite it.
+1. `docs/hoot-lens.md`: the product spec (source of truth for **what**)
+2. `docs/rebuild-plan.md`: who builds what, milestones, quality bar
+3. this file
+4. `packages/core/CONTRACTS.md`: the shared contracts
+
+## Layout and owners
+
+| Path | What | Owner |
+|---|---|---|
+| `packages/core` | Contracts + pure logic: types, zod schemas, IPC routes, bridge protocol, chat and lens helpers, fakes | C |
+| `packages/ui` | Design system + shared chat components | d3 |
+| `packages/lens-dom` | In-page Lens (selection, signals, renderers, shadow-DOM UI) | d2 |
+| `packages/pdf-view` | PDF.js view, overlay renderer, reflow mode | d3 |
+| `packages/bridge` | hoot-bridge native messaging host | C |
+| `apps/desktop/src/main` | Lifecycle, store, persistence, windows, capture, pins, chat service, IPC handlers | d1 |
+| `apps/desktop/src/main/{ai,lens,bridge}` | Gemini provider, Lens engine and profile, pipe server | C |
+| `apps/desktop/src/preload` | `window.hoot` (built from the routes in core) | d1 |
+| `apps/desktop/src/renderer/{buddy,capture,note}` | Buddy, capture overlay, sticky notes | d1 |
+| `apps/desktop/src/renderer/{studio,reader}` | Studio, Hoot Reader | d3 |
+| `apps/extension` | MV3 extension: content script, service worker, options, PDF viewer | d2 |
+
+The exact rules are in `scripts/ownership.json`, and CI enforces them on PRs
+from `c/`, `d1/`, `d2/` and `d3/` branches. Everyone may change
+`package-lock.json` and their own `docs/status/<id>.md`.
+
+## Commands (repo root)
+
+Windows: use `npm.cmd` / `npx.cmd`. The PowerShell execution policy blocks
+the `.ps1` shims.
+
+| Command | What |
+|---|---|
+| `npm.cmd install` | Install every workspace (also downloads Electron) |
+| `npm.cmd run dev` | Desktop app in dev mode (electron-vite, via `run-electron.mjs`) |
+| `npm.cmd run typecheck` | `tsc` in every workspace |
+| `npm.cmd run lint` | ESLint over the repo |
+| `npm.cmd test` | Vitest, every workspace as its own project |
+| `npm.cmd run test:live` | Real Gemini calls; needs `GEMINI_API_KEY` |
+| `npm.cmd run build` | Build every workspace (desktop → `out/`, extension → `dist/`) |
+| `npm.cmd run e2e:desktop` | e2e build + Playwright `_electron` specs |
+| `npm.cmd run e2e:extension` | Extension build + Playwright Chromium specs |
+| `npm.cmd run build:win` | NSIS installer |
+| `npm.cmd run check:ownership -- --branch d2/x --base origin/main` | Local ownership check |
+
+One workspace: `npm.cmd run <script> -w @hoot/desktop` (or `@hoot/extension`,
+`@hoot/core`, …). Load the unpacked extension from `apps/extension/dist`.
+
+## Environment
+
+- Node 24. No Rust or Python needed.
+- `.devin/` is managed tooling. Never delete or overwrite it.
 - If the host exports `ELECTRON_RUN_AS_NODE=1` (Devin/Windsurf hosts do),
-  `electron.exe` runs in Node mode and everything fails. `dev`/`start` run
-  through `scripts/run-electron.mjs`, which strips it for the child; the e2e
-  spec does the same for the spawned app.
-- **Smart App Control is On** on this machine. A freshly rebuilt, unsigned
-  `dist/win-unpacked/hoot.exe` can be blocked ("An Application Control policy
-  has blocked this file"), which makes `e2e/packaged.spec.ts` fail with
-  "Process failed to launch!". That's the OS policy, not an app bug — don't try
-  to bypass it. Dev/e2e runs via `electron.exe` are unaffected.
-- Dark-mode screenshots: drive `setThemeSource` (test hook), not
-  `emulateMedia` — `data-theme` from `AppState.darkMode` wins over the media
-  query. Pin Studio on top (`setAlwaysOnTop` + `moveTop`) before `capturePage`
-  or desktop shots; an occluded window returns an empty capture.
+  `electron.exe` runs as plain Node. `dev`/`start` go through
+  `apps/desktop/scripts/run-electron.mjs`, which strips it; e2e must strip it too.
+- **Smart App Control** can block a freshly built, unsigned
+  `dist/win-unpacked/hoot.exe` ("An Application Control policy has blocked
+  this file"). That's OS policy, not a bug. Don't try to bypass it; dev and
+  e2e through `electron.exe` are unaffected.
+- Dark-mode screenshots: drive the theme through the app (test hook), not
+  `emulateMedia`. Bring a window to the front before `capturePage`, because an
+  occluded window captures empty.
+- No secrets in git. `GEMINI_API_KEY` comes from the environment only.
 
-## Commands
+### Environment variables
 
-| Command                 | What                                     |
-| ----------------------- | ---------------------------------------- |
-| `npm.cmd run dev`       | `run-electron.mjs` → electron-vite dev   |
-| `npm.cmd run typecheck` | tsc (node + web projects)                |
-| `npm.cmd run lint`      | eslint                                   |
-| `npm.cmd run test`      | vitest run                               |
-| `npm.cmd run build`     | typecheck + electron-vite build → `out/` |
-| `npm.cmd run e2e`       | build, then Playwright `_electron` e2e   |
-| `npm.cmd run icons`     | regenerate `resources/*.png              | ico`from`resources/owl.svg` |
-| `npm.cmd run build:win` | electron-builder NSIS installer          |
+| Variable | Effect |
+|---|---|
+| `GEMINI_API_KEY` | Dev fallback when no key is stored (`<userData>/hoot/gemini-key.bin`) |
+| `HOOT_FAKE_AI=1` | Deterministic chat provider, no key or network |
+| `HOOT_FAKE_LENS=1` | Lens engine answers with `@hoot/core/testing` fakes |
+| `HOOT_TEST=1` | e2e build only: test hooks, no global hotkeys |
+| `HOOT_USER_DATA=<dir>` | Redirects `app.getPath('userData')` |
+| `HOOT_DEV_BRIDGE=1` | Dev-only WebSocket bridge transport (pairing code required) |
 
-## Test env vars
+## Contracts
 
-- `HOOT_TEST=1` — skips global hotkeys; exposes `globalThis.__hoot`
-  (`getState, summon, hide, requestMode, send, setAnchor, updateSettings,
-  startCapture, openStudio, lockStudio, finishOnboarding, isCapturing,
-  setThemeSource, assetsOk, createPin, listPins`).
-- `HOOT_FAKE_AI=1` — fake streaming client (no API key needed); answers
-  report how many images the last user message carried.
-- `HOOT_FAKE_CAPTURE=<png>` — `startCapture` loads that PNG instead of
-  `desktopCapturer` (e2e uses `e2e/fixtures/screen.png`, regenerated by
-  `scripts/gen-fixture.mjs`).
-- `HOOT_USER_DATA=<dir>` — redirects `app.getPath('userData')`.
-- `GEMINI_API_KEY` — used when no key is stored via safeStorage
-  (`<userData>/hoot/gemini-key.bin`).
-
-## Layout
-
-- `src/shared/` — types, IPC channel map, prompts (system prompt verbatim),
-  geometry, `groupSessions`, `toAccelerator`, clipboard fingerprint/hint
-  decision logic (`clipboard.ts`, pure + unit-tested).
-- `src/main/` — state store, persistence (`<userData>/hoot/` incl.
-  `attachments/<id>.png` + `pins.json`), safeStorage secrets,
-  buddy/studio/overlay/note windows, capture orchestration, pins
-  (`pins.ts` + `windows/note.ts`), clipboard probe, AI client/fake/
-  conversation, hotkeys, tray, cursor tracker, IPC handlers, test hooks.
-- `src/preload/` — `contextBridge` → `window.hoot`.
-- `src/renderer/` — `buddy.html` (+ `src/buddy/`), `studio.html`
-  (+ `src/studio/`: sidebar, chat, settings, onboarding), `overlay.html`
-  (+ `src/overlay/`: lasso/rect/full selection UI), `note.html`
-  (+ `src/note/`: sticky-pin window), `src/shared/` UI (Owl, Markdown,
-  Transcript, Composer, AttachmentsRow, QuickChips, ClipboardChip, styles,
-  springs).
-- `tests/` — vitest unit tests · `e2e/` — Playwright specs + `fixtures/`.
-- `scripts/{gen-icons,gen-fixture,run-electron,verify-desktop,debug-lasso}.mjs`
-  · `resources/owl.svg` + generated icons.
+- Shared types, schemas and IPC routes live **only** in `@hoot/core`. Import
+  them; never redefine them locally.
+  - `@hoot/core`: types, models, chat and lens helpers, IPC routes, framing (no zod; safe for the content script)
+  - `@hoot/core/schemas`: zod schemas, `migrateSettings`, `applySettingsPatch`, `parseInvokeArgs`
+  - `@hoot/core/testing`: `createFakeLensBackend`, `fakeRewrite`, `fakeAssess`
+- Validate at every boundary: IPC handlers call `parseInvokeArgs`/`parseSendArgs`;
+  bridge frames go through `ExtToAppSchema`/`AppToExtSchema`; files from disk
+  go through their schema (or `migrateSettings`); model output goes through
+  `generateJson`'s schema.
+- **Changing a contract:** open a PR touching only `packages/core`, titled
+  `contract: …`. Keep it additive; C reviews it first. A breaking change needs
+  a "seen" line from every consumer in their status file.
 
 ## Conventions
 
-- Mode transitions: grow = `setBounds` then broadcast; shrink = broadcast,
-  renderer exits toward the owl, then `buddy:exitDone` (450 ms fallback).
-  The anchor (owl centre, screen DIP) never moves during transitions.
-- Streaming text goes over `ai:delta`; renderers apply it to their local copy.
-  Invariant: a `state:changed` snapshot contains exactly the deltas broadcast
-  before it (mutate → `ai:delta` → `updateState`), so appends never
-  double-count.
-- Persist on structural changes + stream end only (debounced 300 ms writes).
-- Clipboard chip: main fingerprints the clipboard (FNV-1a over text or a
-  16px image downsample); boot-time content is never suggested. Arming a
-  text chip snapshots it into `clipboardSelection` at click time; an image
-  chip goes through the same attachment pipeline as captures.
-- Pins persist in `pins.json`; one transparent floating window per pin.
-  `settings.restorePins` gates window restore at boot; the tray toggles
-  Show/Hide pinned notes.
-- `buddy.suspend()` hides without changing `buddyMode`; `resume(target)`
-  restores (card on capture commit, previous mode on cancel). Studio and the
-  capture overlay suspend/resume the buddy — show the new window first.
-- Motion: springs, critically damped by default; bounce only for
-  momentum gestures. `prefers-reduced-motion` → cross-fades, no idle motion.
-- All network/AI calls live in main. Renderer is `contextIsolation`-only.
+- All network and model calls happen in main. Renderers are sandboxed
+  (`sandbox: true`, `contextIsolation`, CSP header) and reach main only via
+  `window.hoot`.
+- State: main owns slices (`StateSlices`). Windows subscribe to the slices
+  they render and get `state:patch` with only the changed slices. Streaming
+  text goes over `chat:delta`. Invariant: a patch never contains a delta that
+  wasn't already broadcast (mutate → broadcast delta → patch), so appends
+  never double-count.
+- Persist on structural changes and at stream end (debounced writes, atomic
+  temp + rename). Write errors are surfaced, never swallowed.
+- Buddy transitions: main sends `buddy:transition {id, from, to}`, the renderer
+  animates, then calls `transitionDone(id)`. One source of timing.
+  The owl's anchor (centre, screen DIP) never moves during a transition.
+- Motion: springs, critically damped by default; bounce only for momentum
+  gestures. `prefers-reduced-motion` → cross-fades, no idle motion. See
+  `.devin/skills/apple-design/SKILL.md`.
+- Gemini: `maxOutputTokens` includes thinking tokens; structured output uses
+  `responseJsonSchema` + zod. Gemini 4 Argon is paid-tier only and accepts
+  thinking levels low/medium/high (not minimal).
 
-## Manual QA checklist
+## Workflow
 
-- First run opens Studio onboarding; finishing summons the pill with a
-  greeting. Relaunch restores the last session.
-- `Ctrl+Shift+Space` summons the pill with the greeting; Esc hides it.
-  While Studio is visible: focused → locks back to the card, else focuses.
-- `Ctrl+Alt+Space` (or tray/pencil) starts circle-anything capture: lasso,
-  rectangle (Shift forces rect), F/Full button for full screen, Esc cancels.
-- Pending captures show thumbnails + 5 quick chips; Enter with empty text
-  sends "Explain".
-- Card → unlock (Maximize2 / Ctrl+L) opens Studio; Ctrl+L / Lock / window
-  close locks back to the card. Ctrl+N = new chat in both.
-- Studio: session sidebar (rename dbl-click/F2, delete → 5 s Undo toast),
-  settings persist to `hoot/settings.json`, dark mode + Mica background.
-- Pill idle ~5 s (not hovered/focused) → Dot; hover/click → Pill; owl click
-  toggles Card ↔ Pill.
-- Copy something new, then summon → the clipboard chip appears; click to arm
-  (accent) or × to dismiss; it never auto-sends.
-- Hover an assistant message → Pin → floating sticky note; its header drags,
-  Copy/Open-in-Hoot/Close buttons; close deletes the pin.
-- Drag the owl: window follows 1:1, release flicks + snaps to edges; position
-  survives relaunch.
-- Card: type + Enter streams an answer; stop/regenerate/new chat work;
-  Esc steps Card → Pill → hidden. Markdown + code Copy work.
-- No API key → inline "Add your Gemini API key" CTA.
+- Branch `<you>/<TASK-ID>-<slug>` (e.g. `d2/D2-10-inline-renderer`). PR title
+  `<TASK-ID>: <summary>`. Keep PRs small (aim for under 400 changed lines).
+- CI must be green: ownership, typecheck, lint, unit (Ubuntu + Windows), e2e (Windows).
+- Rebase on `main` often. **Lockfile conflict:** take `main`'s
+  `package-lock.json`, then run `npm.cmd install`. Never hand-merge it.
+- After every PR, update `docs/status/<you>.md` (Now / Next / Blocked on / Requests / Notes).
+- Blocked on another builder? Use the fakes or move to your next unblocked
+  task. Don't edit their paths.
+
+**Definition of done:**
+
+1. typecheck, lint and unit tests pass, plus e2e for user-visible flows.
+2. Runs with `HOOT_FAKE_AI=1` / `HOOT_FAKE_LENS=1` and no key.
+3. Meets the quality bar in `docs/rebuild-plan.md` §1 (light and dark screenshots for UI).
+4. Status file updated.
