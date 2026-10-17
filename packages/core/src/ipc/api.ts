@@ -5,6 +5,7 @@ import type {
   OverlayCommit,
   OverlayInit,
   Point,
+  Rect,
   RequestedMode,
   StudioView
 } from '../types/app'
@@ -91,6 +92,12 @@ export interface HootApi {
     requestMode(mode: RequestedMode): void
     transitionDone(id: number): void
     setIgnoreMouse(ignore: boolean): void
+    /**
+     * Window-local DIP rects the renderer treats as clickable. Main compares
+     * the polled cursor against them to toggle click-through itself, so the
+     * buddy doesn't depend on forwarded mousemove events alone.
+     */
+    setHitRegions(rects: Rect[]): void
     dragStart(): void
     dragMove(): void
     dragEnd(v: DragEnd): void

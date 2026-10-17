@@ -66,9 +66,36 @@ One workspace: `npm.cmd run <script> -w @hoot/desktop` (or `@hoot/extension`,
   this file"). That's OS policy, not a bug. Don't try to bypass it; dev and
   e2e through `electron.exe` are unaffected.
 - Dark-mode screenshots: drive the theme through the app (test hook), not
-  `emulateMedia`. Bring a window to the front before `capturePage`, because an
-  occluded window captures empty.
+  `emulateMedia`. Windows refuses to steal focus, so call
+  `setAlwaysOnTop(true, 'pop-up-menu')` + `moveTop()` before `capturePage` or a
+  desktop grab, then restore. An occluded window captures empty.
 - No secrets in git. `GEMINI_API_KEY` comes from the environment only.
+
+### Windows facts verified in D1-00
+
+- `safeStorage.isEncryptionAvailable()` is **false before `ready`**. Never touch
+  secrets at module init. `getSelectedStorageBackend()` doesn't exist on Windows.
+- Single instance: the first instance receives the second's argv, and Electron
+  inserts its own flags. Parse flags by prefix, never by position.
+- Flush before quit: `before-quit` → `preventDefault` → flush → `app.quit()`.
+  Keep a "flushed" guard flag or the veto re-enters forever.
+- Named pipe: a second `listen()` on the same name throws `EADDRINUSE`. Treat
+  it as "another Hoot is running". `server.close()` frees the name at once.
+- CSP: send it as a **response header**, not a meta tag. Use
+  `session.webRequest.onHeadersReceived` for the dev URL and a privileged
+  `hoot://` scheme (`protocol.handle`) in production. The Reader needs
+  `worker-src 'self' blob:` for PDF.js; it never needs `unsafe-eval`.
+- Click-through: clicks on fully transparent pixels pass through natively.
+  `setIgnoreMouseEvents(true, { forward: true })` delivers `mousemove` only
+  for a **physical** mouse, not injected input. So main also polls the cursor
+  against renderer-reported hit regions (`buddy.setHitRegions`). Every buddy
+  PR gets a manual check with a real mouse.
+- `desktopCapturer`: a `thumbnailSize` larger than the display is
+  **upscaled**. Compute the crop ratio from `image.width / display.bounds.width`.
+  The first `getSources` takes about 3 s cold, so pre-warm it once at idle.
+  Multi-monitor and mixed DPI are not verified yet.
+- `nativeTheme.themeSource` may or may not flip `prefers-color-scheme` in a
+  sandboxed renderer. The `system.darkMode` slice is the source of truth.
 
 ### Environment variables
 
@@ -114,6 +141,12 @@ One workspace: `npm.cmd run <script> -w @hoot/desktop` (or `@hoot/extension`,
 - Motion: springs, critically damped by default; bounce only for momentum
   gestures. `prefers-reduced-motion` → cross-fades, no idle motion. See
   `.devin/skills/apple-design/SKILL.md`.
+- UI: renderers import `@hoot/ui/styles.css` once per window and wrap the app
+  in `HootUIProvider`; theme and accent come from the `system` slice via
+  `applyTheme` / `applyAccent`. Text is selectable by default; add
+  `.hoot-chrome` to chrome that shouldn't be. `@hoot/ui` scripts: `typecheck`,
+  `test`, `gallery` (vite on :5199, `#/gallery?theme=dark&accent=ca5010`),
+  `shots` (Playwright screenshots + axe).
 - Gemini: `maxOutputTokens` includes thinking tokens; structured output uses
   `responseJsonSchema` + zod. Gemini 4 Argon is paid-tier only and accepts
   thinking levels low/medium/high (not minimal).
@@ -123,6 +156,9 @@ One workspace: `npm.cmd run <script> -w @hoot/desktop` (or `@hoot/extension`,
 - Branch `<you>/<TASK-ID>-<slug>` (e.g. `d2/D2-10-inline-renderer`). PR title
   `<TASK-ID>: <summary>`. Keep PRs small (aim for under 400 changed lines).
 - CI must be green: ownership, typecheck, lint, unit (Ubuntu + Windows), e2e (Windows).
+- Dependencies: exact versions only, and only versions **published at least
+  7 days earlier** (check `npm view <pkg> time`). There is one `zod`, forced
+  by the root `overrides`.
 - Rebase on `main` often. **Lockfile conflict:** take `main`'s
   `package-lock.json`, then run `npm.cmd install`. Never hand-merge it.
 - After every PR, update `docs/status/<you>.md` (Now / Next / Blocked on / Requests / Notes).

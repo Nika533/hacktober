@@ -66,6 +66,8 @@ describe('argument validation', () => {
     expect(parseInvokeArgs('capture:start', [])).toEqual([])
     expect(parseInvokeArgs('lens:assess', ['r1', sampleContext()])).toHaveLength(2)
     expect(parseSendArgs('buddy:requestMode', ['card'])).toEqual(['card'])
+    const rect = { x: 0, y: 0, width: 40, height: 40 }
+    expect(parseSendArgs('buddy:hitRegions', [[rect]])).toEqual([[rect]])
   })
 
   it('rejects path traversal, unknown quick actions, bad URLs and extra args', () => {

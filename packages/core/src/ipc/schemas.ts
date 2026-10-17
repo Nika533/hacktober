@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { OverlayCommitSchema, SendPayloadSchema } from '../schemas/chat'
-import { IdSchema } from '../schemas/common'
+import { IdSchema, RectSchema } from '../schemas/common'
 import {
   LensContextSchema,
   LensEventSchema,
@@ -82,6 +82,7 @@ export const SEND_ARGS = {
   'buddy:requestMode': z.tuple([z.enum(['dot', 'pill', 'card', 'hidden'])]),
   'buddy:transitionDone': z.tuple([z.number().int().nonnegative()]),
   'buddy:setIgnoreMouse': z.tuple([z.boolean()]),
+  'buddy:hitRegions': z.tuple([z.array(RectSchema).max(64)]),
   'buddy:dragStart': none,
   'buddy:dragMove': none,
   'buddy:dragEnd': z.tuple([z.object({ vx: z.number(), vy: z.number() })]),

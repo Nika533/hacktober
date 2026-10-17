@@ -37,6 +37,7 @@ export const HOOT_API_ROUTES = {
     requestMode: send('buddy:requestMode'),
     transitionDone: send('buddy:transitionDone'),
     setIgnoreMouse: send('buddy:setIgnoreMouse'),
+    setHitRegions: send('buddy:hitRegions'),
     dragStart: send('buddy:dragStart'),
     dragMove: send('buddy:dragMove'),
     dragEnd: send('buddy:dragEnd'),
