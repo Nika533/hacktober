@@ -68,6 +68,12 @@ export interface LensService {
   recentChanges(limit: number): RecentChange[]
   glossary(): GlossaryEntry[]
   onProfile(cb: (snapshot: ProfileSnapshot) => void): Unsubscribe
+  /**
+   * Lens settings just changed (main's settings watcher, through the bridge
+   * server's pushSettings): apply what depends on them now, e.g. finishing
+   * the cold start, so the extension gets the new profile right away.
+   */
+  settingsChanged(): void
   /** Write pending state; call before quit. */
   flush(): Promise<void>
 }
@@ -99,8 +105,9 @@ export async function createLensService(deps: LensServiceDeps): Promise<LensServ
   // Finishing the cold-start setup (Studio → Reading, hoot-lens.md §8.4)
   // relaxes Lens at once: the cold-start premium comes off the threshold
   // (what feedback taught it stays) and the remaining Ask-first triggers go.
-  // Checked on every call, since the setting arrives through settings, not
-  // here; a profile still in cold start at launch is finished too (#59).
+  // Checked when settings change and on every call (in case a change came
+  // before anything listened); a profile still in cold start at launch is
+  // finished too (#59).
   let coldStartDoneSeen = deps.getLensSettings().coldStartDone
   const syncColdStart = (): void => {
     const done = deps.getLensSettings().coldStartDone
@@ -185,6 +192,7 @@ export async function createLensService(deps: LensServiceDeps): Promise<LensServ
     recentChanges: (limit) => history.recentChanges(limit),
     glossary: () => history.glossary(),
     onProfile: (cb) => profile.onChange(cb),
+    settingsChanged: () => syncColdStart(),
     flush: () => cache.flush()
   }
 }
