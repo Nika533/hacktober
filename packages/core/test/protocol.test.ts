@@ -92,9 +92,26 @@ describe('constants', () => {
     )
     expect(bridgePipePath('darwin', 'ada', '/tmp/')).toBe('/tmp/hoot-lens-ada.sock')
     expect(bridgePipePath('linux', '', '/run/user/1')).toBe('/run/user/1/hoot-lens-user.sock')
+    expect(bridgePipePath('darwin', 'ada', `/${'x'.repeat(120)}`)).toBe('/tmp/hoot-lens-ada.sock')
   })
 
   it('pins a well-formed dev extension id', () => {
     expect(DEV_EXTENSION_ID).toMatch(/^[a-p]{32}$/)
+  })
+})
+
+describe('bridge token location', () => {
+  it('is per-user and platform-specific, with an override', async () => {
+    const { bridgeTokenPath } = await import('../src/protocol/constants')
+    expect(bridgeTokenPath('win32', { LOCALAPPDATA: 'C:\\Users\\a\\AppData\\Local' })).toBe(
+      'C:\\Users\\a\\AppData\\Local\\Hoot\\bridge\\token'
+    )
+    expect(bridgeTokenPath('darwin', { HOME: '/Users/a' })).toBe(
+      '/Users/a/Library/Application Support/Hoot/bridge/token'
+    )
+    expect(bridgeTokenPath('linux', { HOME: '/home/a' })).toBe('/home/a/.config/Hoot/bridge/token')
+    expect(bridgeTokenPath('linux', { HOOT_BRIDGE_DIR: '/tmp/x', HOME: '/home/a' })).toBe(
+      '/tmp/x/token'
+    )
   })
 })
