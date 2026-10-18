@@ -84,6 +84,8 @@ export interface BuddyWindow {
   setCursorTracking(on: boolean): void
   dismissGreeting(): void
   setAnchor(p: Point): void
+  /** The owl's current anchor (screen DIP): live position or the saved default. */
+  anchor(): Point
   mode(): BuddyMode
   isFocused(): boolean
   onModeChange(cb: (mode: BuddyMode) => void): Unsubscribe
@@ -530,6 +532,7 @@ export function createBuddyWindow(deps: BuddyDeps): BuddyWindow {
       persistAnchor(clamped)
       syncSlice()
     },
+    anchor,
     mode: () => machine.mode,
     isFocused: () => focused || (win?.isFocused() ?? false),
     onModeChange(cb) {

@@ -1,11 +1,13 @@
-import type { InvokeChannel, InvokeResult } from '@hoot/core'
-import type { InvokeArgs } from '@hoot/core/schemas'
+import type { InvokeChannel, InvokeResult, SendChannel } from '@hoot/core'
+import type { InvokeArgs, SendArgs } from '@hoot/core/schemas'
 import type { AppContext } from '../context'
+import { createChatHandlers } from '../chat'
 import { createLensHandlers } from '../lens'
+import { createPinsHandlers } from '../pins'
 import { registerAppIpc } from './app'
 import { registerBuddyIpc } from './buddy'
 import { registerClipboardIpc } from './clipboard'
-import { handleInvoke } from './handle'
+import { handleInvoke, onSend } from './handle'
 import { registerOnboardingIpc } from './onboarding'
 import { registerSettingsIpc } from './settings'
 import { registerWindowsIpc } from './windows'
@@ -27,8 +29,8 @@ export type HandlerMap = Partial<{
  * once here — this is the only call a feature ever needs:
  *
  *   registerHandlerMap(createChatHandlers(ctx.chat))
- *   registerHandlerMap(createPinsHandlers(ctx.pins))
  *   registerHandlerMap(createCaptureHandlers(ctx.capture))
+ *   // pins needs the sender: registerSenderHandlerMap(h.invoke) + registerSenderSendMap(h.send)
  */
 export function registerHandlerMap(map: HandlerMap): void {
   for (const channel of Object.keys(map) as InvokeChannel[]) {
@@ -43,8 +45,45 @@ export function registerHandlerMap(map: HandlerMap): void {
 }
 
 /**
- * Domain handlers. capture:*, pins:* and chat:* land when their feature
- * folders do — an unregistered invoke rejects naturally.
+ * Like `HandlerMap`, but the handler also receives the calling WebContents
+ * (the `Sender` shape feature folders use: `{ id }`). Pins needs it — note
+ * windows are identified by their sender.
+ */
+export type SenderHandlerMap = Partial<{
+  [C in InvokeChannel]: (
+    sender: { id: number },
+    ...args: InvokeArgs<C>
+  ) => Promise<InvokeResult<C>> | InvokeResult<C>
+}>
+
+export function registerSenderHandlerMap(map: SenderHandlerMap): void {
+  for (const channel of Object.keys(map) as InvokeChannel[]) {
+    const fn = map[channel]
+    if (fn === undefined) continue
+    handleInvoke(channel, (sender, ...args: InvokeArgs<InvokeChannel>) =>
+      (fn as (s: { id: number }, ...a: unknown[]) => InvokeResult<InvokeChannel>)(sender, ...args)
+    )
+  }
+}
+
+/** Sender-aware variant for fire-and-forget channels (`pins:resize`). */
+export type SenderSendMap = Partial<{
+  [C in SendChannel]: (sender: { id: number }, ...args: SendArgs<C>) => void
+}>
+
+export function registerSenderSendMap(map: SenderSendMap): void {
+  for (const channel of Object.keys(map) as SendChannel[]) {
+    const fn = map[channel]
+    if (fn === undefined) continue
+    onSend(channel, (sender, ...args: SendArgs<SendChannel>) =>
+      (fn as (s: { id: number }, ...a: unknown[]) => void)(sender, ...args)
+    )
+  }
+}
+
+/**
+ * Domain handlers. capture:* lands when its folder does — an unregistered
+ * invoke rejects naturally.
  */
 export function registerDomains(ctx: AppContext): void {
   registerSettingsIpc(ctx)
@@ -54,4 +93,8 @@ export function registerDomains(ctx: AppContext): void {
   registerAppIpc()
   registerBuddyIpc(ctx)
   registerHandlerMap(createLensHandlers(ctx.lens))
+  registerHandlerMap(createChatHandlers(ctx.chat))
+  const pinsHandlers = createPinsHandlers(ctx.pins)
+  registerSenderHandlerMap(pinsHandlers.invoke)
+  registerSenderSendMap(pinsHandlers.send)
 }
