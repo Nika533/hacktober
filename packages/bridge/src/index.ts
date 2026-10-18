@@ -1,6 +1,7 @@
 /**
- * @hoot/bridge: hoot-bridge, the native messaging host Chrome and Edge launch
- * for the extension. It relays length-prefixed frames between the browser
- * (stdin/stdout) and the Hoot app (named pipe). Built by C in C-21.
+ * @hoot/bridge: the extension ⇄ app link (owner: C).
+ * - `createBridgeConnection`: protocol logic for one connection, used by the
+ *   app's pipe server and dev WebSocket (C-20) and by the fake server.
+ * - hoot-bridge, the native messaging host binary, arrives in C-21.
  */
-export {}
+export * from './connection'

@@ -28,6 +28,15 @@ that isn't, open a `contract: …` PR (additive; C reviews it first).
 | Bridge protocol            | `src/protocol/bridge.ts`, `framing.ts`, `constants.ts`                  | 4-byte LE length + UTF-8 JSON, 1 MB cap. Exactly one reply per `reqId`. `cancel` names the request to cancel. The first pipe frame from hoot-bridge is `bridge.auth`. Dev extension id `DEV_EXTENSION_ID`; pipe path `bridgePipePath()`                                                                                                                                                                                                                                                                |
 | Models                     | `src/models.ts`                                                         | Chat: Flash-Lite, Flash (default), Argon (paid). Lens: assess and rewriteFast on Flash-Lite, rewriteStrong on Flash for long simplify/unpack                                                                                                                                                                                                                                                                                                                                                           |
 
+## Dev / e2e transport (d2)
+
+`@hoot/bridge/testing` exports `createFakeLensServer({ port?, pairingCode?, delayMs?, settings?, profile? })`. It returns `{ url, pairingCode, backend, connections, close }`.
+
+- Connect to `url` (`ws://127.0.0.1:<port>/?code=<pairing>`). A wrong code closes with 4401.
+- Send one JSON bridge message per WebSocket **text** frame. There's no length prefix, because WebSocket frames already delimit messages.
+- `backend` is a `FakeLensBackend` for assertions (`.events`, `.explained`) and pushes (`emitSettings`, `emitProfile`).
+- The app's dev transport (`HOOT_DEV_BRIDGE=1`, C-20) speaks the same format.
+
 ## Fake Lens rules (for tests)
 
 `createFakeLensBackend()` / `HOOT_FAKE_LENS=1`:

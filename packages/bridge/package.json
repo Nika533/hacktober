@@ -2,19 +2,23 @@
   "name": "@hoot/bridge",
   "version": "0.0.0",
   "private": true,
-  "description": "hoot-bridge native messaging host and pipe client (owner: C)",
+  "description": "Extension \u21c4 app bridge: protocol connection, hoot-bridge native host, fake server for tests (owner: C)",
   "type": "module",
   "sideEffects": false,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "fake-server": "esbuild src/testing/cli.ts --bundle --platform=node --format=esm --external:ws --outfile=dist/fake-server.mjs --log-level=warning && node dist/fake-server.mjs"
   },
   "dependencies": {
-    "@hoot/core": "*"
+    "@hoot/core": "*",
+    "ws": "8.22.0"
   },
   "devDependencies": {
+    "@types/ws": "8.18.2",
     "esbuild": "0.28.2"
   }
 }

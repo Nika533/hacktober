@@ -242,7 +242,7 @@ Task IDs are referenced in PR titles (`D1-13: per-stream abort controller`).
 - **C-10 Lens engine** (`main/lens/engine.ts`). Assess and rewrite through `generateJson`, model routing by transform, allowed-transform limits, cancellation per `reqId`, de-duplication of identical requests in flight, a memory LRU backed by `lens/cache.json` with key = hash(span + paragraph + transform + profileVersion), and latency timing.
 - **C-11 Guardrails** (`core/lens/guardrails.ts`). Spec §7.4: schema check; skip, meaning-preserved and confidence floors; the invariant check (numbers, units, dates, URLs, negations in EN plus the Phase-1 languages); length rules per transform; forced gloss on high-stakes pages. Table-driven tests with at least 60 cases.
 - **C-12 Prompts and profile summary** (`core/lens/prompts.ts`). Spec §7.3 and §8.5, with the summary under 150 tokens.
-- **C-13 Fakes for others.** `core/testing/fakeLensBackend`, the `HOOT_FAKE_LENS` engine mode, and `createFakeLensServer` (speaks the bridge protocol) so d2's extension e2e needs no Electron.
+- **C-13 Fakes for others.** `core/testing/fakeLensBackend`, the `HOOT_FAKE_LENS` engine mode, and `createFakeLensServer` in `@hoot/bridge/testing` (the bridge protocol over a local WebSocket) so d2's extension e2e needs no Electron. The protocol logic, `createBridgeConnection`, is shared with the real server (C-20).
 - **C-14 Lens IPC for Studio and the Reader:** `lens.profile.get|patch|reset|export`, `lens.events.recent`, `lens.glossary.list`, `lens.settings.get|patch`, `lens.assess|rewrite|cancel|feedback`.
 
 **M2**
