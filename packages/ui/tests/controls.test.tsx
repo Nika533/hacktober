@@ -9,7 +9,7 @@ import { Segmented } from '../src/components/Segmented'
 import { Slider } from '../src/components/Slider'
 import { Switch } from '../src/components/Switch'
 import { TextField } from '../src/components/TextField'
-import { click, key, render } from './render'
+import { click, key, render, wait } from './render'
 
 describe('Button', () => {
   it('defaults to type=button and blocks clicks while busy', () => {
@@ -50,6 +50,29 @@ describe('IconButton', () => {
     // It repeats the accessible name, so it stays out of the a11y tree.
     expect(tip?.getAttribute('aria-hidden')).toBe('true')
     key(document, 'Escape')
+    expect(document.querySelector('.hoot-tooltip')).toBeNull()
+  })
+
+  it('follows the trigger on scroll instead of vanishing (Tab scrolls focus into view)', async () => {
+    const { container } = render(
+      <IconButton label="Pin as note">
+        <svg />
+      </IconButton>
+    )
+    const btn = container.querySelector('button')!
+    act(() => btn.focus())
+    act(() => {
+      window.dispatchEvent(new Event('scroll'))
+    })
+    await wait(50)
+    expect(document.querySelector('.hoot-tooltip')).not.toBeNull()
+
+    // Once the trigger is off screen the tip goes away.
+    btn.getBoundingClientRect = () => new DOMRect(0, -200, 32, 32)
+    act(() => {
+      window.dispatchEvent(new Event('scroll'))
+    })
+    await wait(50)
     expect(document.querySelector('.hoot-tooltip')).toBeNull()
   })
 
