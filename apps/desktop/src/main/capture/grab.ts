@@ -10,8 +10,11 @@ export interface Grab {
 }
 
 export interface ScreenGrabber {
-  /** The whole display under the cursor, or null when it couldn't be grabbed. */
-  grab(): Promise<Grab | null>
+  /**
+   * The whole display under the cursor (or `displayId`, when it's still
+   * connected), or null when it couldn't be grabbed.
+   */
+  grab(displayId?: number): Promise<Grab | null>
   /**
    * The first getSources call is slow (D1-00: ~3 s) and blocks the whole main
    * process while it runs (measured: ~1.7 s on a fast machine), so it's made
@@ -43,8 +46,12 @@ export function createScreenGrabber(
   let warmed = false
   let timer: ReturnType<typeof setTimeout> | null = null
   return {
-    async grab() {
-      const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+    async grab(displayId) {
+      const display =
+        (displayId === undefined
+          ? undefined
+          : screen.getAllDisplays().find((d) => d.id === displayId)) ??
+        screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
       const target = { id: display.id, bounds: display.bounds }
       // Ask for the physical size: a larger thumbnail is upscaled, a smaller one loses detail.
       // The crop ratio comes from the image Electron actually returns.

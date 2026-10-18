@@ -32,6 +32,12 @@ export interface ChatDeps {
   log: Logger
   /** Armed clipboard text from the clipboard chip (d1); returned once, then cleared. */
   takeClipboardSelection?(): string | null
+  /**
+   * Runs right before a send composes its message: the live capture overlay
+   * attaches a fresh full-screen frame to `pendingAttachments` here and
+   * returns a note for the model (appended to what's sent, never shown).
+   */
+  beforeSend?(): Promise<string | null | void>
   /** Stream lifecycle, for owl moods and `answerReady` (d1 maps it onto the buddy slice). */
   onActivity?(activity: ChatActivity): void
   /** Opens a saved attachment (shell.openPath in production). */
@@ -101,6 +107,8 @@ export function createChatService(deps: ChatDeps): ChatService {
   /** Sessions touched this run, so a non-persisted session can still be reopened. */
   const loaded = new Map<string, Session>()
   let active: ActiveStream | null = null
+  /** A send is awaiting `beforeSend` (it sets `active` right after). */
+  let preparing = false
   let pendingDelete: {
     meta: SessionMeta
     session: Session | null
@@ -313,6 +321,18 @@ export function createChatService(deps: ChatDeps): ChatService {
 
   return {
     async send(payload) {
+      // One stream at a time, and one send being prepared: a double click must
+      // not grab a second frame that would be left pending.
+      if (active || preparing) return
+      preparing = true
+      let note: string | null = null
+      try {
+        note = (await deps.beforeSend?.()) ?? null
+      } catch (e) {
+        log.warn(`chat: beforeSend failed: ${e instanceof Error ? e.message : String(e)}`)
+      } finally {
+        preparing = false
+      }
       const settings = store.get('settings').settings
       let display = payload.text?.trim() ?? ''
       let sent: string | undefined
@@ -328,6 +348,7 @@ export function createChatService(deps: ChatDeps): ChatService {
         sent = `${clipboardTextBlock(clip)}\n\n${ask}`
         if (!display) display = 'Explain this briefly.'
       }
+      if (note) sent = `${sent ?? display}\n\n${note}`
       sendInternal(display, sent)
     },
 
@@ -344,7 +365,14 @@ export function createChatService(deps: ChatDeps): ChatService {
     },
 
     async newChat() {
+      const dropped = store.get('chat').pendingAttachments
       store.update('chat', { session: null, pendingAttachments: [], clipboardHint: null })
+      // Unsent captures belong to no chat: their files go too.
+      for (const a of dropped) {
+        void persistence
+          .deleteAttachment(a.id)
+          .catch((e: unknown) => log.warn(`chat: dropping ${a.id} failed: ${String(e)}`))
+      }
     },
 
     async openSession(id) {

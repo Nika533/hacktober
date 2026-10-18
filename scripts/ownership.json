@@ -39,7 +39,11 @@
       "apps/desktop/resources/**",
       "apps/desktop/tsconfig.*.json",
       "apps/desktop/vitest.*",
-      "apps/extension/static/manifest.json"
+      "apps/extension/static/manifest.json",
+      "apps/desktop/src/main/capture/**",
+      "apps/desktop/src/renderer/capture/**",
+      "apps/desktop/src/main/context.ts",
+      "apps/desktop/test/capture/**"
     ],
     "d1": [
       "apps/desktop/src/main/**",

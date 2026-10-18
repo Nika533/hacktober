@@ -300,6 +300,8 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     log,
     getProvider: async () => ai.createProvider(),
     takeClipboardSelection: () => ctx.hooks.takeClipboardSelection(),
+    // The live capture overlay sends the current screen with every message.
+    beforeSend: () => capture.attachLiveScreen(),
     onActivity: (a) => applyChatActivity(store, a),
     openPath: (p) => shell.openPath(p).then(() => undefined)
   })
@@ -324,13 +326,25 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
   })
 
   // Capture (d2 skeleton #60, overlay lands in F-D2-3): hides our surfaces
-  // before the grab; a composer-bound capture returns to the card.
+  // before the grab; a composer-bound capture returns to the card. Outside
+  // tests the overlay is live: it stays open over the real screen and the
+  // user chats about what they circled right there.
   const capture = createCaptureService({
     store,
     windows,
     studio,
     persistence,
     log,
+    live: !env.test,
+    // A new shape: stop an answer still streaming, and drop an armed clipboard
+    // snapshot, so nothing unseen goes with the first message about it.
+    newChat: async () => {
+      await chat.stop()
+      clipboardWatcher.dismiss()
+      await chat.newChat()
+    },
+    // HOOT_NO_CAPTURE_EXCLUDE=1 for a recorded demo (each grab would blank the overlay).
+    excludeFromGrabs: process.env['HOOT_NO_CAPTURE_EXCLUDE'] !== '1',
     surfaces: {
       hide: () => buddy.hide(),
       restore: (added) => buddy.request(added ? 'card' : 'pill')
