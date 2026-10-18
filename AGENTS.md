@@ -186,8 +186,8 @@ One workspace: `npm.cmd run <script> -w @hoot/desktop` (or `@hoot/extension`,
 - Small PRs merge faster; about 400 changed lines is a guideline, not a rule
   (tests and screenshots don't count).
 - Dependencies: exact versions only, and only versions **published at least
-  7 days earlier** (check `npm view <pkg> time`). There is one `zod`, forced
-  by the root `overrides`.
+  7 days earlier** (check `npm view <pkg> time`). There is one `zod` and one
+  React (19.3.0), forced by the root `overrides` and root devDependencies.
 - **Lockfile conflict:** take `main`'s `package-lock.json`, then run
   `npm.cmd install`. Never hand-merge it.
 - Update `docs/status/<you>.md` (Now / Next / Blocked on / Requests / Notes)
