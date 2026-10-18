@@ -26,6 +26,7 @@ import { ExtensionStatus } from '../lens/ExtensionStatus'
 import { applyAccent, applyTheme, type ThemePreference } from '../theme'
 import { BuddyDemo } from './BuddyDemo'
 import { ChatDemo } from './ChatDemo'
+import { LensPagesDemo } from './LensPagesDemo'
 import { OnboardingDemo } from './OnboardingDemo'
 import { ReadingDemo } from './ReadingDemo'
 import { SettingsDemo } from './SettingsDemo'
@@ -160,6 +161,14 @@ export function Gallery({
 
         <Section title="Studio reading" wide>
           <ReadingDemo />
+        </Section>
+
+        <Section title="Studio profile" wide>
+          <LensPagesDemo page="profile" />
+        </Section>
+
+        <Section title="Studio glossary" wide>
+          <LensPagesDemo page="glossary" />
         </Section>
 
         <Section title="Onboarding" wide>

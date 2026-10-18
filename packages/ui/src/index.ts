@@ -97,3 +97,13 @@ export {
 export { ExtensionStatus, type ExtensionStatusProps } from './lens/ExtensionStatus'
 export { ReadingPane, type ReadingPaneProps } from './lens/ReadingPane'
 export { languageName, siteFromInput, siteLabel } from './lens/sites'
+export { ProfilePane, type ProfilePaneProps } from './lens/ProfilePane'
+export { GlossaryPane, type GlossaryPaneProps } from './lens/GlossaryPane'
+export {
+  glossaryPinText,
+  RECENT_CHANGES_LIMIT,
+  timeAgo,
+  useLensPages,
+  type LensPages,
+  type LensPagesApi
+} from './lens/useLensPages'

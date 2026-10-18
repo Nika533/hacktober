@@ -122,6 +122,21 @@ try {
       await reading.screenshot({ path: resolve(out, `reading-on-${v.name}.png`) })
       await axe(page, `${v.name} + reading on`)
 
+      // Lens pages: the profile (top, then Recent changes) and the glossary.
+      const profile = page.locator('.gallery__profile')
+      await profile.scrollIntoViewIfNeeded()
+      await profile.locator('pre').waitFor()
+      await profile.screenshot({ path: resolve(out, `profile-${v.name}.png`) })
+      await axe(page, `${v.name} + profile`)
+      await profile.locator('.hoot-settings__scroll').evaluate((el) => (el.scrollTop = 99999))
+      await page.waitForTimeout(200)
+      await profile.screenshot({ path: resolve(out, `profile-changes-${v.name}.png`) })
+      const glossary = page.locator('.gallery__glossary')
+      await glossary.scrollIntoViewIfNeeded()
+      await glossary.locator('.hoot-glossary__entry').first().waitFor()
+      await glossary.screenshot({ path: resolve(out, `glossary-${v.name}.png`) })
+      await axe(page, `${v.name} + glossary`)
+
       // Onboarding: every step, saving a key on the way, then back to the start.
       const onb = page.locator('.gallery__onboarding')
       await onb.scrollIntoViewIfNeeded()
