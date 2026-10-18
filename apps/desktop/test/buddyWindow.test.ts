@@ -263,6 +263,40 @@ describe('buddy window', () => {
     expect(run3.store.get('buddy').mode).toBe('dot')
   })
 
+  it('re-arms the collapse timer when the cursor leaves the regions', () => {
+    const { buddy, store, screen, fake } = setup({ collapseMs: 1000 })
+    buddy.summon()
+    buddy.transitionDone(1)
+    const b = fake.win.getBounds()
+    // Cursor inside the owl's region: the next poll flips inside → the timer
+    // is cancelled and stays cancelled while the cursor hovers.
+    buddy.setHitRegions([{ x: 100, y: 100, width: 100, height: 100 }])
+    screen.cursor = { x: b.x + 150, y: b.y + 150 }
+    vi.advanceTimersByTime(50)
+    vi.advanceTimersByTime(5000)
+    expect(store.get('buddy').mode).toBe('pill')
+    // Cursor leaves: the tick flips inside → re-arms collapseToDotAfterMs.
+    screen.cursor = { x: 0, y: 0 }
+    vi.advanceTimersByTime(50)
+    vi.advanceTimersByTime(999)
+    expect(store.get('buddy').mode).toBe('pill')
+    vi.advanceTimersByTime(1)
+    expect(store.get('buddy').mode).toBe('dot')
+  })
+
+  it('cancels the collapse timer when the hover hint turns on mid-count', () => {
+    const { buddy, store } = setup({ collapseMs: 1000 })
+    buddy.summon()
+    buddy.transitionDone(1)
+    vi.advanceTimersByTime(500)
+    buddy.setIgnoreMouse(false) // hover hint on
+    vi.advanceTimersByTime(5000)
+    expect(store.get('buddy').mode).toBe('pill')
+    buddy.setIgnoreMouse(true)
+    vi.advanceTimersByTime(1000)
+    expect(store.get('buddy').mode).toBe('dot')
+  })
+
   it('polls hit regions at 20 Hz and toggles click-through only on change', () => {
     const { buddy, screen, fake } = setup()
     buddy.summon()
