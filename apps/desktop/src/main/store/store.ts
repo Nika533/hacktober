@@ -59,13 +59,15 @@ export function createStore(initial: StateSlices): Store {
 
 export function initialSlices(input: {
   settings: Settings
+  hasApiKey: boolean
+  keyStorage: 'os-encrypted' | 'memory'
   system: StateSlices['system']
 }): StateSlices {
   return {
     settings: {
       settings: input.settings,
-      hasApiKey: false,
-      keyStorage: 'os-encrypted',
+      hasApiKey: input.hasApiKey,
+      keyStorage: input.keyStorage,
       hotkeyErrors: []
     },
     system: input.system,
