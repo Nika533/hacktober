@@ -1,5 +1,6 @@
 {
   "name": "@hoot/desktop",
+  "productName": "Hoot",
   "version": "1.0.0",
   "private": true,
   "description": "Hoot desktop app (Electron). Owners in scripts/ownership.json: main d1, with ai/, lens/, bridge/, chat/, pins/ C, capture/ d2; renderers: note C, capture d2, buddy/studio/reader d3.",
