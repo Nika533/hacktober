@@ -26,6 +26,9 @@ export const COPY = {
   pause: 'Pause on this site',
   resume: 'Resume',
   paused: 'Lens is paused on this site',
+  /** Local files (Hoot Reader, file:// PDFs) share one rule, keyed '': there's no "site". */
+  pauseLocal: 'Pause for local files',
+  pausedLocal: 'Lens is paused for local files',
   ask: 'Make this clearer?',
   thinking: 'Hoot is making this clearer…',
   skipped: 'Hoot left this as it is.',

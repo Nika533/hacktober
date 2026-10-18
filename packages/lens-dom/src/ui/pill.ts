@@ -56,9 +56,17 @@ export class PagePill {
   #paused = false
   #timer: ReturnType<typeof setTimeout> | null = null
   #hovered = false
+  readonly #copy: { pause: string; paused: string }
 
-  constructor(root: UiRoot, handlers: PillHandlers, options: { animate?: boolean } = {}) {
+  constructor(
+    root: UiRoot,
+    handlers: PillHandlers,
+    options: { animate?: boolean; localFiles?: boolean } = {}
+  ) {
     const doc = root.document
+    this.#copy = options.localFiles
+      ? { pause: COPY.pauseLocal, paused: COPY.pausedLocal }
+      : { pause: COPY.pause, paused: COPY.paused }
     root.styles.apply(root.shadow, PILL_CSS)
     this.element = el(doc, 'div', {
       className: 'pill',
@@ -75,7 +83,7 @@ export class PagePill {
     })
     this.#pause = el(doc, 'button', {
       className: 'btn',
-      text: COPY.pause,
+      text: this.#copy.pause,
       attrs: { type: 'button', 'data-action': 'pause', 'aria-keyshortcuts': 'Alt+H' }
     })
     this.#undo.addEventListener('click', () => handlers.undoAll())
@@ -119,8 +127,8 @@ export class PagePill {
     this.#count = count
     this.#paused = paused
     this.#undo.hidden = paused || count === 0
-    this.#pause.textContent = paused ? COPY.resume : COPY.pause
-    this.#status.textContent = paused ? COPY.paused : changedCount(count)
+    this.#pause.textContent = paused ? COPY.resume : this.#copy.pause
+    this.#status.textContent = paused ? this.#copy.paused : changedCount(count)
     if (count > 0 || paused) this.#presence.show()
     else void this.#presence.hide()
     this.#scheduleAutoHide()

@@ -232,6 +232,18 @@ describe('page pill', () => {
     expect(button('pause').textContent).toBe('Resume')
     expect(button('undo-all').hidden).toBe(true)
   })
+
+  it('talks about local files, not “this site”, for a file (#81)', () => {
+    ui.destroy()
+    root.destroy()
+    root = createUiRoot({ document, shadowMode: 'open' })
+    ui = new LensUi({ root, handlers, animate: false, trustedOnly: false, localFiles: true })
+    ui.setCount(1)
+    expect(button('pause').textContent).toBe('Pause for local files')
+    ui.setCount(0, true)
+    expect(pill().querySelector('.status')?.textContent).toBe('Lens is paused for local files')
+    expect(button('pause').textContent).toBe('Resume')
+  })
 })
 
 describe('Ask-first chip and thinking state', () => {
