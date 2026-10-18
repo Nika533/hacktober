@@ -68,14 +68,14 @@ export const POPOVER_CSS = `
   all: unset;
   cursor: pointer;
   border-radius: 4px;
-  color: var(--hl-accent);
+  color: var(--hl-accent-text);
   font: 500 11.5px/1.6 var(--hl-font);
 }
 .link-btn:hover {
   text-decoration: underline;
 }
 .link-btn:focus-visible {
-  outline: 2px solid var(--hl-accent);
+  outline: 2px solid var(--hl-accent-text);
   outline-offset: 2px;
 }
 @media (forced-colors: active) {

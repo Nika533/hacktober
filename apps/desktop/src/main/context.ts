@@ -2,8 +2,11 @@ import { app, safeStorage } from 'electron'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Unsubscribe } from '@hoot/core'
+import type { AiProvider } from './ai'
+import { createFakeProvider, createGeminiProvider } from './ai'
 import type { AppEnv } from './env'
 import { handleInvoke } from './ipc/handle'
+import { registerDomains } from './ipc/register'
 import { createFlushRegistry, type FlushRegistry } from './lifecycle'
 import { createLogger, type Logger } from './log'
 import { createSecretStore, type SecretStore } from './secrets'
@@ -13,12 +16,8 @@ import { createPersistence, PersistenceError, type Persistence } from './store/p
 import { createStore, initialSlices, type Store } from './store/store'
 import { createDebouncedWriter, type DebouncedWriter } from './store/writer'
 import { readSystem, watchSystem } from './system'
-import {
-  createSecureWindow,
-  createWindowRegistry,
-  loadRenderer,
-  type WindowRegistry
-} from './windows/base'
+import { createWindowRegistry, type WindowRegistry } from './windows/base'
+import { createStudioWindow, type StudioWindow } from './windows/studio'
 
 export interface AppContext {
   env: AppEnv
@@ -31,6 +30,9 @@ export interface AppContext {
   persistence: Persistence
   writer: DebouncedWriter
   secrets: SecretStore
+  studio: StudioWindow
+  /** Chat provider for D1-13: fake under HOOT_FAKE_AI, Gemini when a key exists, else null. */
+  ai: { createProvider(): AiProvider | null }
   /** False until the tray lands (D1-21); index.ts quits on window-all-closed. */
   keepAliveWithoutWindows: boolean
   onSecondInstance(argv: readonly string[]): void
@@ -102,6 +104,20 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
   const broadcaster = createBroadcaster(store)
   const windows = createWindowRegistry()
 
+  // One Studio window, created hidden and reused. (Constructed here rather
+  // than in start() so ctx.studio is always populated; nothing is visible
+  // until start() decides what to open.)
+  const studio = createStudioWindow({ store, windows, log })
+  app.on('before-quit', () => studio.markQuitting())
+
+  const ai: AppContext['ai'] = {
+    createProvider() {
+      if (env.fakeAi) return createFakeProvider()
+      const key = secrets.get()
+      return key ? createGeminiProvider(key) : null
+    }
+  }
+
   let unwatchSystem: Unsubscribe | undefined
   let unwatchPersist: Unsubscribe | undefined
   let started = false
@@ -110,7 +126,7 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     handleInvoke('state:subscribe', (sender, slices) =>
       broadcaster.subscribe(sinkFor(sender), slices)
     )
-    // D1-12 registers the domain handlers (chat, sessions, pins, windows…).
+    registerDomains(ctx)
   }
 
   const ctx: AppContext = {
@@ -124,16 +140,14 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     persistence,
     writer,
     secrets,
+    studio,
+    ai,
     keepAliveWithoutWindows: false,
 
     onSecondInstance(argv) {
       log.info(`second instance invoked: ${argv.join(' ')}`)
       // Buddy summon arrives in D1-14; for now surface the Studio window.
-      const studio = windows.get('studio')
-      if (studio) {
-        if (studio.isMinimized()) studio.restore()
-        studio.focus()
-      }
+      if (studio.isVisible()) studio.focus()
     },
 
     async start() {
@@ -142,16 +156,12 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
       registerIpc()
       unwatchSystem = watchSystem(store)
       unwatchPersist = watchPersistence(store, persistence, writer)
-      // Stub window until D1-14/15 wire the real buddy + studio lifecycle.
-      if (!env.hidden) {
-        const studio = createSecureWindow('studio', {
-          width: 960,
-          height: 640,
-          title: 'Hoot'
-        })
-        windows.set('studio', studio)
-        loadRenderer(studio, 'studio')
-      }
+      // Placeholder until the buddy lands (D1-14: this becomes the pill
+      // summon). --hidden opens nothing (launch-at-login must never pop a
+      // window); otherwise first run goes to onboarding.
+      if (env.hidden) return
+      if (!settings.onboardingDone) studio.open('onboarding')
+      else studio.open('chat')
     },
 
     async stop() {

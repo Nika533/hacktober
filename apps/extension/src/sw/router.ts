@@ -1,5 +1,5 @@
-import { LensBackendError, type BridgeErrorCode } from '@hoot/core'
-import type { Reply } from '../messages'
+import { LensBackendError, type BridgeErrorCode, type ProfileSnapshot } from '@hoot/core'
+import type { BridgeStatus, Reply } from '../messages'
 import type { SettingsStore } from './settings'
 import type { Upstream } from './upstream'
 import { parseContentMessage } from './validate'
@@ -13,7 +13,15 @@ export interface Sender {
 export interface RouterOptions {
   extensionId: string
   upstream: () => Upstream
-  settings: SettingsStore
+  settings: Pick<SettingsStore, 'get' | 'patch'>
+  /** A cached profile, so page loads don't wake the app; defaults to asking upstream. */
+  profile?: () => Promise<ProfileSnapshot>
+  /** Connection status; `connect` is true when one of our own pages asks. */
+  status?: (connect: boolean) => Promise<BridgeStatus>
+  /** A page asked for settings, i.e. it just loaded. */
+  warm?: () => void
+  /** The PDF viewer hands one URL back to the browser's own viewer. */
+  allowNativePdf?: (url: string) => void
 }
 
 export interface Router {
@@ -61,11 +69,20 @@ export function createRouter(options: RouterOptions): Router {
       const upstream = options.upstream()
       switch (message.type) {
         case 'lens.settings.get':
+          options.warm?.()
           return ok(await options.settings.get())
         case 'lens.settings.patch':
           return ok(await options.settings.patch(message.patch))
         case 'lens.profile.get':
-          return ok(await upstream.getProfile())
+          return ok(await (options.profile?.() ?? upstream.getProfile()))
+        case 'lens.pdf.native':
+          if (!ownPage(sender)) return fail('unauthorized')
+          options.allowNativePdf?.(message.url)
+          return ok(null)
+        case 'lens.status':
+          return ok(
+            (await options.status?.(ownPage(sender))) ?? { state: 'idle', appVersion: null }
+          )
         case 'lens.rewrite': {
           const settings = await options.settings.get()
           if (!settings.enabled) return ok({ kind: 'skipped', reason: 'lens_off' })

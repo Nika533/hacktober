@@ -1,5 +1,14 @@
 import { test } from '@playwright/test'
-import { askAbout, devLog, expect, launch, open, shutdown, ui, type Harness } from './harness'
+import {
+  askAbout,
+  expect,
+  feedbackKinds,
+  launch,
+  open,
+  shutdown,
+  ui,
+  type Harness
+} from './harness'
 
 let harness: Harness
 
@@ -12,7 +21,7 @@ test.afterEach(async () => {
 })
 
 test('Ask-first rewrites a term in place and restores it exactly', async () => {
-  const { context, worker, fixtures } = harness
+  const { context, fixtures } = harness
   const page = await context.newPage()
   await open(page, `${fixtures.url}/article.html`)
   const before = await page.locator('#article').innerHTML()
@@ -30,9 +39,7 @@ test('Ask-first rewrites a term in place and restores it exactly', async () => {
 
   await expect(page.locator('#p-hetero hoot-lens-mark')).toHaveCount(0)
   await expect.poll(() => page.locator('#article').innerHTML()).toBe(before)
-  await expect
-    .poll(async () => (await devLog(worker)).map((entry) => entry.payload.kind))
-    .toEqual(['shown', 'reverted'])
+  await expect.poll(() => feedbackKinds(harness)).toEqual(['shown', 'reverted'])
 })
 
 test('copying a changed sentence copies the original', async () => {
@@ -47,6 +54,7 @@ test('copying a changed sentence copies the original', async () => {
   const copied = await page.evaluate(() => navigator.clipboard.readText())
   expect(copied).toContain('The OLS estimator')
   expect(copied).not.toContain('Fake Expanded Form')
+  await expect.poll(() => feedbackKinds(harness)).toEqual(['shown', 'copied_original'])
 })
 
 test('never offers Lens on code, quotes, inputs or password pages', async () => {
@@ -124,4 +132,33 @@ test('runs inside same-origin frames', async () => {
   await frame.locator('hoot-lens-ui').waitFor({ state: 'attached' })
   await frame.locator('#p-child').dblclick({ position: { x: 4, y: 10 } })
   await expect(frame.locator('hoot-lens-ui .chip')).toBeVisible()
+})
+
+test('runs inside cross-origin frames', async () => {
+  const { context, fixtures } = harness
+  const page = await context.newPage()
+  await page.goto(`${fixtures.url}/iframes.html?cross=${fixtures.crossOriginUrl}`)
+  const frame = page.frameLocator('#cross-origin')
+  await frame.locator('hoot-lens-ui').waitFor({ state: 'attached' })
+  await frame.locator('#p-child').dblclick({ position: { x: 4, y: 10 } })
+  await expect(frame.locator('hoot-lens-ui .chip')).toBeVisible()
+  await frame.locator('hoot-lens-ui .chip').click()
+  await expect(frame.locator('#p-child hoot-lens-mark')).toHaveCount(1)
+})
+
+test('runs inside srcdoc frames', async () => {
+  const { context, fixtures } = harness
+  const page = await context.newPage()
+  await page.goto(`${fixtures.url}/iframes.html`)
+  const frame = page.frameLocator('#srcdoc')
+  await frame.locator('hoot-lens-ui').waitFor({ state: 'attached' })
+  await frame.locator('#p-srcdoc').dblclick({ position: { x: 4, y: 10 } })
+  await expect(frame.locator('hoot-lens-ui .chip')).toBeVisible()
+
+  await page.locator('#p-top').click()
+  await page.keyboard.press('Alt+H')
+  await expect(ui(page, '.pill .status')).toHaveText('Lens is paused on this site')
+  await frame.locator('#p-srcdoc').dblclick({ position: { x: 4, y: 10 } })
+  await page.waitForTimeout(450)
+  await expect(frame.locator('hoot-lens-ui .chip')).toBeHidden()
 })

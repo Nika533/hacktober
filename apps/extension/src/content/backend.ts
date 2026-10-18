@@ -12,7 +12,13 @@ import {
   type RewriteRequest,
   type Unsubscribe
 } from '@hoot/core'
-import { isPush, isReply, type ContentMessage, type ReplyValues } from '../messages'
+import {
+  isPush,
+  isReply,
+  type BridgeStatus,
+  type ContentMessage,
+  type ReplyValues
+} from '../messages'
 
 export interface RuntimeLike {
   readonly id?: string
@@ -27,6 +33,7 @@ export class ExtensionBackend implements LensBackend {
   readonly #runtime: RuntimeLike
   readonly #settings = new Set<(lens: LensSettings) => void>()
   readonly #profile = new Set<(profile: ProfileSnapshot) => void>()
+  readonly #status = new Set<(status: BridgeStatus) => void>()
   #seq = 0
 
   constructor(runtime: RuntimeLike) {
@@ -80,9 +87,20 @@ export class ExtensionBackend implements LensBackend {
     return () => this.#profile.delete(cb)
   }
 
+  /** The connection to the Hoot app; asking also tries to connect. */
+  status(): Promise<BridgeStatus> {
+    return this.#send({ type: 'lens.status' })
+  }
+
+  onStatus(cb: (status: BridgeStatus) => void): Unsubscribe {
+    this.#status.add(cb)
+    return () => this.#status.delete(cb)
+  }
+
   destroy(): void {
     this.#settings.clear()
     this.#profile.clear()
+    this.#status.clear()
     try {
       this.#runtime.onMessage.removeListener(this.#onPush)
     } catch {
@@ -131,6 +149,7 @@ export class ExtensionBackend implements LensBackend {
   #onPush = (raw: unknown): void => {
     if (!isPush(raw)) return
     if (raw.type === 'lens.settings.changed') for (const cb of this.#settings) cb(raw.lens)
-    else for (const cb of this.#profile) cb(raw.profile)
+    else if (raw.type === 'lens.profile.changed') for (const cb of this.#profile) cb(raw.profile)
+    else for (const cb of this.#status) cb(raw.status)
   }
 }

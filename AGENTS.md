@@ -8,7 +8,9 @@ browser and in local PDFs.
 Read in this order before writing code:
 
 1. `docs/hoot-lens.md`: the product spec (source of truth for **what**)
-2. `docs/rebuild-plan.md`: who builds what, milestones, quality bar
+2. `docs/finish-plan.md`: **who builds what from now to the hackathon**, gates, queues
+   (it replaces the remaining-task owners in `docs/rebuild-plan.md` §6; that file still
+   holds the quality bar and milestones)
 3. this file
 4. `packages/core/CONTRACTS.md`: the shared contracts
 
@@ -21,11 +23,13 @@ Read in this order before writing code:
 | `packages/lens-dom` | In-page Lens (selection, signals, renderers, shadow-DOM UI) | d2 |
 | `packages/pdf-view` | PDF.js view, overlay renderer, reflow mode | d3 |
 | `packages/bridge` | hoot-bridge native messaging host | C |
-| `apps/desktop/src/main` | Lifecycle, store, persistence, windows, capture, pins, chat service, IPC handlers | d1 |
+| `apps/desktop/src/main` | Lifecycle, store, persistence, windows, buddy mode machine, hotkeys, tray, IPC registration (wires every feature) | d1 |
 | `apps/desktop/src/main/{ai,lens,bridge}` | Gemini provider, Lens engine and profile, pipe server | C |
+| `apps/desktop/src/main/{chat,pins}` + `renderer/note` | Chat service, pins and sticky notes | C |
+| `apps/desktop/src/main/capture` + `renderer/capture` | Capture overlay | d2 |
 | `apps/desktop/src/preload` | `window.hoot` (built from the routes in core) | d1 |
-| `apps/desktop/src/renderer/{buddy,capture,note}` | Buddy, capture overlay, sticky notes | d1 |
-| `apps/desktop/src/renderer/{studio,reader}` | Studio, Hoot Reader | d3 |
+| `apps/desktop/src/renderer/{studio,reader,buddy}` | Studio, Hoot Reader, Buddy (dot, pill, card) | d3 |
+| `apps/desktop/{electron-builder.yml,build,resources}` | Installer and packaging | C and d1 |
 | `apps/extension` | MV3 extension: content script, service worker, options, PDF viewer | d2 |
 
 The exact rules are in `scripts/ownership.json`, and CI enforces them on PRs

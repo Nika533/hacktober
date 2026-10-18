@@ -1,29 +1,29 @@
 # Review is required only where a mistake breaks other builders or weakens
 # security. Everything not listed merges on green CI (see AGENTS.md, Workflow).
-# The owner below is C's reviewer; change the handle if C reviews from another
-# account. Later lines win.
+# C (Pera08) and the repo owner (Nika533) review; either approval counts.
+# Later lines win.
 
 # Shared contracts: every workspace builds against these.
-/packages/core/                         @Nika533
+/packages/core/                         @Pera08 @Nika533
 
 # Security boundary: preload, IPC, window hardening (sandbox, CSP, nav guards),
 # native messaging.
-/apps/desktop/src/preload/              @Nika533
-/apps/desktop/src/main/ipc/             @Nika533
-/apps/desktop/src/main/windows/         @Nika533
-/apps/desktop/src/main/bridge/          @Nika533
-/packages/bridge/                       @Nika533
-/apps/extension/static/manifest.json    @Nika533
+/apps/desktop/src/preload/              @Pera08 @Nika533
+/apps/desktop/src/main/ipc/             @Pera08 @Nika533
+/apps/desktop/src/main/windows/         @Pera08 @Nika533
+/apps/desktop/src/main/bridge/          @Pera08 @Nika533
+/packages/bridge/                       @Pera08 @Nika533
+/apps/extension/static/manifest.json    @Pera08 @Nika533
 
 # Dependencies (exact versions, published at least 7 days earlier).
-package.json                            @Nika533
-.npmrc                                  @Nika533
+package.json                            @Pera08 @Nika533
+.npmrc                                  @Pera08 @Nika533
 
 # Tooling and the rules themselves.
-/.github/                               @Nika533
-/scripts/                               @Nika533
-/AGENTS.md                              @Nika533
-/docs/rebuild-plan.md                   @Nika533
-/eslint.config.mjs                      @Nika533
-/tsconfig.base.json                     @Nika533
-/vitest.config.ts                       @Nika533
+/.github/                               @Pera08 @Nika533
+/scripts/                               @Pera08 @Nika533
+/AGENTS.md                              @Pera08 @Nika533
+/docs/rebuild-plan.md                   @Pera08 @Nika533
+/eslint.config.mjs                      @Pera08 @Nika533
+/tsconfig.base.json                     @Pera08 @Nika533
+/vitest.config.ts                       @Pera08 @Nika533

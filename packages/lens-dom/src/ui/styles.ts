@@ -1,4 +1,27 @@
-export const ACCENT = '#5b8def'
+export const ACCENT = '#2f6bd8'
+
+/** Colours behind the Lens UI's text. Surfaces are translucent over whatever page is below. */
+export const PALETTE = {
+  light: {
+    surface: '#fafafc',
+    surfaceAlpha: 0.94,
+    text: '#1d1d1f',
+    text2Alpha: 0.68,
+    accentText: '#295ebe'
+  },
+  dark: {
+    surface: '#1e1e22',
+    surfaceAlpha: 0.92,
+    text: '#f5f5f7',
+    text2Alpha: 0.6,
+    accentText: '#82a6e8'
+  }
+} as const
+
+const alpha = (hex: string, a: number): string =>
+  `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(' ')} / ${a})`
+
+const { light, dark } = PALETTE
 
 export const HIGHLIGHT_REPLACE = 'hoot-lens-replace'
 export const HIGHLIGHT_GLOSS = 'hoot-lens-gloss'
@@ -25,13 +48,14 @@ export const TOKENS_CSS = `
   --hl-on-accent: #ffffff;
   --hl-tint: color-mix(in srgb, var(--hl-accent) 12%, transparent);
   --hl-underline: color-mix(in srgb, var(--hl-accent) 60%, transparent);
-  --hl-surface: rgba(250, 250, 252, 0.94);
-  --hl-surface-solid: #fafafc;
+  --hl-accent-text: ${light.accentText};
+  --hl-surface: ${alpha(light.surface, light.surfaceAlpha)};
+  --hl-surface-solid: ${light.surface};
   --hl-surface-2: rgba(0, 0, 0, 0.04);
   --hl-edge-top: rgba(255, 255, 255, 0.55);
   --hl-hairline: rgba(0, 0, 0, 0.08);
-  --hl-text: #1d1d1f;
-  --hl-text-2: rgba(29, 29, 31, 0.62);
+  --hl-text: ${light.text};
+  --hl-text-2: ${alpha(light.text, light.text2Alpha)};
   --hl-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(0, 0, 0, 0.14);
   --hl-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.12), 0 6px 18px rgba(0, 0, 0, 0.16);
   --hl-font: 'Segoe UI Variable', system-ui, 'Segoe UI', sans-serif;
@@ -40,13 +64,14 @@ export const TOKENS_CSS = `
 }
 @media (prefers-color-scheme: dark) {
   :host {
-    --hl-surface: rgba(30, 30, 34, 0.92);
-    --hl-surface-solid: #1e1e22;
+    --hl-accent-text: ${dark.accentText};
+    --hl-surface: ${alpha(dark.surface, dark.surfaceAlpha)};
+    --hl-surface-solid: ${dark.surface};
     --hl-surface-2: rgba(255, 255, 255, 0.06);
     --hl-edge-top: rgba(255, 255, 255, 0.08);
     --hl-hairline: rgba(255, 255, 255, 0.1);
-    --hl-text: #f5f5f7;
-    --hl-text-2: rgba(245, 245, 247, 0.6);
+    --hl-text: ${dark.text};
+    --hl-text-2: ${alpha(dark.text, dark.text2Alpha)};
   }
 }
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
