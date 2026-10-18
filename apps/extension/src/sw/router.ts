@@ -22,7 +22,11 @@ export interface RouterOptions {
   warm?: () => void
   /** The PDF viewer hands one URL back to the browser's own viewer. */
   allowNativePdf?: (url: string) => void
+  now?: () => number
 }
+
+/** Model calls (rewrite + assess) one tab may make per minute, whatever its page does. */
+export const TAB_RATE_LIMIT = 30
 
 export interface Router {
   handle(raw: unknown, sender: Sender): Promise<Reply>
@@ -59,6 +63,19 @@ export function createRouter(options: RouterOptions): Router {
   const ownPage = (sender: Sender): boolean =>
     !!sender.url?.startsWith(`chrome-extension://${options.extensionId}/`)
 
+  const now = options.now ?? (() => Date.now())
+  const calls = new Map<number | string, number[]>()
+
+  const withinLimit = (sender: Sender): boolean => {
+    const key = sender.tab?.id ?? 'page'
+    const t = now()
+    const recent = (calls.get(key) ?? []).filter((at) => t - at < 60_000)
+    const allowed = recent.length < TAB_RATE_LIMIT
+    if (allowed) recent.push(t)
+    calls.set(key, recent)
+    return allowed
+  }
+
   async function handle(raw: unknown, sender: Sender): Promise<Reply> {
     if (sender.id !== options.extensionId || (sender.tab?.id === undefined && !ownPage(sender))) {
       return fail('unauthorized')
@@ -86,11 +103,13 @@ export function createRouter(options: RouterOptions): Router {
         case 'lens.rewrite': {
           const settings = await options.settings.get()
           if (!settings.enabled) return ok({ kind: 'skipped', reason: 'lens_off' })
+          if (!withinLimit(sender)) return fail('rate_limited', 'too many requests from this tab')
           return await track(sender, message.reqId, (signal) =>
             upstream.rewrite(message.request, { signal })
           )
         }
         case 'lens.assess':
+          if (!withinLimit(sender)) return fail('rate_limited', 'too many requests from this tab')
           return await track(sender, message.reqId, (signal) =>
             upstream.assess(message.ctx, { signal })
           )

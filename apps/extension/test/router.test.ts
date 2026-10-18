@@ -1,7 +1,8 @@
 import { DEFAULT_LENS_SETTINGS, type LensEvent, type LensSettings } from '@hoot/core'
 import { createFakeLensBackend } from '@hoot/core/testing'
 import { describe, expect, it, vi } from 'vitest'
-import { createRouter, type Router } from '../src/sw/router'
+import type { Reply } from '../src/messages'
+import { TAB_RATE_LIMIT, createRouter, type Router } from '../src/sw/router'
 import { SETTINGS_KEY, createSettingsStore, type StorageArea } from '../src/sw/settings'
 import { unavailableUpstream, type Upstream } from '../src/sw/upstream'
 import { CTX } from './context'
@@ -181,5 +182,25 @@ describe('service worker router', () => {
     await router.handle({ type: 'lens.explain', ctx: CTX }, sender)
     expect(fake.events).toEqual([event])
     expect(explain).toHaveBeenCalledWith(CTX)
+  })
+
+  it('limits each tab to TAB_RATE_LIMIT model calls a minute', async () => {
+    let clock = 0
+    const router = createRouter({
+      extensionId: 'ext-id',
+      upstream: () => createFakeLensBackend({ settings: ENABLED }),
+      settings: createSettingsStore(memoryArea({ [SETTINGS_KEY]: ENABLED }), DEFAULT_LENS_SETTINGS),
+      now: () => clock
+    })
+    const assess = (tab: number, n: number): Promise<Reply> =>
+      router.handle(
+        { type: 'lens.assess', reqId: `a${n}`, ctx: CTX },
+        { id: 'ext-id', tab: { id: tab } }
+      )
+    for (let n = 0; n < TAB_RATE_LIMIT; n++) expect((await assess(1, n)).ok).toBe(true)
+    expect(await assess(1, 99)).toMatchObject({ ok: false, error: { code: 'rate_limited' } })
+    expect((await assess(2, 0)).ok).toBe(true)
+    clock += 60_000
+    expect((await assess(1, 100)).ok).toBe(true)
   })
 })
