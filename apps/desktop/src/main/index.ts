@@ -1,30 +1,31 @@
-import { app, BrowserWindow } from 'electron'
-import { join } from 'node:path'
+import { app } from 'electron'
+import { createAppContext, type AppContext } from './context'
+import { readEnv } from './env'
+import { installQuitFlow } from './lifecycle'
+import { createLogger } from './log'
 
-/**
- * Placeholder main process from the M0 scaffold: one sandboxed window that
- * shows the Studio stub. d1 replaces this with the real lifecycle and
- * AppContext in D1-10.
- */
-function createWindow(): void {
-  const win = new BrowserWindow({
-    width: 960,
-    height: 640,
-    title: 'Hoot',
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      sandbox: true,
-      contextIsolation: true,
-      nodeIntegration: false
-    }
+const env = readEnv(process.argv, process.env, app.isPackaged)
+const log = createLogger('main')
+
+// HOOT_USER_DATA must apply before the single-instance lock so both instances
+// of the same "user" agree on the profile they lock (and log into).
+if (env.userDataOverride) app.setPath('userData', env.userDataOverride)
+
+let ctx: AppContext | null = null
+
+if (!app.requestSingleInstanceLock()) {
+  app.quit()
+} else {
+  app.on('second-instance', (_event, argv) => ctx?.onSecondInstance(argv))
+
+  void app.whenReady().then(async () => {
+    ctx = await createAppContext(env)
+    installQuitFlow(app, ctx.flush, ctx.log)
+    await ctx.start()
+    log.info(`Hoot is running — ${ctx.store.get('settings').settings.summonHotkey} to summon`)
   })
-  const devUrl = process.env['ELECTRON_RENDERER_URL']
-  if (!app.isPackaged && devUrl) void win.loadURL(`${devUrl}/studio.html`)
-  else void win.loadFile(join(__dirname, '../renderer/studio.html'))
-}
 
-if (!app.requestSingleInstanceLock()) app.quit()
-else {
-  void app.whenReady().then(createWindow)
-  app.on('window-all-closed', () => app.quit())
+  app.on('window-all-closed', () => {
+    if (ctx?.keepAliveWithoutWindows !== true) app.quit()
+  })
 }
