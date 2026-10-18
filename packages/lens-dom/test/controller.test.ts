@@ -239,6 +239,18 @@ describe('createLens with @hoot/core fakes', () => {
     expect(chip().hidden).toBe(false)
   })
 
+  it('pauses local files under their own rule and says so (#81)', async () => {
+    await start({ site: '' })
+    select('heteroscedasticity')
+    await ask()
+    expect(button('pause').textContent).toBe('Pause for local files')
+    await lens!.setPaused(true)
+    expect((await backend.getSettings()).sites['']).toBe('paused')
+    expect(shadow().querySelector('.pill .status')?.textContent).toBe(
+      'Lens is paused for local files'
+    )
+  })
+
   it('honours a "never" site rule and pages with a password field', async () => {
     backend = createFakeLensBackend({ settings: { ...ENABLED, sites: { [SITE]: 'never' } } })
     await start()

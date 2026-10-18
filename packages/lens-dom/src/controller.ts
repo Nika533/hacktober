@@ -329,6 +329,7 @@ export function createLens(options: CreateLensOptions): Lens {
     root,
     animate,
     trustedOnly: options.trustedOnly ?? true,
+    localFiles: site === '',
     handlers: {
       restore: (mark) => restore(mark, 'reverted'),
       knewIt: (mark) => restore(mark, 'knew_it'),
