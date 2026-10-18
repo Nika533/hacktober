@@ -68,7 +68,8 @@ export interface LatencySample {
   model: string
   ms: number
   cached: boolean
-  outcome: RewriteOutcome['kind']
+  /** `error:<code>` when the request failed (e.g. `error:busy` for a timeout). */
+  outcome: RewriteOutcome['kind'] | `error:${string}`
 }
 
 export function contextFor(c: LatencyCase): LensContext {
@@ -115,16 +116,20 @@ export async function measureLatency(
       const request = { ctx: contextFor(c), allowedTransforms: c.transforms, risk: c.risk }
       for (const cached of [false, true]) {
         const started = now()
-        const out = await service.rewrite(
-          `latency-${run}-${c.id}-${cached ? 'warm' : 'cold'}`,
-          request
-        )
+        let outcome: LatencySample['outcome']
+        try {
+          const reqId = `latency-${run}-${c.id}-${cached ? 'warm' : 'cold'}`
+          outcome = (await service.rewrite(reqId, request)).kind
+        } catch (e) {
+          // A failed request still counts: it's what the reader waited for.
+          outcome = `error:${(e as { code?: string }).code ?? 'unknown'}`
+        }
         samples.push({
           id: c.id,
           model: pickRewriteModel(c.transforms, c.span),
           ms: now() - started,
           cached,
-          outcome: out.kind
+          outcome
         })
       }
     }

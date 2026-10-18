@@ -55,7 +55,8 @@ describe.skipIf(!key)('Lens engine (live Gemini)', () => {
     expect(out.kind).toBe('rewritten')
     if (out.kind === 'rewritten') {
       expect(out.result.text.toLowerCase()).toContain('heteroscedasticity')
-      expect(out.result.latencyMs).toBeLessThan(6000)
+      // The §7.2 target is latency.live.test.ts's job; this only bounds the engine timeout.
+      expect(out.result.latencyMs).toBeLessThan(15_000)
     }
   })
 
