@@ -1,6 +1,6 @@
 import { DEFAULT_CHAT_MODEL, type ChatModelId } from '../models'
 import type { Point, Rect } from './app'
-import type { LensMode, SiteRule } from './lens'
+import type { DomainRisk, LensMode, SiteRule } from './lens'
 
 export const SETTINGS_SCHEMA_VERSION = 2
 
@@ -19,6 +19,8 @@ export interface LensSettings {
   languages: { primary: string; comfortable: string[] }
   /** Keyed by registrable domain. */
   sites: Record<string, SiteRule>
+  /** Per-site override of the high-stakes classification (hoot-lens.md §7.5). */
+  riskOverrides: Record<string, DomainRisk>
   retentionDays: RetentionDays
   coldStartDone: boolean
 }
@@ -50,6 +52,7 @@ export const DEFAULT_LENS_SETTINGS: LensSettings = {
   copyBehavior: 'original',
   languages: { primary: 'en', comfortable: [] },
   sites: {},
+  riskOverrides: {},
   retentionDays: 90,
   coldStartDone: false
 }
@@ -72,8 +75,11 @@ export const DEFAULT_SETTINGS: Settings = {
 }
 
 /** Lens settings a renderer or the extension may change; `null` deletes a site rule. */
-export type LensSettingsPatch = Partial<Omit<LensSettings, 'sites' | 'languages'>> & {
+export type LensSettingsPatch = Partial<
+  Omit<LensSettings, 'sites' | 'riskOverrides' | 'languages'>
+> & {
   sites?: Record<string, SiteRule | null>
+  riskOverrides?: Record<string, DomainRisk | null>
   languages?: Partial<LensSettings['languages']>
 }
 
