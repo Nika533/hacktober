@@ -27,6 +27,7 @@ import { applyAccent, applyTheme, type ThemePreference } from '../theme'
 import { BuddyDemo } from './BuddyDemo'
 import { ChatDemo } from './ChatDemo'
 import { OnboardingDemo } from './OnboardingDemo'
+import { ReadingDemo } from './ReadingDemo'
 import { SettingsDemo } from './SettingsDemo'
 import { ShortcutsDemo } from './ShortcutsDemo'
 import { StudioDemo } from './StudioDemo'
@@ -155,6 +156,10 @@ export function Gallery({
 
         <Section title="Studio settings" wide>
           <SettingsDemo />
+        </Section>
+
+        <Section title="Studio reading" wide>
+          <ReadingDemo />
         </Section>
 
         <Section title="Onboarding" wide>

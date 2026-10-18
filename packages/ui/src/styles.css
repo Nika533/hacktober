@@ -22,4 +22,5 @@
 @import './settings/settings.css';
 @import './onboarding/onboarding.css';
 @import './lens/lens.css';
+@import './lens/reading.css';
 @import './buddy/buddy.css';
