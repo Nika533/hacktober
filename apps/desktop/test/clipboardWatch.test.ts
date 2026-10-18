@@ -110,6 +110,57 @@ describe('createClipboardWatcher', () => {
     expect(watcher.take()).toBeNull()
   })
 
+  it('the chip is a toggle: arming an armed chip disarms it', async () => {
+    const store = makeStore()
+    const { watcher, setNext } = make(store, () => 'old', 'the copied text')
+    await watcher.init()
+    setNext('the copied text')
+    await watcher.onSummon()
+    await watcher.arm()
+    await watcher.arm()
+    expect(hint(store)).toEqual({ kind: 'text', chars: 15, selected: false })
+    expect(watcher.take()).toBeNull()
+  })
+
+  it('arming an image chip attaches the copied image and retires the chip', async () => {
+    const store = makeStore()
+    let probed: ClipboardProbe | null = null
+    const attached: string[] = []
+    const watcher = createClipboardWatcher({
+      store,
+      log,
+      probe: async () => probed,
+      attachImage: async () => {
+        attached.push('image')
+        return true
+      }
+    })
+    await watcher.init()
+    probed = { fp: { kind: 'image', hash: 'i:2x2:abc' }, hint: { kind: 'image' } }
+    await watcher.onSummon()
+    expect(hint(store)).toEqual({ kind: 'image' })
+    await watcher.arm()
+    expect(attached).toEqual(['image'])
+    expect(hint(store)).toBeNull()
+    expect(watcher.take()).toBeNull()
+  })
+
+  it("an image that can't be attached leaves the chip unarmed", async () => {
+    const store = makeStore()
+    let probed: ClipboardProbe | null = null
+    const watcher = createClipboardWatcher({
+      store,
+      log,
+      probe: async () => probed,
+      attachImage: async () => false
+    })
+    await watcher.init()
+    probed = { fp: { kind: 'image', hash: 'i:2x2:abc' }, hint: { kind: 'image' } }
+    await watcher.onSummon()
+    await watcher.arm()
+    expect(hint(store)).toEqual({ kind: 'image' })
+  })
+
   it('dismiss clears hint and selection', async () => {
     const store = makeStore()
     const { watcher, setNext } = make(store, () => 'old', 'text')
