@@ -31,6 +31,7 @@ const common = {
   sourcemap: watch ? 'inline' : false,
   minify: !watch,
   legalComments: 'none',
+  jsx: 'automatic',
   define: { __HOOT_E2E__: String(e2e) },
   logLevel: 'info',
   outdir
@@ -43,7 +44,7 @@ const builds = [
     ...common,
     entryPoints: {
       sw: join(root, 'src/sw.ts'),
-      options: join(root, 'src/options/index.ts'),
+      options: join(root, 'src/options/index.tsx'),
       viewer: join(root, 'src/viewer/index.ts')
     },
     format: 'esm'

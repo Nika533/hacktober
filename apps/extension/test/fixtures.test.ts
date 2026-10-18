@@ -106,6 +106,8 @@ describe('fixtures', () => {
 
   it('keeps the whitespace edge cases in the static article', () => {
     expect(article).toContain('The   <b>OLS</b>  estimator&nbsp;is')
-    expect(article).toMatch(/σ²ᵢ\t— not a constant σ²\.\n {2}Each observation {2}gets/)
+    expect(article.replace(/\r\n/g, '\n')).toMatch(
+      /σ²ᵢ\t— not a constant σ²\.\n {2}Each observation {2}gets/
+    )
   })
 })

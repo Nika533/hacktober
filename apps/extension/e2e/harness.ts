@@ -43,6 +43,9 @@ export async function open(page: Page, url: string): Promise<void> {
 export const ui = (page: Page, selector: string): Locator =>
   page.locator(`hoot-lens-ui ${selector}`)
 
+export const extensionUrl = (worker: Worker, path: string): string =>
+  `chrome-extension://${new URL(worker.url()).host}/${path}`
+
 export async function devLog(
   worker: Worker
 ): Promise<Array<{ kind: string; payload: { kind?: string } }>> {
