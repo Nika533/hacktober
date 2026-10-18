@@ -28,6 +28,7 @@ export type ContentMessage =
   | { type: 'lens.feedback'; event: LensEvent }
   | { type: 'lens.explain'; ctx: LensContext }
   | { type: 'lens.status' }
+  | { type: 'lens.pdf.native'; url: string }
 
 export interface ReplyValues {
   'lens.settings.get': LensSettings
@@ -39,6 +40,7 @@ export interface ReplyValues {
   'lens.feedback': null
   'lens.explain': null
   'lens.status': BridgeStatus
+  'lens.pdf.native': null
 }
 
 export type PushMessage =

@@ -4,6 +4,7 @@
  * `--watch` rebuilds on change.
  */
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as esbuild from 'esbuild'
@@ -13,10 +14,15 @@ const outdir = join(root, 'dist')
 const watch = process.argv.includes('--watch')
 const modeIndex = process.argv.indexOf('--mode')
 const e2e = modeIndex >= 0 && process.argv[modeIndex + 1] === 'e2e'
+const fromPdfView = createRequire(createRequire(import.meta.url).resolve('@hoot/pdf-view'))
+const pdfjs = dirname(fromPdfView.resolve('pdfjs-dist/package.json'))
 
 rmSync(outdir, { recursive: true, force: true })
 mkdirSync(outdir, { recursive: true })
 cpSync(join(root, 'static'), outdir, { recursive: true })
+cpSync(join(pdfjs, 'build/pdf.worker.min.mjs'), join(outdir, 'pdfjs/pdf.worker.min.mjs'))
+cpSync(join(pdfjs, 'standard_fonts'), join(outdir, 'pdfjs/standard_fonts'), { recursive: true })
+cpSync(join(pdfjs, 'cmaps'), join(outdir, 'pdfjs/cmaps'), { recursive: true })
 
 if (e2e) {
   const manifestPath = join(outdir, 'manifest.json')
@@ -45,7 +51,7 @@ const builds = [
     entryPoints: {
       sw: join(root, 'src/sw.ts'),
       options: join(root, 'src/options/index.tsx'),
-      viewer: join(root, 'src/viewer/index.ts')
+      viewer: join(root, 'src/viewer/index.tsx')
     },
     format: 'esm'
   }

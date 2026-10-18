@@ -17,7 +17,8 @@ export const ContentMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('lens.cancel'), reqId: IdSchema }),
   z.object({ type: z.literal('lens.feedback'), event: LensEventSchema }),
   z.object({ type: z.literal('lens.explain'), ctx: LensContextSchema }),
-  z.object({ type: z.literal('lens.status') })
+  z.object({ type: z.literal('lens.status') }),
+  z.object({ type: z.literal('lens.pdf.native'), url: z.string().url().max(4096) })
 ])
 
 export function parseContentMessage(raw: unknown): ContentMessage | null {
