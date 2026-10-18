@@ -27,17 +27,6 @@ export class AiOutputError extends Error {
   }
 }
 
-/** Finish reasons that mean the model refused to answer. */
-export const BLOCKED_FINISH_REASONS: ReadonlySet<string> = new Set([
-  'SAFETY',
-  'RECITATION',
-  'BLOCKLIST',
-  'PROHIBITED_CONTENT',
-  'SPII',
-  'IMAGE_SAFETY',
-  'IMAGE_PROHIBITED_CONTENT'
-])
-
 export function isAbortError(e: unknown): boolean {
   return (e as { name?: string })?.name === 'AbortError'
 }

@@ -63,7 +63,7 @@ export function createFakeProvider(opts: FakeProviderOptions = {}): AiProvider {
       return parsed.data
     },
     async validateKey(key) {
-      return key.startsWith('AIza')
+      return key.startsWith('sk-ant-')
     }
   }
 }

@@ -6,7 +6,7 @@ import { springs } from '../motion/springs'
 export interface SegmentedOption<T extends string> {
   value: T
   label: ReactNode
-  /** Secondary text inside the segment, e.g. 'paid tier'. */
+  /** Secondary text inside the segment, e.g. 'fastest'. */
   hint?: ReactNode
   disabled?: boolean
 }

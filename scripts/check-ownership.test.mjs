@@ -17,7 +17,7 @@ describe('globToRegExp', () => {
   it('lets the last matching pattern win', () => {
     const p = ['src/main/**', '!src/main/ai/**']
     expect(isAllowed('src/main/index.ts', p)).toBe(true)
-    expect(isAllowed('src/main/ai/gemini.ts', p)).toBe(false)
+    expect(isAllowed('src/main/ai/claude.ts', p)).toBe(false)
   })
 })
 
@@ -33,7 +33,7 @@ describe('ownership rules', () => {
 
   it('gives each builder its folders and nothing else', () => {
     expect(owns('d1', 'apps/desktop/src/main/windows/buddy.ts')).toBe(true)
-    expect(owns('d1', 'apps/desktop/src/main/ai/gemini.ts')).toBe(false)
+    expect(owns('d1', 'apps/desktop/src/main/ai/claude.ts')).toBe(false)
     expect(owns('d1', 'apps/desktop/src/main/context.ts')).toBe(true)
     expect(owns('d1', 'apps/desktop/src/renderer/buddy/Card.tsx')).toBe(false)
     expect(owns('d1', 'apps/desktop/src/renderer/studio/App.tsx')).toBe(false)

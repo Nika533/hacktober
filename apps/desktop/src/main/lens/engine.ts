@@ -271,8 +271,7 @@ export class LensEngine {
         try {
           output = await ask(model)
         } catch (e) {
-          // The strong model has the smaller quota (a free key gets few Flash
-          // requests a day); a fast-model rewrite beats none.
+          // The strong model hits its rate limit first; a fast-model rewrite beats none.
           const limited = e instanceof AiError && e.code === 'rate_limited'
           if (!limited || model === LENS_MODELS.rewriteFast) throw e
           output = await ask(LENS_MODELS.rewriteFast)

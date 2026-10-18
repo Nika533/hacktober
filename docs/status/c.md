@@ -4,7 +4,7 @@ Only C edits this file. Updated when plans or blockers change (AGENTS.md).
 
 ## Now
 
-- **Waiting on the Gemini key (#48)** for the live half of F-C3 (`npm run test:live`, G2 live
+- **Claude key in place (#48)** for the live half of F-C3 (`npm run test:live`, G2 live
   runs with `node scripts/gate-g2.mjs --live --runs 2`) and F-C4 (the eval report with
   `npm run eval`, and the §7.2 latency numbers from `test-live/latency.live.test.ts`).
 - In review: #96 (pins e2e), #98 (gate G2 script), #100 (AGENTS.md and CONTRACTS.md).
@@ -30,7 +30,7 @@ report blocked on #48 → F-C5 ✅ #52 → F-C6: README ✅ #53 #58, AGENTS/CONT
 
 ## Blocked on
 
-- #48: a Gemini key on C's machine (environment variable only).
+- Nothing: the Claude key is set (environment only).
 
 ## For d1: wiring chat, pins and the native host
 
@@ -109,4 +109,4 @@ settings reset the two can drift. Syncing once at packaged startup keeps them in
   `@hoot/lens-dom`, `@hoot/pdf-view`) are **not** listed in
   `apps/desktop/package.json`. Undeclared workspace names would make npm look
   them up on the public registry. Add them when the packages land.
-- Live Gemini tests (`npm run test:live`) haven't run: no key on the C machine.
+- Live Claude tests (`npm run test:live`) pass; G2 live passes on Claude.
