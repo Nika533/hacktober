@@ -2,7 +2,10 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
+  COLD_START_ASK_FIRST,
+  COLD_START_THRESHOLD,
   DEFAULT_LENS_SETTINGS,
+  DEFAULT_THRESHOLD,
   HOOT_API_ROUTES,
   type ExplainMoreMessage,
   type LensContext,
@@ -300,5 +303,75 @@ describe('learning from feedback (C-30)', () => {
     const familiarity = restarted.profileView().profile.topics['law']?.familiarity ?? 0
     expect(familiarity).toBeLessThan(0.95)
     expect(familiarity).toBeGreaterThan(0.5)
+  })
+})
+
+describe('LensService cold start (#59)', () => {
+  const coldService = async (
+    settings: () => LensSettings,
+    store: LensStorage = createMemoryLensStorage()
+  ): Promise<LensService> =>
+    createLensService({
+      storage: store,
+      getLensSettings: settings,
+      getProvider: async () => null,
+      fake: true
+    })
+
+  it('finishing the setup drops the cold-start premium and the Ask-first triggers', async () => {
+    let settings: LensSettings = { ...DEFAULT_LENS_SETTINGS, enabled: true, coldStartDone: false }
+    const s = await coldService(() => settings)
+    expect(s.snapshot()).toMatchObject({
+      threshold: COLD_START_THRESHOLD,
+      askFirstRemaining: COLD_START_ASK_FIRST
+    })
+    const pushed: number[] = []
+    s.onProfile((snap) => pushed.push(snap.askFirstRemaining))
+    const before = s.snapshot().version
+
+    settings = { ...settings, coldStartDone: true }
+    const view = await s.patchProfile({ style: { plainWords: true } })
+    expect(view.profile.threshold).toBeCloseTo(DEFAULT_THRESHOLD)
+    expect(view.profile.askFirstRemaining).toBe(0)
+    expect(view.profile.style.plainWords).toBe(true)
+    expect(view.profile.version).toBeGreaterThan(before)
+    expect(pushed).toContain(0)
+  })
+
+  it('keeps what feedback taught the threshold', async () => {
+    let settings: LensSettings = { ...DEFAULT_LENS_SETTINGS, enabled: true, coldStartDone: false }
+    const store = createMemoryLensStorage()
+    const first = await coldService(() => settings, store)
+    // Two "I knew this" during cold start: +0.03 each.
+    await first.feedback(event('knew_it', 'k1'))
+    await first.feedback(event('knew_it', 'k2'))
+    const learned = first.snapshot().threshold
+    expect(learned).toBeGreaterThan(COLD_START_THRESHOLD)
+
+    settings = { ...settings, coldStartDone: true }
+    expect(first.snapshot().threshold).toBeCloseTo(
+      learned - (COLD_START_THRESHOLD - DEFAULT_THRESHOLD)
+    )
+  })
+
+  it('finishes a profile still in cold start at launch, and leaves others alone', async () => {
+    const store = createMemoryLensStorage()
+    const cold = { ...DEFAULT_LENS_SETTINGS, enabled: true, coldStartDone: false }
+    await (await coldService(() => cold, store)).flush()
+
+    const done = { ...cold, coldStartDone: true }
+    const relaunched = await coldService(() => done, store)
+    expect(relaunched.snapshot()).toMatchObject({
+      threshold: DEFAULT_THRESHOLD,
+      askFirstRemaining: 0
+    })
+    await new Promise((r) => setTimeout(r, 0))
+    const saved = JSON.parse(store.files.get('profile.json') ?? '{}') as {
+      askFirstRemaining?: number
+    }
+    expect(saved.askFirstRemaining).toBe(0)
+
+    const stillCold = await coldService(() => cold, createMemoryLensStorage())
+    expect(stillCold.profileView().profile.askFirstRemaining).toBe(COLD_START_ASK_FIRST)
   })
 })

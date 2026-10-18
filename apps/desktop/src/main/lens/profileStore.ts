@@ -20,6 +20,7 @@ const FILE = 'profile.json'
  */
 export class ProfileStore {
   private listeners = new Set<(snapshot: ProfileSnapshot) => void>()
+  private writing: Promise<void> = Promise.resolve()
 
   private constructor(
     private storage: LensStorage,
@@ -66,7 +67,13 @@ export class ProfileStore {
     return next
   }
 
+  /**
+   * Writes run one at a time, each with the profile as it is then, so two
+   * quick changes can never leave the older one on disk.
+   */
   private save(): Promise<void> {
-    return this.storage.writeJson(FILE, this.profile)
+    const write = this.writing.then(() => this.storage.writeJson(FILE, this.profile))
+    this.writing = write.catch(() => undefined)
+    return write
   }
 }
