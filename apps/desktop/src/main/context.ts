@@ -1,6 +1,6 @@
 import { app, dialog, safeStorage, shell } from 'electron'
 import { randomBytes } from 'node:crypto'
-import { mkdir } from 'node:fs/promises'
+import { mkdir, readFile, stat } from 'node:fs/promises'
 import os from 'node:os'
 import { join } from 'node:path'
 import {
@@ -32,6 +32,7 @@ import { createFlushRegistry, type FlushRegistry } from './lifecycle'
 import { reconcileLoginItem } from './login'
 import { createLogger, type Logger } from './log'
 import { createNoteWindows, createPinsService, type NoteWindows, type PinsService } from './pins'
+import { createReaderService, type ReaderService } from './services/reader'
 import { createSecretStore, type SecretStore } from './secrets'
 import { createBroadcaster, sinkFor, type Broadcaster } from './store/broadcast'
 import { watchLensSettings } from './store/lensWatch'
@@ -43,6 +44,7 @@ import { readSystem, watchSystem } from './system'
 import { installTestHooks } from './testHooks'
 import { createTray, type TrayHandle } from './tray'
 import { createWindowRegistry, rendererUrlFor, type WindowRegistry } from './windows/base'
+import { createReaderWindow } from './windows/reader'
 import { createStudioWindow, type StudioWindow } from './windows/studio'
 
 export interface AppContext {
@@ -69,6 +71,7 @@ export interface AppContext {
   hotkeys: Hotkeys
   tray: TrayHandle
   clipboard: ClipboardWatcher
+  reader: ReaderService
   /**
    * Feature seams later PRs reassign (finish-plan §2): kept mutable on
    * purpose so late-landing features can re-point them.
@@ -86,6 +89,8 @@ export interface AppContext {
     takeClipboardSelection(): string | null
     /** Tray "Hide pinned notes". */
     setNotesVisible(visible: boolean): void
+    /** Open a file in the Reader (F-D1-6 drop, tray item). */
+    openInReader(path: string): void
   }
   /** Tray-resident app: closing all windows no longer quits. */
   keepAliveWithoutWindows: boolean
@@ -227,6 +232,8 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     onCapture: () => ctx.hooks.startCapture(),
     onToggleNotes: (hidden) => ctx.hooks.setNotesVisible(!hidden),
     onOpenStudio: () => studio.open(),
+    onOpenReader: () =>
+      void reader.pickFile().catch((e: unknown) => log.warn(`tray pickFile failed: ${String(e)}`)),
     onOpenSettings: () => studio.open('settings'),
     onQuit: () => app.quit()
   })
@@ -301,6 +308,16 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     }
   })
 
+  // The Reader window is lazy: it exists once a document or an explicit
+  // open asks for it, centred on the owl's display.
+  const reader = createReaderService({
+    window: createReaderWindow({ windows, log, anchor: () => ctx.hooks.buddyAnchor() }),
+    dialog,
+    readFile: async (p) => readFile(p),
+    stat: (p) => stat(p),
+    log
+  })
+
   const devPairingCode = process.env['HOOT_DEV_BRIDGE_CODE'] ?? randomBytes(4).toString('hex')
   const bridge = createBridgeServer({
     lens,
@@ -359,6 +376,7 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     hotkeys,
     tray,
     clipboard: clipboardWatcher,
+    reader,
     hooks: {
       explain(message) {
         ctx.hooks.showChatSurface()
@@ -375,7 +393,12 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
       },
       startCapture: () => void capture.start('lasso'),
       takeClipboardSelection: () => clipboardWatcher.take(),
-      setNotesVisible: (visible) => pins.setVisible(visible)
+      setNotesVisible: (visible) => pins.setVisible(visible),
+      openInReader(path) {
+        void reader
+          .openPath(path)
+          .catch((e: unknown) => log.warn(`openInReader failed: ${String(e)}`))
+      }
     },
     keepAliveWithoutWindows: true,
 
