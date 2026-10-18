@@ -120,6 +120,8 @@ function setup(
   }
   const clicked: Point[] = []
   let onClickListener: ((at: Point) => void) | null = null
+  let onTargetListener: (() => void) | null = null
+  let clock = 42
   let studioVisible = opts.studioVisible ?? false
   const studioOpen = vi.fn<(view?: string) => void>(() => {
     studioVisible = true
@@ -157,7 +159,14 @@ function setup(
     notify: noop,
     wait: async () => undefined,
     newId: () => `a${++ids}`,
-    now: () => 42,
+    now: () => clock,
+    targetPollMs: 0,
+    onTargetChange: (l) => {
+      onTargetListener = l
+      return () => {
+        if (onTargetListener === l) onTargetListener = null
+      }
+    },
     clickScreen: async (at) => {
       events.push('clickScreen')
       clicked.push(at)
@@ -191,7 +200,9 @@ function setup(
     deleted,
     clicked,
     emitScreenClick: (at: Point) => onClickListener?.(at),
-    watchingClicks: () => onClickListener !== null
+    watchingClicks: () => onClickListener !== null,
+    emitTargetChange: () => onTargetListener?.(),
+    tick: (ms: number) => void (clock += ms)
   }
 }
 
@@ -571,6 +582,65 @@ describe('live capture overlay', () => {
       await t.capture.commit({ kind: 'full' })
       expect(t.capture.getInit()?.code).toEqual({ name: 'hoot' })
       expect(await t.capture.attachLiveScreen()).toBe('[VS Code: now]')
+    })
+
+    it('minimizes when the user switches tabs or apps, and stays minimized when they come back', async () => {
+      let currentLock = 'page:1:10:chrome:tab 1'
+      const t = setup({
+        appAt: async () => ({ code: null, page: null, lock: currentLock })
+      })
+      await t.capture.start()
+      await t.capture.commit({ kind: 'rect', rect: { x: 10, y: 10, width: 40, height: 40 } })
+      expect(t.capture.isMinimized()).toBe(false)
+
+      // Same tab: stays open.
+      t.emitTargetChange()
+      await new Promise((r) => setTimeout(r, 0))
+      expect(t.capture.isMinimized()).toBe(false)
+
+      // User switches to another tab: minimizes into the owl.
+      currentLock = 'page:1:11:chrome:tab 2'
+      t.emitTargetChange()
+      await new Promise((r) => setTimeout(r, 0))
+      expect(t.capture.isMinimized()).toBe(true)
+
+      // User switches back to Tab 1: stays minimized until they reopen or draw anew.
+      currentLock = 'page:1:10:chrome:tab 1'
+      t.emitTargetChange()
+      await new Promise((r) => setTimeout(r, 0))
+      expect(t.capture.isMinimized()).toBe(true)
+
+      // User explicitly reopens from the owl: stays open on Tab 1, minimizes on the next switch.
+      expect(t.capture.restore()).toBe(true)
+      await new Promise((r) => setTimeout(r, 0))
+      expect(t.capture.isMinimized()).toBe(false)
+      currentLock = 'win:code:main.cpp'
+      t.emitTargetChange()
+      await new Promise((r) => setTimeout(r, 0))
+      expect(t.capture.isMinimized()).toBe(true)
+    })
+
+    it('re-locks instead of minimizing when Hoot’s own click changes the window title', async () => {
+      let currentLock = 'win:chrome:step 1'
+      const t = setup({
+        appAt: async () => ({ code: null, page: null, lock: currentLock })
+      })
+      await t.capture.start()
+      await t.capture.commit({ kind: 'full' })
+      await t.capture.click({ x: 100, y: 100 })
+
+      // Title changed right after Hoot's own click: re-locks, stays open.
+      currentLock = 'win:chrome:step 2'
+      t.emitTargetChange()
+      await new Promise((r) => setTimeout(r, 0))
+      expect(t.capture.isMinimized()).toBe(false)
+
+      // After the grace window, a user tab switch minimizes as usual.
+      t.tick(5000)
+      currentLock = 'win:chrome:other tab'
+      t.emitTargetChange()
+      await new Promise((r) => setTimeout(r, 0))
+      expect(t.capture.isMinimized()).toBe(true)
     })
   })
 

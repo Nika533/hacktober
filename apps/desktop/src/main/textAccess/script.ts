@@ -218,7 +218,8 @@ if(-not $res.hit -and @($hs|Where-Object{[HT]::Cls($_) -like 'Chrome_WidgetWin*'
 @{items=$res.items;nodes=$res.nodes}
 }
 function Wat($q){
-$h=[HT]::Target([int]$q.x,[int]$q.y,[uint32]$q.excludePid)
+$fg=[HT]::GetForegroundWindow();$fp=[HT]::Pid($fg);$ft=if($fp -ne [uint32]$q.excludePid){[HT]::Title($fg)}else{''}
+$h=if($ft){$fg}else{[HT]::Target([int]$q.x,[int]$q.y,[uint32]$q.excludePid)}
 if($h -eq [IntPtr]::Zero){return @{found=$false}}
 $p=[HT]::Pid($h);@{found=$true;process=(Pn $p);title=[HT]::Title($h)}
 }

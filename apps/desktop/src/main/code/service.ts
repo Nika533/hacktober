@@ -61,6 +61,8 @@ export interface CodeService {
    * window with the Hoot extension.
    */
   windowFor(app: { process: string; title: string } | null): CodeWindowInfo | null
+  /** The focused file path in `windowId`, or null when no file is focused there. */
+  focusedFile(windowId: string): string | null
   /**
    * The window the owl and Studio chat read: the one this chat already reads,
    * else the focused one, else the one the user left less than `recentMs` ago.
@@ -328,6 +330,10 @@ export function createCodeService(deps: CodeServiceDeps): CodeService {
         [...pool].sort((a, b) => Number(b.focused) - Number(a.focused) || b.focusAt - a.focusAt)[0]
           ?.window ?? null
       )
+    },
+
+    focusedFile(windowId) {
+      return peerById(windowId)?.file?.path ?? null
     },
 
     chatWindow: () => owl.chatWindow(),

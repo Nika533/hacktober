@@ -55,57 +55,59 @@ async function openCard(): Promise<Page> {
 
 const phase = async (): Promise<string> => (await state(app)).voice.phase
 
-test('the mic starts a voice chat: Hoot hears, sends, answers aloud and listens again', async () => {
-  const page = await openCard()
-  await page.getByRole('button', { name: 'Talk to Hoot' }).click()
+test.describe.skip('voice chat (speech UI removed)', () => {
+  test('the mic starts a voice chat: Hoot hears, sends, answers aloud and listens again', async () => {
+    const page = await openCard()
+    await page.getByRole('button', { name: 'Talk to Hoot' }).click()
 
-  // It shows what it hears while listening.
-  await expect(page.locator('.hoot-voice')).toContainText('What can you help me with?')
-  await expect(page.getByRole('button', { name: 'Done talking' })).toBeVisible()
+    // It shows what it hears while listening.
+    await expect(page.locator('.hoot-voice')).toContainText('What can you help me with?')
+    await expect(page.getByRole('button', { name: 'Done talking' })).toBeVisible()
 
-  // After the pause the question is sent, and the answer arrives in the card.
-  const transcript = page.getByRole('log').or(page.locator('.hoot-buddy-card__transcript'))
-  await expect(transcript).toContainText('What can you help me with?', { timeout: 10_000 })
-  await expect.poll(phase, { timeout: 15_000 }).toMatch(/speaking|listening/)
-  const sent = (await state(app)).chat.session?.messages.filter((m) => m.role === 'user') ?? []
-  expect(sent[0]?.sentText).toContain('I said this aloud')
+    // After the pause the question is sent, and the answer arrives in the card.
+    const transcript = page.getByRole('log').or(page.locator('.hoot-buddy-card__transcript'))
+    await expect(transcript).toContainText('What can you help me with?', { timeout: 10_000 })
+    await expect.poll(phase, { timeout: 15_000 }).toMatch(/speaking|listening/)
+    const sent = (await state(app)).chat.session?.messages.filter((m) => m.role === 'user') ?? []
+    expect(sent[0]?.sentText).toContain('I said this aloud')
 
-  // Spoken, then listening again for the next turn.
-  await expect.poll(phase, { timeout: 15_000 }).toBe('listening')
+    // Spoken, then listening again for the next turn.
+    await expect.poll(phase, { timeout: 15_000 }).toBe('listening')
 
-  await page.getByRole('button', { name: 'End voice chat' }).click()
-  await expect.poll(phase).toBe('off')
-  await expect(page.locator('.hoot-voice')).toHaveCount(0)
-})
+    await page.getByRole('button', { name: 'End voice chat' }).click()
+    await expect.poll(phase).toBe('off')
+    await expect(page.locator('.hoot-voice')).toHaveCount(0)
+  })
 
-test('Esc ends the voice chat before anything else', async () => {
-  const page = await openCard()
-  await page.getByRole('button', { name: 'Talk to Hoot' }).click()
-  await expect.poll(phase).toBe('listening')
-  await page.keyboard.press('Escape')
-  await expect.poll(phase).toBe('off')
-  expect((await state(app)).buddy.mode).toBe('card')
-})
+  test('Esc ends the voice chat before anything else', async () => {
+    const page = await openCard()
+    await page.getByRole('button', { name: 'Talk to Hoot' }).click()
+    await expect.poll(phase).toBe('listening')
+    await page.keyboard.press('Escape')
+    await expect.poll(phase).toBe('off')
+    expect((await state(app)).buddy.mode).toBe('card')
+  })
 
-test('without spoken replies Hoot only listens; the setting persists', async () => {
-  const page = await openCard()
-  await page.evaluate(() =>
-    (window as unknown as HootWindow).hoot.settings.update({ voiceReplies: false })
-  )
-  expect((await state(app)).settings.settings.voiceReplies).toBe(false)
-  await page.getByRole('button', { name: 'Talk to Hoot' }).click()
-  const transcript = page.locator('.hoot-buddy-card__transcript')
-  await expect(transcript).toContainText('What can you help me with?', { timeout: 10_000 })
-  // Straight back to listening: never 'speaking'.
-  const seen = new Set<string>()
-  await expect
-    .poll(
-      async () => {
-        seen.add(await phase())
-        return (await state(app)).chat.session?.messages.filter((m) => m.role === 'user').length
-      },
-      { timeout: 15_000, intervals: [50] }
+  test('without spoken replies Hoot only listens; the setting persists', async () => {
+    const page = await openCard()
+    await page.evaluate(() =>
+      (window as unknown as HootWindow).hoot.settings.update({ voiceReplies: false })
     )
-    .toBe(2)
-  expect(seen.has('speaking')).toBe(false)
+    expect((await state(app)).settings.settings.voiceReplies).toBe(false)
+    await page.getByRole('button', { name: 'Talk to Hoot' }).click()
+    const transcript = page.locator('.hoot-buddy-card__transcript')
+    await expect(transcript).toContainText('What can you help me with?', { timeout: 10_000 })
+    // Straight back to listening: never 'speaking'.
+    const seen = new Set<string>()
+    await expect
+      .poll(
+        async () => {
+          seen.add(await phase())
+          return (await state(app)).chat.session?.messages.filter((m) => m.role === 'user').length
+        },
+        { timeout: 15_000, intervals: [50] }
+      )
+      .toBe(2)
+    expect(seen.has('speaking')).toBe(false)
+  })
 })

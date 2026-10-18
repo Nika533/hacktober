@@ -38,6 +38,10 @@ export const EXCLUDE_SETTLE_MS = 30
 export const REGION_TEXT_WAIT_MS = 1500
 /** Live mode: the longest a send waits for a shape still being saved. */
 export const COMMIT_WAIT_MS = 3000
+/** Live mode: how often Hoot checks whether the user switched away from the shape's app or tab. */
+export const TARGET_POLL_MS = 350
+/** A click Hoot made itself ("Click for me") may change the window title within this window. */
+const HOOT_CLICK_GRACE_MS = 2000
 
 export const COPY = {
   full: 'Up to 4 captures per message. Send this one first, or remove a capture.',
@@ -118,6 +122,13 @@ export interface CaptureDeps {
   browserPage?(): { id: number; title: string } | null
   /** Live mode: the page note for that browser's next message; null when it didn't answer. */
   pageNote?(peerId: number): Promise<string | null>
+  /**
+   * Live mode: called when the focused editor file or browser tab changes, so
+   * the overlay checks whether the user left the shape's app or tab right away.
+   */
+  onTargetChange?(listener: () => void): Unsubscribe
+  /** How often live mode polls `appAt` for an app/tab switch (ms; 0 = only on `onTargetChange`). */
+  targetPollMs?: number
   /** Seams for tests; the defaults use Electron. */
   grabber?: ScreenGrabber
   overlay?: OverlayHost
@@ -169,6 +180,8 @@ export interface CaptureService {
 export interface ShapeApp {
   code: CodeWindowInfo | null
   page: { id: number; title: string } | null
+  /** Which app and tab the shape is on; when it changes, the overlay minimizes into the owl. */
+  lock?: string | null
 }
 
 const NOTHING: ShapeApp = { code: null, page: null }
@@ -184,6 +197,10 @@ interface Open {
   regionText: Promise<string | null> | null
   /** Live mode: what the chat is about, in display DIP; null for the whole screen. */
   focus: Rect | null
+  /** Live mode: where the committed shape sits on screen (screen DIP); null before a commit. */
+  onScreen: Rect | null
+  /** Live mode: the app/tab the committed shape is locked to; null while unlocked. */
+  lock: string | null
   /** Live mode: the VS Code window Hoot reads instead of the screen; null when there's none. */
   code: CodeWindowInfo | null
   /** Live mode: the browser whose page goes along with the screen; null when there's none. */
@@ -254,6 +271,11 @@ export function createCaptureService(deps: CaptureDeps): CaptureService {
   /** Grabs in flight that need the overlay out of the picture (they can overlap). */
   let excluding = 0
   let unwatchClicks: Unsubscribe | null = null
+  let unwatchTarget: Unsubscribe | null = null
+  let targetTimer: ReturnType<typeof setInterval> | null = null
+  let checkingTarget = false
+  let hootClickUntil = -Infinity
+  const targetPollMs = deps.targetPollMs ?? TARGET_POLL_MS
   /** Attachments the live overlay added, dropped on close if still unsent. */
   const liveIds = new Set<string>()
   const exclude = deps.excludeFromGrabs ?? true
@@ -311,11 +333,62 @@ export function createCaptureService(deps: CaptureDeps): CaptureService {
     return { studio: null }
   }
 
+  const stopTargetWatch = (): void => {
+    unwatchTarget?.()
+    unwatchTarget = null
+    if (targetTimer !== null) clearInterval(targetTimer)
+    targetTimer = null
+  }
+
+  /**
+   * Each committed shape stays locked to its app and tab: when the user
+   * switches to another tab or app, the overlay minimizes into the owl (and
+   * stays minimized when they come back, until they reopen it or draw anew).
+   */
+  const checkTarget = async (): Promise<void> => {
+    const current = open
+    if (checkingTarget || !live || !current || minimized || !current.onScreen || !current.lock) {
+      return
+    }
+    const locked = current.lock
+    checkingTarget = true
+    try {
+      const next = await deps.appAt?.(current.onScreen).catch(() => undefined)
+      if (
+        open !== current ||
+        minimized ||
+        current.lock !== locked ||
+        !next?.lock ||
+        next.lock === locked
+      ) {
+        return
+      }
+      if (attachmentDeps.now() <= hootClickUntil) {
+        current.lock = next.lock
+        return
+      }
+      void service.minimize()
+    } finally {
+      checkingTarget = false
+    }
+  }
+
+  const startTargetWatch = (): void => {
+    stopTargetWatch()
+    if (!live || !open?.lock) return
+    unwatchTarget = deps.onTargetChange?.(() => void checkTarget()) ?? null
+    if (targetPollMs > 0) {
+      targetTimer = setInterval(() => void checkTarget(), targetPollMs)
+      targetTimer.unref?.()
+    }
+  }
+
   const finish = (added: boolean): void => {
     open = null
     minimized = false
     unwatchClicks?.()
     unwatchClicks = null
+    stopTargetWatch()
     overlay.hide()
     if (live) {
       // The chat happened in the overlay: no card, but put back what was hidden,
@@ -348,12 +421,19 @@ export function createCaptureService(deps: CaptureDeps): CaptureService {
       if (!dip) return
       current.focus = commit.kind === 'full' ? null : dip
       const onScreen = { ...dip, x: bounds.x + dip.x, y: bounds.y + dip.y }
+      current.onScreen = onScreen
+      current.lock = null
+      stopTargetWatch()
       // A shape is about the app it was drawn on: the user may have moved to
       // VS Code (or away from it) since the overlay opened.
       await current.reading
       const app = await deps.appAt?.(onScreen).catch(() => undefined)
       if (open !== current) return
-      if (app) readFrom(current, app)
+      if (app) {
+        readFrom(current, app)
+        current.lock = app.lock ?? null
+        startTargetWatch()
+      }
       // Read alongside the save; the first send waits for it (briefly). The
       // code note already carries the whole file, so the whole screen's text
       // would only repeat it.
@@ -454,6 +534,8 @@ export function createCaptureService(deps: CaptureDeps): CaptureService {
           fresh: true,
           regionText: null,
           focus: null,
+          onScreen: null,
+          lock: null,
           code,
           page,
           reading: Promise.resolve(),
@@ -483,6 +565,7 @@ export function createCaptureService(deps: CaptureDeps): CaptureService {
             const local = { x: at.x - b.x, y: at.y - b.y }
             if (local.x < 0 || local.y < 0 || local.x >= b.width || local.y >= b.height) return
             overlay.userClicked?.(local)
+            if (open.lock) void wait(120).then(() => checkTarget())
           })
         }
       } catch (e) {
@@ -535,6 +618,7 @@ export function createCaptureService(deps: CaptureDeps): CaptureService {
       // The user's cursor was on the chat ("Click for me"), so the overlay was
       // taking clicks; let it pass through before the pointer moves and clicks.
       overlay.passThrough?.()
+      hootClickUntil = attachmentDeps.now() + HOOT_CLICK_GRACE_MS
       const { bounds } = current.grab.display
       const x = Math.min(Math.max(0, at.x), bounds.width - 1)
       const y = Math.min(Math.max(0, at.y), bounds.height - 1)
@@ -544,6 +628,7 @@ export function createCaptureService(deps: CaptureDeps): CaptureService {
     async minimize() {
       if (!live || !open || minimized) return
       minimized = true
+      stopTargetWatch()
       overlay.minimize?.()
       if (surfaces?.minimize) surfaces.minimize()
       else surfaces?.restore(false)
@@ -553,6 +638,21 @@ export function createCaptureService(deps: CaptureDeps): CaptureService {
       const current = open
       if (!minimized || !current) return false
       minimized = false
+      if (draw) {
+        current.onScreen = null
+        current.lock = null
+        stopTargetWatch()
+      } else if (current.onScreen && deps.appAt) {
+        current.lock = null
+        void deps
+          .appAt(current.onScreen)
+          .then((app) => {
+            if (open !== current || minimized) return
+            current.lock = app?.lock ?? null
+            startTargetWatch()
+          })
+          .catch(() => undefined)
+      }
       if (surfaces?.unminimize) surfaces.unminimize()
       else void surfaces?.hide()
       overlay.restore?.({ owlAt: owlOn(current.grab.display.bounds), draw })

@@ -21,10 +21,7 @@ import {
   Markdown,
   Segmented,
   useHootState,
-  useReducedMotion,
-  VoiceButton,
-  VoiceStatus,
-  type VoiceControls
+  useReducedMotion
 } from '@hoot/ui'
 import { parseCodeAnswer } from '@hoot/core/code'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -56,8 +53,8 @@ import { createPanelMotion, growFrom, shrinkInto, type Frame, type PanelMotion }
 import { paint, type ScreenMark } from './paint'
 import { bounds, commitFor, rectBetween, type Shape } from './shape'
 
-/** The chat (and voice) slices too: the live overlay shows the conversation about what was circled. */
-const SLICES: readonly SliceName[] = ['system', 'chat', 'voice']
+/** The chat slice too: the live overlay shows the conversation about what was circled. */
+const SLICES: readonly SliceName[] = ['system', 'chat']
 const MAX_PENDING = 4
 /** The glass chat box (DIP); the height is the most it grows to. */
 const CHAT_BOX = { width: 380, height: 440 }
@@ -339,6 +336,17 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
   // Main sends open/closed around each capture; the init is pulled, and also
   // on load, in case the window loaded after the open event.
   useEffect(() => {
+    const onVisibility = (): void => {
+      if (document.hidden) {
+        setMinimized(true)
+        setAutoClick(false)
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
+
+  useEffect(() => {
     if (!hoot) return
     const reset = (): void => {
       gesture.current = null
@@ -434,15 +442,6 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
         streaming: answering
       }),
     [parsed.text, answering]
-  )
-  const voice = state?.voice
-  const talk: VoiceControls = useMemo(
-    () => ({
-      start: () => void hoot?.voice.start().catch(() => undefined),
-      finish: () => void hoot?.voice.finish().catch(() => undefined),
-      stop: () => void hoot?.voice.stop().catch(() => undefined)
-    }),
-    [hoot]
   )
 
   const marks = useMemo((): ScreenMark[] => {
@@ -1255,7 +1254,6 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
               </button>
             ))}
           </div>
-          {voice && <VoiceStatus voice={voice} controls={talk} className="capture__voice" />}
           <form
             className="capture__composer"
             onSubmit={(e) => {
@@ -1278,9 +1276,6 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
                 }
               }}
             />
-            {voice && (
-              <VoiceButton voice={voice} controls={talk} size="md" className="capture__voice-btn" />
-            )}
             {streaming ? (
               <button
                 type="button"

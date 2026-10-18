@@ -180,7 +180,7 @@ export function PopupApp({
           }}
         />
         <div className="hoot-popup__actions">
-          {recognizer ? (
+          {recognizer && (
             <IconButton
               label={isListening ? 'Done talking' : 'Ask by voice'}
               variant={isListening ? 'accent' : 'ghost'}
@@ -193,8 +193,6 @@ export function PopupApp({
             >
               <Mic />
             </IconButton>
-          ) : (
-            <span className="hoot-popup__hint">Voice isn’t available in this browser.</span>
           )}
           <IconButton
             type="submit"

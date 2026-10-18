@@ -78,7 +78,7 @@ describe('the popup', () => {
     const { host, sent } = fakeHost()
     const view = await mount(host, null)
     expect(view.textContent).toContain('Example page')
-    expect(view.textContent).toContain('Voice isn’t available in this browser.')
+    expect(view.querySelector('.hoot-popup__mic')).toBeNull()
     const input = view.querySelector('textarea')!
     await act(async () => {
       const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!

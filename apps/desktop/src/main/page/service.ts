@@ -66,6 +66,8 @@ export interface PageService {
    */
   note(peerId: number): Promise<string | null>
   status(): { browsers: number; focused: PageInfo | null }
+  /** Browser focus or the front tab changed. */
+  onChange(listener: () => void): Unsubscribe
 }
 
 export const PAGE_RECENT_MS = 2 * 60_000
@@ -102,6 +104,7 @@ export function createPageService(deps: PageServiceDeps): PageService {
   const recentMs = deps.recentMs ?? PAGE_RECENT_MS
   const readTimeoutMs = deps.readTimeoutMs ?? PAGE_READ_TIMEOUT_MS
   const peers = new Map<number, Peer>()
+  const listeners = new Set<() => void>()
   let nextId = 1
   let reading: Reading | null = null
   let stream = store.get('chat').stream
@@ -111,6 +114,9 @@ export function createPageService(deps: PageServiceDeps): PageService {
   const clearMarks = (r: Reading): void => {
     if (r.marked) peers.get(r.peerId)?.conn.mark(r.tab, [])
     r.marked = false
+  }
+  const emit = (): void => {
+    for (const listener of [...listeners]) listener()
   }
 
   /** Read `snapshot` into a note for the active chat, and remember what it showed. */
@@ -193,10 +199,12 @@ export function createPageService(deps: PageServiceDeps): PageService {
           peer.focused = focused
           // null: the extension's page link is off (or no tab): don't read this browser.
           peer.page = page
+          emit()
         },
         async ask(text, voice, snapshot) {
           if (snapshot) {
             peer.page = { tab: snapshot.tab, url: snapshot.url, title: snapshot.title }
+            emit()
           }
           const sid = store.get('chat').session?.id ?? null
           const sameChat =
@@ -218,6 +226,7 @@ export function createPageService(deps: PageServiceDeps): PageService {
         disconnect() {
           peers.delete(peer.id)
           if (reading?.peerId === peer.id) reading = null
+          emit()
         }
       }
     },
@@ -266,6 +275,11 @@ export function createPageService(deps: PageServiceDeps): PageService {
       const list = [...peers.values()].filter(withPage)
       const focused = list.find((p) => p.focused)
       return { browsers: list.length, focused: focused?.page ?? null }
+    },
+
+    onChange(listener) {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
     }
   }
 }

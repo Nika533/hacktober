@@ -31,10 +31,7 @@ import {
   toMessageViews,
   useHootState,
   useLensPages,
-  useToast,
-  VoiceButton,
-  VoiceStatus,
-  type VoiceControls
+  useToast
 } from '@hoot/ui'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 
@@ -104,14 +101,6 @@ function Studio({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
   )
   const shownView = state?.studio?.view
   const lensPages = useLensPages(hoot?.lens, shownView === 'profile' || shownView === 'glossary')
-  const talk: VoiceControls = useMemo(
-    () => ({
-      start: () => run((h) => h.voice.start()),
-      finish: () => run((h) => h.voice.finish()),
-      stop: () => run((h) => h.voice.stop())
-    }),
-    [run]
-  )
 
   if (!state?.studio || !state.chat || !state.sessions || !state.settings) {
     return <Connecting failed={error !== null} />
@@ -119,7 +108,6 @@ function Studio({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
 
   const view: StudioView = state.studio.view
   const hint = state.chat.clipboardHint
-  const voice = state.voice
   const settings = state.settings.settings
   const hotkeyErrors = hotkeyErrorsByShortcut(state.settings.hotkeyErrors)
   const saveKey = (key: string): Promise<ApiKeyResult> =>
@@ -179,7 +167,6 @@ function Studio({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
           onNewAgent={() => run((h) => h.agents.create())}
           onLock={() => run((h) => h.windows.lockStudio())}
           onPin={(id) => run((h) => h.pins.create(id))}
-          onSpeak={(id) => run((h) => h.voice.speak(id))}
           onCopy={(text) => run((h) => h.clipboard.writeText(text))}
           onOpenLink={(href) => run((h) => h.app.openExternal(href))}
           onAddKey={() => run((h) => h.windows.openStudio('settings'))}
@@ -190,10 +177,8 @@ function Studio({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
               ? () => run((h) => h.chat.send({ quickAction: 'explain' }))
               : undefined
           }
-          composerActions={voice && <VoiceButton voice={voice} controls={talk} />}
           composerTop={
             <>
-              {voice && <VoiceStatus voice={voice} controls={talk} />}
               {hint && (
                 <ClipboardChip
                   kind={hint.kind}

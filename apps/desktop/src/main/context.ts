@@ -80,7 +80,6 @@ import { createTextAccess, type TextAccess } from './textAccess'
 import {
   createFakeSpeechEngine,
   createVoiceService,
-  createWindowsSpeechEngine,
   unavailableEngine,
   type VoiceService
 } from './voice'
@@ -93,6 +92,14 @@ const BROWSER_PROCESS = /^(chrome|msedge|brave|vivaldi|opera|chromium)$/i
 
 const within = <T>(p: Promise<T | null>, ms: number): Promise<T | null> =>
   Promise.race([p, new Promise<null>((resolve) => setTimeout(resolve, ms, null))])
+
+/** Normalized window title so a dirty dot ("● ") or tab badge ("(2) ") doesn't count as a new tab. */
+const normTitle = (title: string): string =>
+  title
+    .replace(/^[●•*]\s+/, '')
+    .replace(/^\(\d+\)\s+/, '')
+    .trim()
+    .toLowerCase()
 
 export interface AppContext {
   env: AppEnv
@@ -275,17 +282,15 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
   const pages = createPageService({
     store,
     log,
-    onAsk: async ({ text, voice: spoken, sameChat, note }) => {
+    onAsk: async ({ text, sameChat, note }) => {
       if (!sameChat) {
         await chat.stop()
         clipboardWatcher.dismiss()
         await chat.newChat()
       }
       ctx.hooks.showChatSurface()
-      const replies = store.get('settings').settings.voiceReplies
-      const notes = [note(), spoken ? voiceNote(replies) : null].filter((n) => n !== null)
+      const notes = [note()].filter((n) => n !== null)
       await chat.send({ text }, { context: false, notes })
-      if (spoken) voice.answerAloud()
     }
   })
   flush.add('pages', async () => pages.stop())
@@ -434,16 +439,10 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
   })
   flush.add('chat', () => chat.flush())
 
-  // Voice chats: Windows speech (System.Speech through a PowerShell helper),
-  // the scripted fake under HOOT_FAKE_VOICE, nothing in e2e runs.
   const voice = createVoiceService({
     store,
     log,
-    engine: env.fakeVoice
-      ? createFakeSpeechEngine()
-      : !env.test && process.platform === 'win32'
-        ? createWindowsSpeechEngine({ log })
-        : unavailableEngine,
+    engine: env.fakeVoice ? createFakeSpeechEngine() : unavailableEngine,
     send: (text) =>
       chat.send({ text }, { notes: [voiceNote(store.get('settings').settings.voiceReplies)] }),
     stopAnswer: () => chat.stop()
@@ -538,21 +537,36 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     codeWindow: async () =>
       code.focusedWindow(CODE_FOCUS_GRACE_MS) ??
       code.windowFor(await within(textAccess.foreground(), APP_PROBE_MS)),
-    // Each shape reads the app it was drawn on: the window under its centre.
+    // Each shape reads (and locks to) the app and tab it was drawn on:
+    // switching to another tab or app minimizes the overlay into the owl.
     appAt: async (region) => {
       const app = await within(
         textAccess.windowAt({ x: region.x + region.width / 2, y: region.y + region.height / 2 }),
         APP_PROBE_MS
       )
       if (!app) return undefined
+      const base = `${app.process.toLowerCase()}:${normTitle(app.title)}`
       const window = code.windowFor(app)
-      if (window) return { code: window, page: null }
+      if (window) {
+        const file = code.focusedFile(window.id)
+        return { code: window, page: null, lock: `code:${window.id}:${file ?? base}` }
+      }
       const browser = BROWSER_PROCESS.test(app.process)
         ? pages.activePeer(Number.POSITIVE_INFINITY)
         : null
+      const page = browser?.page ?? null
       return {
         code: null,
-        page: browser?.page ? { id: browser.id, title: browser.page.title } : null
+        page: page ? { id: browser!.id, title: page.title } : null,
+        lock: page ? `page:${browser!.id}:${page.tab}:${base}` : `win:${base}`
+      }
+    },
+    onTargetChange: (listener) => {
+      const offCode = code.onChange(listener)
+      const offPage = pages.onChange(listener)
+      return () => {
+        offCode()
+        offPage()
       }
     },
     codeNote: (id) => code.note(id),

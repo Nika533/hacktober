@@ -1,4 +1,4 @@
-import { VOICE_OFF, type Greeting, type ModeLayout, type StateSlices } from '@hoot/core'
+import { type Greeting, type ModeLayout, type StateSlices } from '@hoot/core'
 import { Bot, Maximize2, PencilLine, Plus, X } from 'lucide-react'
 import { useId, useMemo } from 'react'
 import { AttachmentsRow } from '../chat/AttachmentsRow'
@@ -7,7 +7,6 @@ import { codeChangesFor } from '../chat/codeChangesFor'
 import { Composer } from '../chat/Composer'
 import { QuickChips } from '../chat/QuickChips'
 import { Transcript } from '../chat/Transcript'
-import { VoiceButton, VoiceStatus, type VoiceControls } from '../chat/Voice'
 import { QUICK_ACTION_CHIPS, toAttachmentViews, toMessageViews } from '../chat/views'
 import { Chip } from '../components/Chip'
 import { IconButton } from '../components/IconButton'
@@ -35,7 +34,6 @@ export function BuddyCard({
   host,
   layout,
   chat,
-  voice = VOICE_OFF,
   greeting,
   captureShortcut,
   composerSeed,
@@ -43,14 +41,6 @@ export function BuddyCard({
   onComposerEmpty
 }: BuddyCardProps): React.JSX.Element {
   const titleId = useId()
-  const talk: VoiceControls = useMemo(
-    () => ({
-      start: () => fire(host.voice.start()),
-      finish: () => fire(host.voice.finish()),
-      stop: () => fire(host.voice.stop())
-    }),
-    [host]
-  )
   const session = chat.session
   const messages = useMemo(() => toMessageViews(session), [session])
   const pending = useMemo(
@@ -105,7 +95,6 @@ export function BuddyCard({
         className="hoot-buddy-card__transcript"
         onRegenerate={() => fire(host.chat.regenerate())}
         onPin={(id) => fire(host.pins.create(id))}
-        onSpeak={(id) => fire(host.voice.speak(id))}
         onCopy={(text) => host.clipboard.writeText(text)}
         onOpenLink={(href) => fire(host.app.openExternal(href))}
         onAddKey={() => fire(host.windows.openStudio('settings'))}
@@ -139,7 +128,6 @@ export function BuddyCard({
       />
 
       <div className="hoot-buddy-card__bottom">
-        <VoiceStatus voice={voice} controls={talk} />
         {hint && (
           <ClipboardChip
             kind={hint.kind}
@@ -176,17 +164,14 @@ export function BuddyCard({
           onFocusChange={onComposerFocus}
           onEmptyChange={onComposerEmpty}
           actions={
-            <>
-              <VoiceButton voice={voice} controls={talk} />
-              <IconButton
-                label="Circle anything"
-                shortcut={captureShortcut}
-                size="sm"
-                onClick={() => fire(host.capture.start())}
-              >
-                <PencilLine />
-              </IconButton>
-            </>
+            <IconButton
+              label="Circle anything"
+              shortcut={captureShortcut}
+              size="sm"
+              onClick={() => fire(host.capture.start())}
+            >
+              <PencilLine />
+            </IconButton>
           }
         />
       </div>
