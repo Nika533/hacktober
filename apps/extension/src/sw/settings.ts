@@ -15,6 +15,16 @@ export interface SettingsStore {
   replace(lens: LensSettings): Promise<void>
 }
 
+/** Runs each piece of work after the previous one has finished, failed or not. */
+export function createSerial(): <T>(work: () => Promise<T>) => Promise<T> {
+  let queue: Promise<unknown> = Promise.resolve()
+  return (work) => {
+    const run = queue.then(work)
+    queue = run.catch(() => undefined)
+    return run
+  }
+}
+
 export function createSettingsStore(area: StorageArea, defaults: LensSettings): SettingsStore {
   async function get(): Promise<LensSettings> {
     const stored = (await area.get(SETTINGS_KEY))[SETTINGS_KEY]
@@ -23,12 +33,7 @@ export function createSettingsStore(area: StorageArea, defaults: LensSettings): 
     return parsed.success ? parsed.data : migrateSettings({ lens: stored }).lens
   }
 
-  let queue: Promise<unknown> = Promise.resolve()
-  const serial = <T>(work: () => Promise<T>): Promise<T> => {
-    const run = queue.then(work)
-    queue = run.catch(() => undefined)
-    return run
-  }
+  const serial = createSerial()
 
   return {
     get,

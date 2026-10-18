@@ -7,7 +7,7 @@ import {
 import { LensSettingsPatchSchema, ProfileSnapshotSchema } from '@hoot/core/schemas'
 import type { BridgeStatus } from '../messages'
 import type { BridgeClient } from './bridge'
-import type { SettingsStore, StorageArea } from './settings'
+import { createSerial, type SettingsStore, type StorageArea } from './settings'
 
 export const UNSYNCED_KEY = 'lens.settings.unsynced'
 export const PROFILE_KEY = 'lens.profile'
@@ -54,25 +54,29 @@ export function createLensSync(options: LensSyncOptions): LensSync {
   const { bridge, store, local, session } = options
   const now = options.now ?? (() => Date.now())
   let warming = false
+  // A change and the app's settings arriving on `welcome` must not interleave,
+  // or adopting them can overwrite the change before it's queued for the app.
+  const serial = createSerial()
 
   const unsynced = async (): Promise<LensSettingsPatch | null> => {
     const parsed = LensSettingsPatchSchema.safeParse((await local.get(UNSYNCED_KEY))[UNSYNCED_KEY])
     return parsed.success ? parsed.data : null
   }
 
-  const adopt = async (lens: LensSettings): Promise<void> => {
-    const queued = await unsynced()
-    if (queued) {
-      await local.set({ [UNSYNCED_KEY]: null })
-      try {
-        await store.replace(await bridge.patchSettings(queued))
-        return
-      } catch {
-        await local.set({ [UNSYNCED_KEY]: queued })
+  const adopt = (lens: LensSettings): Promise<void> =>
+    serial(async () => {
+      const queued = await unsynced()
+      if (queued) {
+        await local.set({ [UNSYNCED_KEY]: null })
+        try {
+          await store.replace(await bridge.patchSettings(queued))
+          return
+        } catch {
+          await local.set({ [UNSYNCED_KEY]: queued })
+        }
       }
-    }
-    await store.replace(lens)
-  }
+      await store.replace(lens)
+    })
 
   bridge.subscribe((event) => {
     if (event.type === 'settings') void adopt(event.lens)
@@ -86,22 +90,23 @@ export function createLensSync(options: LensSyncOptions): LensSync {
   return {
     settings: {
       get: () => store.get(),
-      async patch(patch) {
-        if (bridge.connected) {
-          try {
-            const lens = await bridge.patchSettings(patch)
-            await store.replace(lens)
-            return lens
-          } catch (error) {
-            if (!(error instanceof LensBackendError) || error.code !== 'app_unavailable')
-              throw error
+      patch: (patch) =>
+        serial(async () => {
+          if (bridge.connected) {
+            try {
+              const lens = await bridge.patchSettings(patch)
+              await store.replace(lens)
+              return lens
+            } catch (error) {
+              if (!(error instanceof LensBackendError) || error.code !== 'app_unavailable')
+                throw error
+            }
           }
-        }
-        const lens = await store.patch(patch)
-        const queued = await unsynced()
-        await local.set({ [UNSYNCED_KEY]: queued ? mergePatches(queued, patch) : patch })
-        return lens
-      }
+          const lens = await store.patch(patch)
+          const queued = await unsynced()
+          await local.set({ [UNSYNCED_KEY]: queued ? mergePatches(queued, patch) : patch })
+          return lens
+        })
     },
     async profile() {
       const parsed = ProfileSnapshotSchema.safeParse((await session.get(PROFILE_KEY))[PROFILE_KEY])

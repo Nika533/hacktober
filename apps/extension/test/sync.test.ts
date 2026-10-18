@@ -6,7 +6,7 @@ import {
   createFakeLensBackend,
   type FakeLensBackend
 } from '@hoot/core/testing'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   TransportError,
   createBridgeClient,
@@ -28,12 +28,20 @@ const APP: LensSettings = { ...DEFAULT_LENS_SETTINGS, enabled: true, consentedAt
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
 const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))
 
-function memoryArea(): StorageArea & { data: Record<string, unknown> } {
+/** Like chrome.storage, every call takes a task when `slow`. */
+function memoryArea(slow = false): StorageArea & { data: Record<string, unknown> } {
   const data: Record<string, unknown> = {}
+  const tick = (): Promise<void> => (slow ? settle() : Promise.resolve())
   return {
     data,
-    get: async (key) => ({ [key]: data[key] }),
-    set: async (items) => void Object.assign(data, items)
+    get: async (key) => {
+      await tick()
+      return { [key]: data[key] }
+    },
+    set: async (items) => {
+      await tick()
+      Object.assign(data, items)
+    }
   }
 }
 
@@ -47,7 +55,7 @@ interface Setup {
   advance(ms: number): number
 }
 
-function setup(reachable = { value: true }): Setup {
+function setup(reachable = { value: true }, slow = false): Setup {
   const backend = createFakeLensBackend({ settings: APP })
   let connects = 0
   const connect: Connect = (handlers) => {
@@ -63,8 +71,8 @@ function setup(reachable = { value: true }): Setup {
     }
   }
   const bridge = createBridgeClient({ connect, extVersion: '0.1.0', browser: 'chrome' })
-  const local = memoryArea()
-  const session = memoryArea()
+  const local = memoryArea(slow)
+  const session = memoryArea(slow)
   let clock = 1_000
   const sync = createLensSync({
     bridge,
@@ -115,6 +123,21 @@ describe('Lens settings and profile sync', () => {
     expect((await backend.getSettings()).sites).toEqual({ 'a.test': 'paused', 'b.test': 'never' })
     expect(local.data[UNSYNCED_KEY]).toBeNull()
     expect(await sync.settings.get()).toMatchObject({ mode: 'gloss', sites: { 'b.test': 'never' } })
+  })
+
+  it('keeps a change made while the hello is in flight', async () => {
+    const { bridge, sync, local, backend } = setup({ value: true }, true)
+    const hello = bridge.connect()
+    await sync.settings.patch({ sites: { 'a.test': 'paused' } })
+    await hello
+    await vi.waitFor(async () =>
+      expect((await backend.getSettings()).sites).toEqual({ 'a.test': 'paused' })
+    )
+    expect(await sync.settings.get()).toMatchObject({
+      mode: 'gloss',
+      sites: { 'a.test': 'paused' }
+    })
+    expect(local.data[UNSYNCED_KEY]).toBeNull()
   })
 
   it('sends changes straight to the app while it’s connected', async () => {
