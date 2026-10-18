@@ -9,6 +9,8 @@ export {
 export {
   RECENT_MS as CODE_RECENT_MS,
   createCodeService,
+  type CodeChatLink,
+  type CodeChatSource,
   type CodeService,
   type CodeServiceDeps
 } from './service'

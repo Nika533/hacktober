@@ -285,6 +285,23 @@ describe('createTextAccess: textInRect and foreground', () => {
     expect(await t.ta.foreground()).toEqual({ process: 'notepad', title: 'notes.txt - Notepad' })
     expect(await setup().ta.foreground()).toBeNull()
   })
+
+  it('windowAt() asks in physical px with Hoot looked through; nothing there → null', async () => {
+    const t = setup({
+      windowAt: (a) =>
+        a['x'] === 150
+          ? { found: true, process: 'Code', title: 'a.ts - hoot - Visual Studio Code' }
+          : { found: false }
+    })
+    expect(await t.ta.windowAt({ x: 100, y: 40 })).toEqual({
+      process: 'Code',
+      title: 'a.ts - hoot - Visual Studio Code'
+    })
+    expect(t.calls[0]).toEqual({ cmd: 'windowAt', x: 150, y: 60, excludePid: 4242 })
+    expect(await t.ta.windowAt({ x: 1, y: 1 })).toBeNull()
+    expect(await setup().ta.windowAt({ x: 1, y: 1 })).toBeNull()
+    expect(await setup({}, { enabled: false }).ta.windowAt({ x: 1, y: 1 })).toBeNull()
+  })
 })
 
 describe('createTextAccess: clicks', () => {

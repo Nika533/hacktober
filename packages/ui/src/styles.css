@@ -18,6 +18,7 @@
 @import './chat/Composer.css';
 @import './chat/chips.css';
 @import './chat/Voice.css';
+@import './chat/CodeChanges.css';
 @import './settings/HotkeyRecorder.css';
 @import './studio/studio.css';
 @import './settings/settings.css';
@@ -26,3 +27,4 @@
 @import './lens/reading.css';
 @import './lens/lensPages.css';
 @import './buddy/buddy.css';
+@import './agents/agents.css';

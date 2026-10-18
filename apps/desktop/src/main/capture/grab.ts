@@ -1,5 +1,5 @@
 import { desktopCapturer, nativeImage, screen } from 'electron'
-import type { Rect } from '@hoot/core'
+import { fitWithin, type Rect } from '@hoot/core'
 import type { Logger } from '../log'
 import { fromNativeImage, type CaptureImage } from './image'
 
@@ -12,9 +12,10 @@ export interface Grab {
 export interface ScreenGrabber {
   /**
    * The whole display under the cursor (or `displayId`, when it's still
-   * connected), or null when it couldn't be grabbed.
+   * connected), or null when it couldn't be grabbed. `maxEdge` caps the
+   * thumbnail at capture time when the caller only needs a scaled frame.
    */
-  grab(displayId?: number): Promise<Grab | null>
+  grab(displayId?: number, maxEdge?: number): Promise<Grab | null>
   /**
    * The first getSources call is slow (D1-00: ~3 s) and blocks the whole main
    * process while it runs (measured: ~1.7 s on a fast machine), so it's made
@@ -46,19 +47,21 @@ export function createScreenGrabber(
   let warmed = false
   let timer: ReturnType<typeof setTimeout> | null = null
   return {
-    async grab(displayId) {
+    async grab(displayId, maxEdge) {
       const display =
         (displayId === undefined
           ? undefined
           : screen.getAllDisplays().find((d) => d.id === displayId)) ??
         screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
       const target = { id: display.id, bounds: display.bounds }
-      // Ask for the physical size: a larger thumbnail is upscaled, a smaller one loses detail.
-      // The crop ratio comes from the image Electron actually returns.
-      const size = {
+      // Ask for the physical size (or the caller's cap, for a full-screen frame
+      // that would only be scaled down anyway). The crop ratio comes from the
+      // image Electron actually returns.
+      const full = {
         width: Math.round(display.size.width * display.scaleFactor),
         height: Math.round(display.size.height * display.scaleFactor)
       }
+      const size = maxEdge ? fitWithin(full.width, full.height, maxEdge) : full
       if (fakePath) {
         // Shaped like a real grab of this display.
         const image = nativeImage.createFromPath(fakePath).resize(size)

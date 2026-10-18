@@ -118,6 +118,18 @@ export const HOOT_API_ROUTES = {
     stop: invoke('voice:stop'),
     speak: invoke('voice:speak')
   },
+  agents: {
+    create: invoke('agents:create'),
+    send: invoke('agents:send'),
+    stop: invoke('agents:stop'),
+    regenerate: invoke('agents:regenerate'),
+    minimize: invoke('agents:minimize'),
+    restore: invoke('agents:restore'),
+    close: invoke('agents:close'),
+    dragStart: send('agents:dragStart'),
+    dragMove: send('agents:dragMove'),
+    dragEnd: send('agents:dragEnd')
+  },
   app: { openExternal: invoke('app:openExternal') }
 } as const satisfies { [N in keyof HootApi]: { [M in keyof HootApi[N]]-?: Route } }
 

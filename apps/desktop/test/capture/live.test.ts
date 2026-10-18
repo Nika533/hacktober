@@ -9,7 +9,7 @@ import {
 } from '@hoot/core'
 import type { CodeWindowInfo } from '@hoot/core/code'
 import { describe, expect, it, vi } from 'vitest'
-import { createCaptureService, type CaptureImage } from '../../src/main/capture'
+import { createCaptureService, type CaptureDeps, type CaptureImage } from '../../src/main/capture'
 import type { ScreenGrabber } from '../../src/main/capture/grab'
 import type { OverlayHost } from '../../src/main/capture/overlay'
 import type { Logger } from '../../src/main/log'
@@ -60,7 +60,8 @@ function setup(
     studioVisible?: boolean
     readScreenText?: (rect: Rect) => Promise<string | null>
     owlAnchor?: Point
-    codeWindow?: () => CodeWindowInfo | null
+    codeWindow?: () => CodeWindowInfo | null | Promise<CodeWindowInfo | null>
+    appAt?: CaptureDeps['appAt']
     codeNote?: (windowId: string) => Promise<string | null>
   } = {}
 ) {
@@ -109,6 +110,7 @@ function setup(
       events.push('hide')
     },
     setCaptureExcluded: (on) => void events.push(`excluded ${on}`),
+    passThrough: () => void events.push('passThrough'),
     userClicked: (at) => void overlay.userClicks.push(at),
     minimize: () => void events.push('minimize'),
     restore: (r) => {
@@ -157,6 +159,7 @@ function setup(
     newId: () => `a${++ids}`,
     now: () => 42,
     clickScreen: async (at) => {
+      events.push('clickScreen')
       clicked.push(at)
       return true
     },
@@ -169,6 +172,7 @@ function setup(
     ...(opts.readScreenText ? { readScreenText: opts.readScreenText } : {}),
     ...(opts.owlAnchor ? { owlAnchor: () => opts.owlAnchor! } : {}),
     ...(opts.codeWindow ? { codeWindow: opts.codeWindow } : {}),
+    ...(opts.appAt ? { appAt: opts.appAt } : {}),
     ...(opts.codeNote ? { codeNote: opts.codeNote } : {})
   })
   const pending = (): string[] => store.get('chat').pendingAttachments.map((a) => a.thumbDataUrl)
@@ -374,8 +378,11 @@ describe('live capture overlay', () => {
     await t.capture.start()
     expect(t.watchingClicks()).toBe(true)
 
+    t.events.length = 0
     expect(await t.capture.click({ x: 300, y: 400 })).toBe(true)
     expect(t.clicked).toEqual([{ x: 300, y: 400 }])
+    // The overlay lets clicks pass through before moving the pointer and clicking.
+    expect(t.events).toEqual(['passThrough', 'clickScreen'])
 
     t.emitScreenClick({ x: 310, y: 410 })
     // Outside the display: ignored.
@@ -494,6 +501,76 @@ describe('live capture overlay', () => {
       await t.capture.commit({ kind: 'full' })
       expect(await t.capture.attachLiveScreen()).toBe(LIVE_SCREEN_NOTE)
       expect(codeNote).not.toHaveBeenCalled()
+    })
+
+    // The overlay was opened over the browser; the user then went to VS Code
+    // and pressed Full screen in the same overlay: that shape is about the code.
+    it('reads the code for a shape drawn over VS Code, whatever was in front at open', async () => {
+      const regions: Rect[] = []
+      const readScreenText = vi.fn(async () => 'the whole screen')
+      const t = setup({
+        codeWindow: () => null,
+        appAt: async (region) => {
+          regions.push(region)
+          return { code: vscode, page: null }
+        },
+        codeNote: async (id) => `[VS Code: ${id}]`,
+        readScreenText
+      })
+      await t.capture.start()
+      expect(t.capture.getInit()?.code).toBeNull()
+      await t.capture.commit({ kind: 'full' })
+      expect(regions).toEqual([DISPLAY])
+      expect(t.capture.getInit()?.code).toEqual({ name: 'hoot' })
+      // The code note carries the file; the whole screen's text would only repeat it.
+      expect(await t.capture.attachLiveScreen()).toBe('[VS Code: win-1]')
+      expect(readScreenText).not.toHaveBeenCalled()
+      expect(t.pending()).toEqual([])
+    })
+
+    it('goes back to the screen for a shape drawn over another app', async () => {
+      const codeNote = vi.fn(async () => 'never')
+      const t = setup({
+        codeWindow: () => vscode,
+        appAt: async () => ({ code: null, page: null }),
+        codeNote
+      })
+      await t.capture.start()
+      expect(t.capture.getInit()?.code).toEqual({ name: 'hoot' })
+      await t.capture.commit({ kind: 'rect', rect: { x: 10, y: 10, width: 40, height: 40 } })
+      expect(t.capture.getInit()?.code).toBeNull()
+      expect(await t.capture.attachLiveScreen()).toBe(
+        liveScreenNote({ x1: 7, y1: 10, x2: 33, y2: 50 })
+      )
+      expect(codeNote).not.toHaveBeenCalled()
+    })
+
+    it('keeps what it read at open when Windows can’t say which app is under the shape', async () => {
+      const t = setup({
+        codeWindow: () => vscode,
+        appAt: async () => undefined,
+        codeNote: async () => '[VS Code: kept]'
+      })
+      await t.capture.start()
+      await t.capture.commit({ kind: 'full' })
+      expect(await t.capture.attachLiveScreen()).toBe('[VS Code: kept]')
+    })
+
+    it('coming back out of the owl to draw reads the app in front now', async () => {
+      let inFront: CodeWindowInfo | null = null
+      const t = setup({
+        codeWindow: async () => inFront,
+        codeNote: async () => '[VS Code: now]'
+      })
+      await t.capture.start()
+      await t.capture.commit({ kind: 'full' })
+      expect(await t.capture.attachLiveScreen()).toBe(LIVE_SCREEN_NOTE)
+      await t.capture.minimize()
+      inFront = vscode
+      await t.capture.start('lasso')
+      await t.capture.commit({ kind: 'full' })
+      expect(t.capture.getInit()?.code).toEqual({ name: 'hoot' })
+      expect(await t.capture.attachLiveScreen()).toBe('[VS Code: now]')
     })
   })
 

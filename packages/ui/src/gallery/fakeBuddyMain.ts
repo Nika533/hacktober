@@ -362,6 +362,13 @@ export function createFakeBuddyMain(opts: FakeBuddyMainOptions): FakeBuddyMain {
       openReader: () => resolved
     },
     app: { openExternal: () => resolved },
+    code: {
+      apply: () => Promise.resolve({ ok: true, message: null }),
+      reveal: () => Promise.resolve({ ok: true, message: null }),
+      tagStates: () => Promise.resolve(null),
+      onChange: () => () => undefined
+    },
+    agents: { create: () => Promise.resolve(true) },
     // A scripted voice turn: listen, "hear" a question, send it, then stop.
     voice: {
       start: () => {

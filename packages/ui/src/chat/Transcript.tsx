@@ -34,6 +34,8 @@ export interface TranscriptProps {
   /** Copy for messages and code blocks; defaults to the Clipboard API. */
   onCopy?: CopyFn
   onOpenLink?: (href: string) => void
+  /** Shown under a finished answer, above its actions (e.g. its changes in VS Code). */
+  answerFooter?: (messageId: string) => ReactNode
   /** Shown when there are no messages. */
   empty?: ReactNode
   /** Accessible name of the scroll region. */
@@ -60,6 +62,7 @@ export function Transcript({
   onOpenSettings,
   onCopy = copyText,
   onOpenLink,
+  answerFooter,
   empty,
   label = 'Conversation',
   className
@@ -181,6 +184,7 @@ export function Transcript({
                     {m.text && <Markdown text={m.text} onCopy={mdCopy} onOpenLink={mdOpenLink} />}
                     {!m.text && m.status === 'streaming' && <Thinking />}
                     {m.status === 'stopped' && <p className="hoot-msg__note">Stopped</p>}
+                    {m.status !== 'streaming' && m.status !== 'error' && answerFooter?.(m.id)}
                     {m.status === 'error' && (
                       <ErrorBody
                         code={m.error}

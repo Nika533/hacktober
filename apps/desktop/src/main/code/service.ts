@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { Unsubscribe } from '@hoot/core'
+import type { SliceName, StateSlices, Unsubscribe } from '@hoot/core'
 import {
   codeNote,
   parseCodeAnswer,
@@ -18,6 +18,20 @@ import {
 import type { Logger } from '../log'
 import type { Store } from '../store/store'
 import type { CodeLinkServer, CodeLinkServerDeps, CodePeer } from './server'
+
+/** A chat the code link follows: the owl's (the store), or an agent's. */
+export interface CodeChatSource {
+  get(name: 'chat'): StateSlices['chat']
+  onChange(cb: (changed: ReadonlySet<SliceName>) => void): Unsubscribe
+}
+
+/** The code link for one more chat (an agent): what `chatWindow` and `note` do for the owl's. */
+export interface CodeChatLink {
+  chatWindow(): string | null
+  note(windowId: string): Promise<string | null>
+  /** Stop following the chat (its answers' Apply keeps working). */
+  dispose(): void
+}
 
 export interface CodeServiceDeps {
   store: Pick<Store, 'get' | 'onChange'>
@@ -42,6 +56,12 @@ export interface CodeService {
    */
   focusedWindow(graceMs?: number): CodeWindowInfo | null
   /**
+   * The connected window behind an app window the OS reported (the one in
+   * front, or under a shape the user drew); null when it isn't an editor
+   * window with the Hoot extension.
+   */
+  windowFor(app: { process: string; title: string } | null): CodeWindowInfo | null
+  /**
    * The window the owl and Studio chat read: the one this chat already reads,
    * else the focused one, else the one the user left less than `recentMs` ago.
    */
@@ -54,6 +74,11 @@ export interface CodeService {
    * the window is gone or didn't answer in time (callers fall back).
    */
   note(windowId: string): Promise<string | null>
+  /**
+   * The same code link for another chat (an agent's): it reads VS Code for
+   * that chat's messages, and its answers' tags show in VS Code too.
+   */
+  forChat(source: CodeChatSource): CodeChatLink
   /** Tag `index` of an answer: apply its edit in VS Code. */
   apply(messageId: string, index: number): Promise<CodeActionResult>
   /** Tag `index` of an answer: open its file in VS Code and scroll to it. */
@@ -65,6 +90,10 @@ export interface CodeService {
 }
 
 export const RECENT_MS = 2 * 60_000
+/** Editors the Hoot extension runs in: process names (no `.exe`), and their window titles. */
+const EDITOR_PROCESS =
+  /^(code|code - insiders|codium|vscodium|cursor|windsurf|positron|trae|kiro)$/i
+const EDITOR_TITLE = / - (visual studio code|vscodium|cursor|windsurf)( - insiders)?$/i
 /** A send's note binds to the chat its stream starts in, if that happens this soon. */
 const BIND_MS = 10_000
 /** Answers whose tags stay usable from the overlay. */
@@ -107,10 +136,6 @@ export function createCodeService(deps: CodeServiceDeps): CodeService {
   const listeners = new Set<() => void>()
   const answers = new Map<string, Answer>()
   const applied = new Set<string>()
-  let reading: Reading | null = null
-  let stream = store.get('chat').stream
-  let sessionId = store.get('chat').session?.id ?? null
-  let unwatch: Unsubscribe | null = null
 
   const emit = (): void => {
     for (const listener of [...listeners]) listener()
@@ -151,48 +176,112 @@ export function createCodeService(deps: CodeServiceDeps): CodeService {
     return null
   }
 
-  /** A finished answer in the chat that read code: highlight and propose in VS Code. */
-  const answered = (s: { sessionId: string; messageId: string }): void => {
-    const r = reading
-    if (!r || r.sessionId !== s.sessionId) return
-    const session = store.get('chat').session
-    const message =
-      session?.id === s.sessionId ? session.messages.find((m) => m.id === s.messageId) : undefined
-    if (!message?.text) return
-    const { tags } = parseCodeAnswer(message.text)
-    if (tags.length === 0) return
-    const items = tags.map((tag) => resolve(tag, r.files))
-    answers.delete(s.messageId)
-    answers.set(s.messageId, { windowId: r.windowId, items })
-    while (answers.size > KEEP_ANSWERS) answers.delete(answers.keys().next().value as string)
-    const marks = items.flatMap((i) => (i && 'mark' in i ? [i.mark] : []))
-    const edits = items.flatMap((i) => (i && 'edit' in i ? [i.edit] : []))
-    const peer = peerFor(r.windowId)
-    if (!peer || (marks.length === 0 && edits.length === 0)) return
-    void peer.show(marks, edits, true).then((res) => {
-      if (!res.ok) log.warn(`code link: show failed: ${res.message ?? '?'}`)
-    })
-    emit()
+  /**
+   * One chat's side of the code link: what it was told about the code, and
+   * its finished answers' tags turned into highlights and edits in VS Code.
+   */
+  const track = (source: CodeChatSource): CodeChatLink & { watch(): void } => {
+    let reading: Reading | null = null
+    let stream = source.get('chat').stream
+    let sessionId = source.get('chat').session?.id ?? null
+    let unwatch: Unsubscribe | null = null
+
+    /** A finished answer in the chat that read code: highlight and propose in VS Code. */
+    const answered = (s: { sessionId: string; messageId: string }): void => {
+      const r = reading
+      if (!r || r.sessionId !== s.sessionId) return
+      const session = source.get('chat').session
+      const message =
+        session?.id === s.sessionId ? session.messages.find((m) => m.id === s.messageId) : undefined
+      if (!message?.text) return
+      const { tags } = parseCodeAnswer(message.text)
+      if (tags.length === 0) return
+      const items = tags.map((tag) => resolve(tag, r.files))
+      answers.delete(s.messageId)
+      answers.set(s.messageId, { windowId: r.windowId, items })
+      while (answers.size > KEEP_ANSWERS) answers.delete(answers.keys().next().value as string)
+      const marks = items.flatMap((i) => (i && 'mark' in i ? [i.mark] : []))
+      const edits = items.flatMap((i) => (i && 'edit' in i ? [i.edit] : []))
+      const peer = peerFor(r.windowId)
+      if (!peer || (marks.length === 0 && edits.length === 0)) return
+      void peer.show(marks, edits, true).then((res) => {
+        if (!res.ok) log.warn(`code link: show failed: ${res.message ?? '?'}`)
+      })
+      emit()
+    }
+
+    const onChat = (): void => {
+      const chat = source.get('chat')
+      const r = reading
+      if (r?.bindBy && chat.stream && chat.stream.messageId !== stream?.messageId) {
+        if (now() <= r.bindBy) r.sessionId = chat.stream.sessionId
+        r.bindBy = null
+      }
+      if (stream && chat.stream?.messageId !== stream.messageId) answered(stream)
+      stream = chat.stream
+      const next = chat.session?.id ?? null
+      if (next === sessionId) return
+      // Another chat (or a new one): what VS Code shows was about the old one.
+      if (r && r.sessionId !== null && r.sessionId === sessionId) {
+        reading = null
+        void peerFor(r.windowId)?.clear()
+      }
+      sessionId = next
+    }
+
+    return {
+      watch() {
+        unwatch ??= source.onChange((changed) => {
+          if (changed.has('chat')) onChat()
+        })
+      },
+
+      dispose() {
+        unwatch?.()
+        unwatch = null
+      },
+
+      chatWindow() {
+        const sid = source.get('chat').session?.id ?? null
+        if (reading && sid !== null && reading.sessionId === sid && peerById(reading.windowId)) {
+          return reading.windowId
+        }
+        const focused = focusedPeer()
+        if (focused) return focused.window.id
+        const recent = server
+          .peers()
+          .filter((p) => now() - p.focusAt <= recentMs)
+          .sort((a, b) => b.focusAt - a.focusAt)[0]
+        return recent?.window.id ?? null
+      },
+
+      async note(windowId) {
+        const peer = peerById(windowId)
+        if (!peer) return null
+        const snapshot = await peer.snapshot()
+        if (!snapshot) {
+          log.warn(`code link: ${peer.window.name || 'VS Code'} didn’t send its code in time`)
+          return null
+        }
+        const sid = source.get('chat').session?.id ?? null
+        const previous =
+          reading && reading.windowId === windowId && sid !== null && reading.sessionId === sid
+            ? reading.memory
+            : null
+        const { note, memory } = codeNote(snapshot, previous)
+        reading = {
+          windowId,
+          sessionId: sid,
+          bindBy: sid === null ? now() + BIND_MS : null,
+          memory,
+          files: snapshotFiles(snapshot)
+        }
+        return note
+      }
+    }
   }
 
-  const onChat = (): void => {
-    const chat = store.get('chat')
-    const r = reading
-    if (r?.bindBy && chat.stream && chat.stream.messageId !== stream?.messageId) {
-      if (now() <= r.bindBy) r.sessionId = chat.stream.sessionId
-      r.bindBy = null
-    }
-    if (stream && chat.stream?.messageId !== stream.messageId) answered(stream)
-    stream = chat.stream
-    const next = chat.session?.id ?? null
-    if (next === sessionId) return
-    // Another chat (or a new one): what VS Code shows was about the old one.
-    if (r && r.sessionId !== null && r.sessionId === sessionId) {
-      reading = null
-      void peerFor(r.windowId)?.clear()
-    }
-    sessionId = next
-  }
+  const owl = track(store)
 
   const item = (messageId: string, index: number): { answer: Answer; item: Item } | null => {
     const answer = answers.get(messageId)
@@ -201,9 +290,7 @@ export function createCodeService(deps: CodeServiceDeps): CodeService {
 
   return {
     async start() {
-      unwatch ??= store.onChange((changed) => {
-        if (changed.has('chat')) onChat()
-      })
+      owl.watch()
       try {
         await server.start()
       } catch (e) {
@@ -212,8 +299,7 @@ export function createCodeService(deps: CodeServiceDeps): CodeService {
     },
 
     async stop() {
-      unwatch?.()
-      unwatch = null
+      owl.dispose()
       await server.stop()
     },
 
@@ -231,19 +317,20 @@ export function createCodeService(deps: CodeServiceDeps): CodeService {
       return left?.window ?? null
     },
 
-    chatWindow() {
-      const sid = store.get('chat').session?.id ?? null
-      if (reading && sid !== null && reading.sessionId === sid && peerById(reading.windowId)) {
-        return reading.windowId
-      }
-      const focused = focusedPeer()
-      if (focused) return focused.window.id
-      const recent = server
-        .peers()
-        .filter((p) => now() - p.focusAt <= recentMs)
-        .sort((a, b) => b.focusAt - a.focusAt)[0]
-      return recent?.window.id ?? null
+    windowFor(app) {
+      if (!app || !(EDITOR_PROCESS.test(app.process) || EDITOR_TITLE.test(app.title))) return null
+      const peers = server.peers()
+      // VS Code titles read "file - folder - Visual Studio Code"; the folder is the window's name.
+      const title = ` - ${app.title} - `
+      const named = peers.filter((p) => p.window.name && title.includes(` - ${p.window.name} - `))
+      const pool = named.length > 0 ? named : peers
+      return (
+        [...pool].sort((a, b) => Number(b.focused) - Number(a.focused) || b.focusAt - a.focusAt)[0]
+          ?.window ?? null
+      )
     },
+
+    chatWindow: () => owl.chatWindow(),
 
     activeAt(windowId) {
       const peer = peerById(windowId)
@@ -251,28 +338,12 @@ export function createCodeService(deps: CodeServiceDeps): CodeService {
       return peer.focused ? now() : peer.focusAt
     },
 
-    async note(windowId) {
-      const peer = peerById(windowId)
-      if (!peer) return null
-      const snapshot = await peer.snapshot()
-      if (!snapshot) {
-        log.warn(`code link: ${peer.window.name || 'VS Code'} didn’t send its code in time`)
-        return null
-      }
-      const sid = store.get('chat').session?.id ?? null
-      const previous =
-        reading && reading.windowId === windowId && sid !== null && reading.sessionId === sid
-          ? reading.memory
-          : null
-      const { note, memory } = codeNote(snapshot, previous)
-      reading = {
-        windowId,
-        sessionId: sid,
-        bindBy: sid === null ? now() + BIND_MS : null,
-        memory,
-        files: snapshotFiles(snapshot)
-      }
-      return note
+    note: (windowId) => owl.note(windowId),
+
+    forChat(source) {
+      const chat = track(source)
+      chat.watch()
+      return { chatWindow: chat.chatWindow, note: chat.note, dispose: chat.dispose }
     },
 
     async apply(messageId, index) {

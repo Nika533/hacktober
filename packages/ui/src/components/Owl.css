@@ -49,3 +49,53 @@
 .hoot-owl__beak-open {
   fill: var(--owl-beak-open);
 }
+
+/* Agents' owls: the same bird in another plumage, one per agent. */
+.hoot-owl[data-tint='blue'] {
+  --owl-disc-1: light-dark(#eef4ff, #1d2736);
+  --owl-disc-2: light-dark(#dbe7fb, #151d29);
+  --owl-body-1: #4a7cc4;
+  --owl-body-2: #335f9e;
+  --owl-chevron: #24487a;
+  --owl-face: #e1ebfa;
+}
+.hoot-owl[data-tint='green'] {
+  --owl-disc-1: light-dark(#effaf2, #1c2b22);
+  --owl-disc-2: light-dark(#d9efe0, #152019);
+  --owl-body-1: #4f9a68;
+  --owl-body-2: #3a7c51;
+  --owl-chevron: #2b5e3d;
+  --owl-face: #e0f1e5;
+}
+.hoot-owl[data-tint='purple'] {
+  --owl-disc-1: light-dark(#f5f0ff, #29213a);
+  --owl-disc-2: light-dark(#e6dcfa, #1f192c);
+  --owl-body-1: #8a66c7;
+  --owl-body-2: #6c4ca8;
+  --owl-chevron: #523883;
+  --owl-face: #ece4f8;
+}
+.hoot-owl[data-tint='pink'] {
+  --owl-disc-1: light-dark(#fff0f5, #36202a);
+  --owl-disc-2: light-dark(#f9dce7, #29181f);
+  --owl-body-1: #cf6a93;
+  --owl-body-2: #ad4f76;
+  --owl-chevron: #8a3c5d;
+  --owl-face: #f9e3ec;
+}
+.hoot-owl[data-tint='teal'] {
+  --owl-disc-1: light-dark(#ecfaf9, #1a2c2c);
+  --owl-disc-2: light-dark(#d4efed, #132121);
+  --owl-body-1: #3a9a9a;
+  --owl-body-2: #2a7a7b;
+  --owl-chevron: #1f5d5e;
+  --owl-face: #dcf2f1;
+}
+.hoot-owl[data-tint='slate'] {
+  --owl-disc-1: light-dark(#f2f4f7, #232830);
+  --owl-disc-2: light-dark(#e1e6ed, #1a1e24);
+  --owl-body-1: #6b7a90;
+  --owl-body-2: #525f73;
+  --owl-chevron: #3e4858;
+  --owl-face: #e6eaf0;
+}

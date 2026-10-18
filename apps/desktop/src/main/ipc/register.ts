@@ -1,6 +1,7 @@
 import type { InvokeChannel, InvokeResult, SendChannel } from '@hoot/core'
 import type { InvokeArgs, SendArgs } from '@hoot/core/schemas'
 import type { AppContext } from '../context'
+import { createAgentsHandlers } from '../agents'
 import { createAnywhereHandlers } from '../anywhere'
 import { createCaptureHandlers } from '../capture'
 import { createChatHandlers } from '../chat'
@@ -106,4 +107,7 @@ export function registerDomains(ctx: AppContext): void {
   const anywhereHandlers = createAnywhereHandlers(ctx.anywhere)
   registerSenderHandlerMap(anywhereHandlers.invoke)
   registerSenderSendMap(anywhereHandlers.send)
+  const agentsHandlers = createAgentsHandlers(ctx.agents)
+  registerSenderHandlerMap(agentsHandlers.invoke)
+  registerSenderSendMap(agentsHandlers.send)
 }

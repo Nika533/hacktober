@@ -1,4 +1,13 @@
-import { app, clipboard, dialog, powerMonitor, safeStorage, screen, shell } from 'electron'
+import {
+  app,
+  clipboard,
+  dialog,
+  Notification,
+  powerMonitor,
+  safeStorage,
+  screen,
+  shell
+} from 'electron'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, stat } from 'node:fs/promises'
@@ -18,6 +27,7 @@ import {
 import { codeLinkPipePath, codeLinkTokenPath } from '@hoot/core/code'
 import type { AiProvider } from './ai'
 import { createAiProvider, createFakeProvider } from './ai'
+import { createAgentsService, createAgentWindows, placeCard, type AgentsService } from './agents'
 import { createAnywhereService, createBubbleWindow, type AnywhereService } from './anywhere'
 import { AnotherInstanceError, createBridgeServer, type BridgeServer } from './bridge'
 import { applyChatActivity } from './buddy/activity'
@@ -77,6 +87,12 @@ import {
 
 /** The live overlay reads VS Code if it was in front this recently (a click on Hoot blurs it). */
 const CODE_FOCUS_GRACE_MS = 5000
+/** How long the overlay waits for Windows to say which app is in front (or under a shape). */
+const APP_PROBE_MS = 400
+const BROWSER_PROCESS = /^(chrome|msedge|brave|vivaldi|opera|chromium)$/i
+
+const within = <T>(p: Promise<T | null>, ms: number): Promise<T | null> =>
+  Promise.race([p, new Promise<null>((resolve) => setTimeout(resolve, ms, null))])
 
 export interface AppContext {
   env: AppEnv
@@ -113,6 +129,8 @@ export interface AppContext {
   pages: PageService
   /** The voice chat: Windows speech in and out, driving the active chat. */
   voice: VoiceService
+  /** Agents: extra chats in their own windows, each minimizing into an owl of its own colour. */
+  agents: AgentsService
   /**
    * Feature seams later PRs reassign (finish-plan §2): kept mutable on
    * purpose so late-landing features can re-point them.
@@ -432,6 +450,29 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
   })
   flush.add('voice', async () => voice.dispose())
 
+  // Agents: more chats at once, each in its own window by the owl, with VS
+  // Code's code like the owl's chat. Their chats are saved like any other.
+  const agentWindows = createAgentWindows({
+    rendererUrl: rendererUrlFor,
+    onClosed: (id) => agents.closed(id),
+    onFileDrop
+  })
+  const agents = createAgentsService({
+    store,
+    persistence,
+    writer,
+    log,
+    getProvider: async () => ai.createProvider(),
+    windows: agentWindows,
+    placement: (index) => {
+      const anchor = buddy.anchor()
+      return placeCard(anchor, index, screen.getDisplayNearestPoint(anchor).workArea)
+    },
+    codeLink: (source) => code.forChat(source),
+    notify: (body) => new Notification({ title: 'Hoot', body }).show()
+  })
+  flush.add('agents', () => agents.flush())
+
   // notes before pins (pins needs the windows), pins inside the callbacks
   // (notes need the service) — the reference resolves at call time.
   const notes = createNoteWindows({
@@ -492,8 +533,28 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     clickScreen: (at) => textAccess.click(at),
     onScreenClick: (l) => textAccess.onClick(l),
     owlAnchor: () => buddy.anchor(),
-    // Starting a capture from Hoot's own UI blurs VS Code a moment earlier.
-    codeWindow: () => code.focusedWindow(CODE_FOCUS_GRACE_MS),
+    // Starting a capture from Hoot's own UI blurs VS Code a moment earlier;
+    // failing that, Windows says which window is in front.
+    codeWindow: async () =>
+      code.focusedWindow(CODE_FOCUS_GRACE_MS) ??
+      code.windowFor(await within(textAccess.foreground(), APP_PROBE_MS)),
+    // Each shape reads the app it was drawn on: the window under its centre.
+    appAt: async (region) => {
+      const app = await within(
+        textAccess.windowAt({ x: region.x + region.width / 2, y: region.y + region.height / 2 }),
+        APP_PROBE_MS
+      )
+      if (!app) return undefined
+      const window = code.windowFor(app)
+      if (window) return { code: window, page: null }
+      const browser = BROWSER_PROCESS.test(app.process)
+        ? pages.activePeer(Number.POSITIVE_INFINITY)
+        : null
+      return {
+        code: null,
+        page: browser?.page ? { id: browser.id, title: browser.page.title } : null
+      }
+    },
     codeNote: (id) => code.note(id),
     browserPage: () => {
       const browser = pages.activePeer(CODE_FOCUS_GRACE_MS)
@@ -596,6 +657,7 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     code,
     pages,
     voice,
+    agents,
     hooks: {
       explain(message) {
         ctx.hooks.showChatSurface()

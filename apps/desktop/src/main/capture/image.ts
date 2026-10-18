@@ -21,14 +21,14 @@ export function fromNativeImage(image: NativeImage): CaptureImage {
     height,
     isBlank() {
       if (image.isEmpty() || width === 0 || height === 0) return true
-      const bgra = image.resize({ width: 64 }).toBitmap()
+      const bgra = image.resize({ width: 16, height: 16, quality: 'good' }).toBitmap()
       for (let i = 0; i < bgra.length; i += 4) {
         if (bgra[i]! > 10 || bgra[i + 1]! > 10 || bgra[i + 2]! > 10) return false
       }
       return true
     },
     crop: (rect) => fromNativeImage(image.crop(rect)),
-    resize: (w, h) => fromNativeImage(image.resize({ width: w, height: h, quality: 'best' })),
+    resize: (w, h) => fromNativeImage(image.resize({ width: w, height: h, quality: 'good' })),
     toJpegDataUrl: (quality) =>
       `data:image/jpeg;base64,${image.toJPEG(quality).toString('base64')}`,
     toPng: () => image.toPNG(),

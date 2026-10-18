@@ -170,11 +170,11 @@ const CHIPS: readonly { id: QuickActionId; label: string }[] = [
 
 /** Follow-up sent after a step is clicked (with a fresh screen). */
 const NEXT_STEP_PROMPT =
-  'I clicked that. Look at my screen now: if there is another step to reach my goal, show me the next one; if I am there, tell me.'
+  'I clicked that. In one short sentence, either give ONLY the next [[action: x1, y1, x2, y2, "label"]] step on my screen now, or say I reached the goal.'
 /** Give the app a moment to open its menu/dialog after a click before grabbing the next frame. */
-const CLICK_SETTLE_MS = 380
+const CLICK_SETTLE_MS = 120
 /** When Auto-click is on, show the arrow briefly before Hoot clicks the spot. */
-const AUTO_CLICK_DELAY_MS = 650
+const AUTO_CLICK_DELAY_MS = 80
 
 type ActionState = 'clicking' | 'dismissed' | 'done'
 
@@ -218,6 +218,8 @@ const lastOf = (messages: readonly Message[], role: Message['role']): Message | 
 function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
   const { state } = useHootState(hoot, SLICES)
   const [init, setInit] = useState<OverlayInit | null>(null)
+  /** Live: what the current shape reads besides the screen (main decides per shape); null = as opened. */
+  const [reads, setReads] = useState<Pick<OverlayInit, 'code' | 'page'> | null>(null)
   const [mode, setMode] = useState<DrawMode>('lasso')
   const [shape, setShape] = useState<Shape | null>(null)
   const [drawing, setDrawing] = useState(false)
@@ -299,7 +301,16 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
   const commitLive = useCallback(
     (payload: OverlayCommit, around: Rect): void => {
       if (!hoot) return
-      void hoot.capture.commit(payload)
+      // The shape may be over another app than the one in front at open: the header follows.
+      void hoot.capture
+        .commit(payload)
+        .then(() => hoot.capture.getInit())
+        .then(
+          (next) => {
+            if (next) setReads({ code: next.code ?? null, page: next.page ?? null })
+          },
+          () => undefined
+        )
       if (payload.kind === 'full') {
         gesture.current = null
         shapeRef.current = null
@@ -347,6 +358,7 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
       setCustom(null)
       setResizing(null)
       setMinimized(false)
+      setReads(null)
       panelDrag.current = null
       resizeDrag.current = null
       for (const a of minimizeAnims.current) a.cancel()
@@ -528,14 +540,16 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
   /** The first unfinished step on screen: the one Hoot or the user clicks next. */
   const nextAction = pendingActions.find(({ key }) => actions[key] === undefined)
 
-  /** Advance after a step was clicked: wait for the UI to settle, then ask for the next step. */
+  /** Advance after a step was clicked: wait briefly for the UI to settle, then ask for the next step. */
   const advanceAfterClick = useCallback(
     (key: string): void => {
-      setActions((m) => ({ ...m, [key]: 'clicking' }))
+      if (!hoot) return
+      setActions((m) => ({ ...m, [key]: 'done' }))
       setTimeout(() => {
-        if (!hoot) return
-        void hoot.chat.send({ text: NEXT_STEP_PROMPT })
-        setActions((m) => ({ ...m, [key]: 'done' }))
+        void hoot.chat
+          .stop()
+          .catch(() => undefined)
+          .then(() => hoot.chat.send({ text: NEXT_STEP_PROMPT }))
       }, CLICK_SETTLE_MS)
     },
     [hoot]
@@ -544,9 +558,12 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
   /** Hoot clicks the highlighted spot for the user, then advances to the next step. */
   const clickForMe = useCallback(
     async (key: string, at: Point): Promise<void> => {
-      if (!hoot || streaming) return
+      if (!hoot) return
       setActions((m) => ({ ...m, [key]: 'clicking' }))
-      const ok = await hoot.capture.click(at).catch(() => false)
+      const [, ok] = await Promise.all([
+        hoot.chat.stop().catch(() => undefined),
+        hoot.capture.click(at).catch(() => false)
+      ])
       if (!ok) {
         setActions((m) => {
           const next = { ...m }
@@ -555,18 +572,18 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
         })
         return
       }
+      setActions((m) => ({ ...m, [key]: 'done' }))
       setTimeout(() => {
         void hoot.chat.send({ text: NEXT_STEP_PROMPT })
-        setActions((m) => ({ ...m, [key]: 'done' }))
       }, CLICK_SETTLE_MS)
     },
-    [hoot, streaming]
+    [hoot]
   )
 
   // When the user clicks the highlighted spot themselves, advance automatically
   // (not while the chat sits in the owl: those clicks are just the user working).
   useEffect(() => {
-    if (!hoot || !live || phase !== 'chat' || !answerDone || streaming || !init || minimized) return
+    if (!hoot || !live || phase !== 'chat' || !init || minimized) return
     const sizeNow = { width: init.displayWidth, height: init.displayHeight }
     return hoot.capture.onUserClick((clicked) => {
       // Check the active [[action]] first; if the model used [[point]] for a step,
@@ -575,7 +592,7 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
         if (hitsTarget(clicked, nextAction.target)) advanceAfterClick(nextAction.key)
         return
       }
-      if (!answer) return
+      if (!answer || !answerDone) return
       for (let i = 0; i < parsed.annotations.length; i++) {
         const a = parsed.annotations[i]!
         if (a.kind !== 'point') continue
@@ -592,7 +609,6 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
     live,
     phase,
     answerDone,
-    streaming,
     init,
     minimized,
     nextAction,
@@ -602,15 +618,15 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
     advanceAfterClick
   ])
 
-  // Auto-click: once an answer with a step finishes, show the arrow briefly, then click it.
+  // Auto-click: as soon as a step is on screen, show the arrow briefly, then click it.
   useEffect(() => {
-    if (!autoClick || !answerDone || streaming || !nextAction || minimized) return
+    if (!autoClick || !nextAction || minimized) return
     const timer = setTimeout(
       () => void clickForMe(nextAction.key, nextAction.target.at),
       AUTO_CLICK_DELAY_MS
     )
     return () => clearTimeout(timer)
-  }, [autoClick, answerDone, streaming, nextAction, minimized, clickForMe])
+  }, [autoClick, nextAction, minimized, clickForMe])
 
   // ---- The chat panel: springs for its place and size ----------------------
 
@@ -700,6 +716,7 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
   if (!init) return <div className="capture" data-state="closed" />
 
   const size = { width: init.displayWidth, height: init.displayHeight }
+  const readsCode = (reads ? reads.code : init.code) ?? null
   const at = (e: React.PointerEvent): Point => ({ x: e.clientX, y: e.clientY })
   const drawingPhase = !live || phase === 'draw'
   /**
@@ -1045,9 +1062,9 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
           <header className="capture__chat-head" title="Drag to move" {...panelHandlers('chat')}>
             <span className="capture__chat-title">
               <span className="capture__live-dot" aria-hidden />{' '}
-              {init.code
+              {readsCode
                 ? 'Hoot reads your code in VS Code'
-                : init.page
+                : (reads ? reads.page : init.page)
                   ? 'Hoot sees your screen and reads this page'
                   : 'Hoot sees your screen'}
             </span>
@@ -1114,7 +1131,7 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
                       />
                     ) : answer.status === 'streaming' ? (
                       <p className="capture__thinking">
-                        {init.code ? 'Reading your code…' : 'Looking at your screen…'}
+                        {readsCode ? 'Reading your code…' : 'Looking at your screen…'}
                       </p>
                     ) : null}
                     {answer.status === 'error' && (
@@ -1174,7 +1191,6 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
                     <button
                       type="button"
                       className="capture__pill capture__pill--primary"
-                      disabled={streaming}
                       title="Move the pointer to the highlighted spot and click it for me"
                       onClick={() => void clickForMe(key, target)}
                     >
@@ -1188,7 +1204,7 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
                       onClick={() => {
                         const next = !autoClick
                         setAutoClick(next)
-                        if (next && !streaming) void clickForMe(key, target)
+                        if (next) void clickForMe(key, target)
                       }}
                     >
                       {autoClick ? 'Auto-click: on' : 'Auto-click'}
@@ -1196,7 +1212,6 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
                     <button
                       type="button"
                       className="capture__pill"
-                      disabled={streaming}
                       title="I already clicked it — show the next step"
                       onClick={() => advanceAfterClick(key)}
                     >

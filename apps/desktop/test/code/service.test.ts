@@ -161,6 +161,22 @@ describe('code service: which window', () => {
     answer(store, 's1', 'ok')
     expect(service.chatWindow()).toBe('a')
   })
+
+  it('finds the window behind an editor window the OS reports, by its folder name', () => {
+    const hoot = peer('w1', { window: { id: 'w1', name: 'hoot' }, focusAt: 5 })
+    const site = peer('w2', { window: { id: 'w2', name: 'site' }, focusAt: 9 })
+    const { service } = setup([hoot, site])
+    const title = (t: string): { process: string; title: string } => ({ process: 'Code', title: t })
+    expect(service.windowFor(title('● main.cpp - hoot - Visual Studio Code'))?.id).toBe('w1')
+    expect(service.windowFor(title('index.html - site - Visual Studio Code'))?.id).toBe('w2')
+    // No folder in the title: the window the user was in last.
+    expect(service.windowFor(title('Untitled-1 - Visual Studio Code'))?.id).toBe('w2')
+    expect(
+      service.windowFor({ process: 'chrome', title: 'hoot - GitHub - Google Chrome' })
+    ).toBeNull()
+    expect(service.windowFor(null)).toBeNull()
+    expect(setup([]).service.windowFor(title('a - hoot - Visual Studio Code'))).toBeNull()
+  })
 })
 
 describe('code service: notes', () => {
@@ -277,6 +293,33 @@ describe('code service: answers', () => {
     answer(store, 's1', reply)
     expect(a.show).not.toHaveBeenCalled()
     expect(service.tagStates('a1')).toBeNull()
+  })
+
+  it('follows another chat too (an agent): its answers show in VS Code and apply', async () => {
+    const a = peer('a')
+    const { service, store } = setup([a])
+    await service.start()
+    const agent = fakeStore()
+    const link = service.forChat(agent)
+    expect(link.chatWindow()).toBeNull()
+    a.focused = true
+    expect(link.chatWindow()).toBe('a')
+
+    expect(await link.note('a')).toContain('Focused file: src/f.js')
+    answer(agent, 'agent-1', reply, 'x1')
+    expect(a.show).toHaveBeenCalledTimes(1)
+    expect(service.tagStates('x1')).toEqual(['ready', 'ready', 'ready'])
+    expect(await service.apply('x1', 1)).toEqual(ok)
+    expect(service.tagStates('x1')?.[1]).toBe('applied')
+
+    // The owl's chat never read code: its answers stay out of VS Code.
+    answer(store, 's1', reply)
+    expect(a.show).toHaveBeenCalledTimes(1)
+    expect(service.tagStates('a1')).toBeNull()
+
+    link.dispose()
+    answer(agent, 'agent-1', reply, 'x2')
+    expect(a.show).toHaveBeenCalledTimes(1)
   })
 
   it('clears VS Code when the chat that read code is left', async () => {

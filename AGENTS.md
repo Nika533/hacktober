@@ -35,6 +35,7 @@ Read in this order before writing code:
 | `apps/desktop/src/main/code` | Code link pipe server + code service (VS Code snapshots instead of screenshots, highlights, Apply) | d1 (per `ownership.json`) |
 | `apps/desktop/src/main/voice` | Voice chat: Windows speech helper (System.Speech via PowerShell, like `textAccess`), fake engine, the listen → send → speak loop | d1 (per `ownership.json`) |
 | `apps/desktop/src/main/page` | Page link service: the browser page in front as text for the chat, `[[find]]` highlights back (over the Lens bridge) | d1 (per `ownership.json`) |
+| `apps/desktop/src/main/agents` + `renderer/agent` + `packages/ui/src/agents` | Agents: extra chats answering at the same time, one window each, minimizing into a free-floating owl of the agent's colour (a chat service per agent on a scoped store) | main d1, UI d3 (per `ownership.json`; `renderer/agent` not listed yet) |
 
 The exact rules are in `scripts/ownership.json`, and CI enforces them on PRs
 from `c/`, `d1/`, `d2/` and `d3/` branches. Everyone may change
@@ -124,6 +125,15 @@ One workspace: `npm.cmd run <script> -w @hoot/desktop` (or `@hoot/extension`,
   listens while it speaks (it would hear itself).
 - Extension popups can't show the microphone permission prompt: the popup opens
   `mic.html` in a tab once, then `webkitSpeechRecognition` works in the popup.
+- Live overlay + VS Code: deciding "is VS Code in front" once, when the overlay
+  opens, failed in real use (opened over Chrome, then Full screen over VS Code:
+  screenshots went out and Claude said it couldn't edit the file). Each shape now
+  asks Windows which window is under it (`textAccess.windowAt`, Hoot's own
+  windows looked through via `excludePid`) and maps an editor window to its code
+  link peer by the folder name in its title (`code.windowFor`).
+- Agent windows are transparent and frameless like the buddy: the card's header
+  drags natively (`-webkit-app-region: drag`, buttons `no-drag`); the minimized
+  owl drags through main (`agents:drag*`) so a click still opens it.
 
 ### Environment variables
 

@@ -231,8 +231,9 @@ stays still.
 
 ### The chat card
 
-- **Header**: the chat's title, **New chat** (`Ctrl+N`), **Open in Studio**
-  (`Ctrl+L`) and **Close** (`Esc`).
+- **Header**: the chat's title, **New chat** (`Ctrl+N`), **New agent** (see
+  [Agents](#agents-more-chats-at-once)), **Open in Studio** (`Ctrl+L`) and
+  **Close** (`Esc`).
 - **Ask box**: `Enter` sends, `Shift+Enter` adds a line. While an answer streams,
   the send button becomes **Stop**. The mic button starts a voice chat (see
   [Talk to Hoot](#talk-to-hoot-voice)); the pencil button starts *Circle anything*.
@@ -243,6 +244,27 @@ stays still.
   latest** appears when you scroll up during an answer.
 - **Errors** say what went wrong and how to fix it (for example, an **Add key**
   button when no Claude key is set).
+- **Changes to your code**: when the answer read your code in VS Code, it lists
+  each change Hoot proposes under **In VS Code**, with **Apply** (make the change)
+  and **Show** (jump there). See [§11](#hoot-reads-your-code).
+
+### Agents: more chats at once
+
+An agent is another Hoot with a chat of its own. Press **New agent** (the robot
+button in the card's header, or in Studio's chat header) and its card opens next
+to the owl. Ask it something and keep going: the agent answers while you chat
+with Hoot or with other agents, all at the same time. Up to six agents can work
+at once.
+
+- **Each agent has its own colour**: blue, green, purple, pink, teal and slate.
+  Its owl, its name (*Blue agent*, *Green agent*, …) and its card show it.
+- **Minimize** (`Esc`, or the **–** button) shrinks the card into the agent's
+  owl. Owls float on their own: drag one anywhere, click it to open the card
+  again. A dot on an owl means an answer finished while it was minimized.
+- **Close** (**×**) ends the agent. Its chat stays in Studio's list, like any chat.
+- Agents read your code in VS Code the same way Hoot does (right after you were
+  in VS Code), and their answers have the same **Apply** buttons.
+- Drag a card by its header. `Esc` stops an answer that's still writing.
 
 ### Talk to Hoot (voice)
 
@@ -406,11 +428,16 @@ stay as they were. A badge on the owl tells you when an answer is ready. Press
 
 ### With VS Code in front
 
-If you start the overlay with VS Code in front (and the Hoot VS Code extension
+If you start the overlay with VS Code in front, or draw a shape (or press
+**Full screen**) over a VS Code window (with the Hoot VS Code extension
 installed, see [§11](#11-vs-code-extension)), the header says **Hoot reads your
 code in VS Code**. Hoot then reads the code as text instead of taking
 screenshots, and its answer can list places **In VS Code** with **Show** (jump
 there) and **Apply** (make the proposed change) buttons.
+
+Each new shape reads the app it's drawn on: open the overlay over the browser,
+then circle your editor, and that chat is about your code. Bringing the overlay
+back from the owl with `Ctrl+Alt+Space` reads whatever app is in front then.
 
 ### With a web page in front
 
@@ -772,17 +799,18 @@ the app's Lens on/off and Ask first settings.
 
 ### Hoot reads your code
 
-While Hoot runs, when you circle something with VS Code in front, or chat with
-Hoot right after using VS Code, the message carries the code you're looking at
-as text: the focused file with line numbers, your selection, other visible
-editors and the problems VS Code reports.
+While Hoot runs, when you circle something over VS Code (or with it in front),
+or chat with Hoot or an agent right after using VS Code, the message carries
+the code you're looking at as text: the focused file with line numbers, your
+selection, other visible editors and the problems VS Code reports.
 
 - **Mistakes Hoot points out** are highlighted in amber, with Hoot's note at the
   end of the line and above it.
 - **Changes Hoot proposes** are highlighted in blue; hover for the new code.
-  Nothing changes until you click **Apply** (in the editor, the hover, or the
-  live overlay). VS Code first checks the lines are still what Hoot read, then
-  applies the change as one edit that `Ctrl+Z` undoes. Files aren't saved for you.
+  Nothing changes until you click **Apply** (in the editor, the hover, under the
+  answer in the card, Studio or an agent, or in the live overlay). VS Code first
+  checks the lines are still what Hoot read, then applies the change as one edit
+  that `Ctrl+Z` undoes. Files aren't saved for you.
 - **Dismiss** removes one highlight; **Hoot: Clear highlights and proposed changes
   in code** removes them all.
 

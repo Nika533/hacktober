@@ -1,27 +1,6 @@
-import type { Unsubscribe } from '@hoot/core'
-import {
-  formatLocation,
-  type CodeActionResult,
-  type CodeTag,
-  type CodeTagState
-} from '@hoot/core/code'
-import { useCallback, useEffect, useState } from 'react'
+import { formatLocation, type CodeTag } from '@hoot/core/code'
+import { useCodeActions, type CodeActionsApi } from '@hoot/ui'
 import './code.css'
-
-/** `window.hoot.code`: what the overlay asks of the code link. */
-export interface CodeActionsApi {
-  apply(messageId: string, index: number): Promise<CodeActionResult>
-  reveal(messageId: string, index: number): Promise<CodeActionResult>
-  tagStates(messageId: string): Promise<CodeTagState[] | null>
-  onChange(cb: () => void): Unsubscribe
-}
-
-interface Note {
-  ok: boolean
-  text: string
-}
-
-const UNREACHABLE: CodeActionResult = { ok: false, message: 'Hoot couldn’t reach VS Code.' }
 
 /**
  * The answer's `[[line]]` and `[[edit]]` tags as a list under it: where each
@@ -41,49 +20,7 @@ export function CodeActions({
   /** The answer finished, so its tags are in VS Code. */
   ready: boolean
 }): React.JSX.Element | null {
-  /** undefined: not loaded yet; null: Hoot didn't read code for this answer. */
-  const [states, setStates] = useState<CodeTagState[] | null | undefined>(undefined)
-  const [busy, setBusy] = useState<number | null>(null)
-  const [notes, setNotes] = useState<Record<number, Note>>({})
-
-  useEffect(() => {
-    if (!api || !ready) return
-    let live = true
-    const load = (): void =>
-      void api.tagStates(messageId).then(
-        (next) => {
-          if (live) setStates(next)
-        },
-        () => {
-          if (live) setStates(null)
-        }
-      )
-    load()
-    const off = api.onChange(load)
-    return () => {
-      live = false
-      off()
-    }
-  }, [api, messageId, ready])
-
-  const run = useCallback(
-    async (index: number, kind: 'apply' | 'reveal'): Promise<void> => {
-      if (!api) return
-      setBusy(index)
-      const result = await api[kind](messageId, index).catch(() => UNREACHABLE)
-      setBusy((b) => (b === index ? null : b))
-      if (kind === 'reveal' && result.ok) return
-      setNotes((n) => ({
-        ...n,
-        [index]: {
-          ok: result.ok,
-          text: result.message ?? (result.ok ? 'Done.' : 'That didn’t work. Try again.')
-        }
-      }))
-    },
-    [api, messageId]
-  )
-
+  const { states, busy, notes, run } = useCodeActions(api, messageId, ready)
   if (tags.length === 0) return null
   const linked = states !== null
   return (

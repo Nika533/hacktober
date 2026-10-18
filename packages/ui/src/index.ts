@@ -54,6 +54,14 @@ export { AttachmentsRow, type AttachmentsRowProps } from './chat/AttachmentsRow'
 export { QuickChips, type QuickChipsProps } from './chat/QuickChips'
 export { ClipboardChip, type ClipboardChipProps } from './chat/ClipboardChip'
 export { VoiceButton, VoiceStatus, type VoiceControls } from './chat/Voice'
+export { CodeChanges, type CodeChangesProps } from './chat/CodeChanges'
+export { codeChangesFor } from './chat/codeChangesFor'
+export {
+  useCodeActions,
+  type CodeActionNote,
+  type CodeActions,
+  type CodeActionsApi
+} from './chat/useCodeActions'
 
 // Settings pieces (D3-12)
 export {
@@ -93,6 +101,9 @@ export {
   type BuddyPart,
   type BuddyTransitions
 } from './buddy/useBuddyTransitions'
+
+// Agents: extra chats in their own windows, minimizing into coloured owls
+export { Agent, type AgentHost, type AgentProps } from './agents/Agent'
 
 // Lens (D3-13, D3-20)
 export { ExtensionStatus, type ExtensionStatusProps } from './lens/ExtensionStatus'

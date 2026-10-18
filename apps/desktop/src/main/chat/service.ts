@@ -163,9 +163,8 @@ export function createChatService(deps: ChatDeps): ChatService {
     messages: s.messages.map((m) => (m.id === id ? update(m) : m))
   })
 
-  async function readImages(s: Session): Promise<Map<string, string>> {
+  async function readImages(ids: ReadonlySet<string>): Promise<Map<string, string>> {
     const out = new Map<string, string>()
-    const ids = new Set(s.messages.flatMap((m) => m.attachmentIds))
     await Promise.all(
       [...ids].map(async (id) => {
         const png = await persistence.readAttachment(id)
@@ -206,13 +205,22 @@ export function createChatService(deps: ChatDeps): ChatService {
       const provider = await deps.getProvider()
       if (stream.abort.signal.aborted) return finish('stopped')
       if (!provider) return finish('error', 'no_key')
-      const images = await readImages(latest())
-      if (stream.abort.signal.aborted) return finish('stopped')
       const snapshot = latest()
-      const messages = buildMessages(
-        { ...snapshot, messages: snapshot.messages.filter((m) => m.id !== stream.messageId) },
-        (id) => ({ base64: images.get(id) ?? '', mediaType: 'image/png' })
-      )
+      const history = {
+        ...snapshot,
+        messages: snapshot.messages.filter((m) => m.id !== stream.messageId)
+      }
+      const needed = new Set<string>()
+      buildMessages(history, (id) => {
+        needed.add(id)
+        return { base64: '', mediaType: 'image/png' }
+      })
+      const images = await readImages(needed)
+      if (stream.abort.signal.aborted) return finish('stopped')
+      const messages = buildMessages(history, (id) => ({
+        base64: images.get(id) ?? '',
+        mediaType: 'image/png'
+      }))
       let first = true
       await provider.stream(
         {

@@ -88,6 +88,13 @@ export const INVOKE_ARGS = {
   'voice:finish': none,
   'voice:stop': none,
   'voice:speak': z.tuple([IdSchema]),
+  'agents:create': none,
+  'agents:send': z.tuple([SendPayloadSchema]),
+  'agents:stop': none,
+  'agents:regenerate': none,
+  'agents:minimize': none,
+  'agents:restore': none,
+  'agents:close': none,
   'app:openExternal': z.tuple([z.url({ protocol: /^https?$/ }).max(2048)])
 } satisfies Record<InvokeChannel, z.ZodType>
 
@@ -100,6 +107,9 @@ export const SEND_ARGS = {
   'buddy:dragStart': none,
   'buddy:dragMove': none,
   'buddy:dragEnd': z.tuple([z.object({ vx: z.number(), vy: z.number() })]),
+  'agents:dragStart': none,
+  'agents:dragMove': none,
+  'agents:dragEnd': z.tuple([z.object({ vx: z.number(), vy: z.number() })]),
   'buddy:setCursorTracking': z.tuple([z.boolean()]),
   'pins:resize': z.tuple([z.number().min(0).max(10_000)]),
   'anywhere:resize': z.tuple([z.number().min(0).max(10_000)])

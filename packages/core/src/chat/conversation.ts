@@ -50,16 +50,32 @@ export function buildMessages(
   while (kept.length > 0 && kept[0]?.role !== 'user') kept.shift()
 
   // Collect image-bearing user messages in order to apply the image cap.
+  // In a live-screen chat, each turn's last image is the whole screen then;
+  // once a newer turn brings a fresh screen, earlier full-screen frames are
+  // superseded (the first turn's circled crop, before its screen frame, stays).
+  const liveScreens = kept.flatMap((m) => {
+    if (m.role !== 'user') return []
+    const last = m.attachmentIds.at(-1)
+    return last &&
+      session.attachments[last] &&
+      (m.sentText ?? m.text).includes('[Live screen attached:')
+      ? [last]
+      : []
+  })
+  const staleScreens = new Set(liveScreens.slice(0, -1))
   const imageOrder: { messageIndex: number; attachmentId: string }[] = []
   kept.forEach((m, messageIndex) => {
     if (m.role !== 'user') return
     for (const id of m.attachmentIds) {
-      if (session.attachments[id]) imageOrder.push({ messageIndex, attachmentId: id })
+      if (session.attachments[id] && !staleScreens.has(id)) {
+        imageOrder.push({ messageIndex, attachmentId: id })
+      }
     }
   })
-  const omitted = new Set(
-    imageOrder.slice(0, Math.max(0, imageOrder.length - MAX_IMAGES)).map((e) => e.attachmentId)
-  )
+  const omitted = new Set([
+    ...staleScreens,
+    ...imageOrder.slice(0, Math.max(0, imageOrder.length - MAX_IMAGES)).map((e) => e.attachmentId)
+  ])
 
   const out: ConversationMessage[] = []
   for (const m of kept) {

@@ -36,7 +36,8 @@ export default defineConfig({
           capture: resolve('src/renderer/capture.html'),
           note: resolve('src/renderer/note.html'),
           reader: resolve('src/renderer/reader.html'),
-          anywhere: resolve('src/renderer/anywhere.html')
+          anywhere: resolve('src/renderer/anywhere.html'),
+          agent: resolve('src/renderer/agent.html')
         }
       }
     }

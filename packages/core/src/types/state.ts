@@ -8,6 +8,7 @@ import type {
   Platform,
   StudioView
 } from './app'
+import type { AgentState } from './agents'
 import type { Attachment, Session, SessionMeta } from './chat'
 import type { BridgeStatus } from './lens'
 import type { VoiceSlice } from './voice'
@@ -81,6 +82,8 @@ export interface StateSlices {
   }
   /** The voice chat: one at a time, whichever surface started it. */
   voice: VoiceSlice
+  /** Agents: extra chats running next to the owl's, each in its own window (oldest first). */
+  agents: { list: AgentState[] }
 }
 
 export type SliceName = keyof StateSlices
@@ -94,7 +97,8 @@ export const SLICE_NAMES = [
   'sessions',
   'pins',
   'lens',
-  'voice'
+  'voice',
+  'agents'
 ] as const satisfies readonly SliceName[]
 
 // Compile-time check that SLICE_NAMES lists every slice.
@@ -104,7 +108,7 @@ void _allSlices
 
 export type StatePatch = Partial<StateSlices>
 
-export type WindowKind = 'buddy' | 'studio' | 'capture' | 'note' | 'reader' | 'anywhere'
+export type WindowKind = 'buddy' | 'studio' | 'capture' | 'note' | 'reader' | 'anywhere' | 'agent'
 
 /** What each window subscribes to by default. */
 export const DEFAULT_SUBSCRIPTIONS: Record<WindowKind, readonly SliceName[]> = {
@@ -113,5 +117,6 @@ export const DEFAULT_SUBSCRIPTIONS: Record<WindowKind, readonly SliceName[]> = {
   capture: ['system'],
   note: ['system', 'pins'],
   reader: ['settings', 'system', 'lens'],
-  anywhere: ['system', 'settings']
+  anywhere: ['system', 'settings'],
+  agent: ['system', 'agents']
 }

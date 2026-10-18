@@ -20,7 +20,7 @@ import type { Persistence } from '../store/persistence'
 import type { Store } from '../store/store'
 import type { WindowRegistry } from '../windows/base'
 import type { StudioWindow } from '../windows/studio'
-import { addImageAttachment } from './attachments'
+import { addImageAttachment, MAX_LONG_EDGE } from './attachments'
 import { createScreenGrabber, type Grab, type ScreenGrabber } from './grab'
 import { createOverlayWindow, type OverlayHost } from './overlay'
 
@@ -33,7 +33,7 @@ export const LASSO_PADDING = 8
 /** Shapes smaller than this (DIP, either side) are treated as a stray click. */
 export const MIN_SHAPE = 8
 /** Live mode: the compositor needs a frame to drop the overlay from captures. */
-export const EXCLUDE_SETTLE_MS = 60
+export const EXCLUDE_SETTLE_MS = 30
 /** Live mode: the longest a send waits for the text under the shape. */
 export const REGION_TEXT_WAIT_MS = 1500
 /** Live mode: the longest a send waits for a shape still being saved. */
@@ -97,10 +97,18 @@ export interface CaptureDeps {
   /** Live mode: the owl's anchor (screen DIP), for a minimized chat to shrink into. */
   owlAnchor?(): Point
   /**
-   * Live mode: the VS Code window in front when the overlay opens (the code
-   * link). Messages then carry its code as text instead of a screen grab.
+   * Live mode: the VS Code window in front when the overlay opens, or comes
+   * back out of the owl to draw (the code link). Messages then carry its code
+   * as text instead of a screen grab.
    */
-  codeWindow?(): CodeWindowInfo | null
+  codeWindow?(): CodeWindowInfo | null | Promise<CodeWindowInfo | null>
+  /**
+   * Live mode: what Hoot can read of the app under a shape the user just drew
+   * (screen DIP), so each shape is about the app it was drawn on, not only the
+   * one in front when the overlay opened. Undefined when Hoot can't tell which
+   * app is there (the overlay keeps what it had).
+   */
+  appAt?(region: Rect): Promise<ShapeApp | undefined>
   /** Live mode: the code note for that window's next message; null falls back to a screen grab. */
   codeNote?(windowId: string): Promise<string | null>
   /**
@@ -157,6 +165,14 @@ export interface CaptureService {
   prewarm(): void
 }
 
+/** What the overlay reads besides the screen: VS Code's code, or a browser page. */
+export interface ShapeApp {
+  code: CodeWindowInfo | null
+  page: { id: number; title: string } | null
+}
+
+const NOTHING: ShapeApp = { code: null, page: null }
+
 interface Open {
   grab: Grab
   /** Image px per DIP, from the size Electron actually returned (D1-00). */
@@ -172,6 +188,8 @@ interface Open {
   code: CodeWindowInfo | null
   /** Live mode: the browser whose page goes along with the screen; null when there's none. */
   page: { id: number; title: string } | null
+  /** Live mode: the app in front, still being read after coming back out of the owl. */
+  reading: Promise<void>
 }
 
 /** Where to put things back: Studio on its view, or the surfaces hook. */
@@ -241,14 +259,31 @@ export function createCaptureService(deps: CaptureDeps): CaptureService {
   const exclude = deps.excludeFromGrabs ?? true
 
   /** The display now, without the live overlay in the picture. */
-  const liveGrab = async (displayId: number): Promise<Grab | null> => {
-    if (!exclude) return grabber.grab(displayId)
+  const liveGrab = async (displayId: number, maxEdge?: number): Promise<Grab | null> => {
+    if (!exclude) return grabber.grab(displayId, maxEdge)
     if (excluding++ === 0) overlay.setCaptureExcluded?.(true)
     try {
       await wait(EXCLUDE_SETTLE_MS)
-      return await grabber.grab(displayId)
+      return await grabber.grab(displayId, maxEdge)
     } finally {
       if (--excluding === 0) overlay.setCaptureExcluded?.(false)
+    }
+  }
+
+  /** The app in front right now (before anything of Hoot's takes focus). */
+  const inFront = async (): Promise<ShapeApp> => {
+    const code = (await deps.codeWindow?.()) ?? null
+    return { code, page: code ? null : (deps.browserPage?.() ?? null) }
+  }
+
+  /** What the overlay reads from now on; the header follows (the overlay pulls the init again). */
+  const readFrom = (current: Open, app: ShapeApp): void => {
+    current.code = app.code
+    current.page = app.code ? null : app.page
+    current.init = {
+      ...current.init,
+      code: current.code && { name: current.code.name },
+      page: current.page && { title: current.page.title }
     }
   }
 
@@ -312,11 +347,20 @@ export function createCaptureService(deps: CaptureDeps): CaptureService {
       const dip = cropFor(commit, bounds)
       if (!dip) return
       current.focus = commit.kind === 'full' ? null : dip
-      // Read alongside the save; the first send waits for it (briefly).
+      const onScreen = { ...dip, x: bounds.x + dip.x, y: bounds.y + dip.y }
+      // A shape is about the app it was drawn on: the user may have moved to
+      // VS Code (or away from it) since the overlay opened.
+      await current.reading
+      const app = await deps.appAt?.(onScreen).catch(() => undefined)
+      if (open !== current) return
+      if (app) readFrom(current, app)
+      // Read alongside the save; the first send waits for it (briefly). The
+      // code note already carries the whole file, so the whole screen's text
+      // would only repeat it.
       current.regionText =
-        deps
-          .readScreenText?.({ ...dip, x: bounds.x + dip.x, y: bounds.y + dip.y })
-          .catch(() => null) ?? null
+        current.code && !current.focus
+          ? null
+          : (deps.readScreenText?.(onScreen).catch(() => null) ?? null)
       const fresh = current.fresh
       current.fresh = false
       if (commit.kind === 'full') return
@@ -346,7 +390,7 @@ export function createCaptureService(deps: CaptureDeps): CaptureService {
   const attachFrame = async (current: Open): Promise<boolean> => {
     if (store.get('chat').pendingAttachments.length >= MAX_PENDING) return false
     try {
-      const grab = await liveGrab(current.grab.display.id)
+      const grab = await liveGrab(current.grab.display.id, MAX_LONG_EDGE)
       if (!grab || grab.image.isBlank() || open !== current) return false
       const added = await addImageAttachment(attachmentDeps, grab.image, 'capture')
       liveIds.add(added.id)
@@ -367,18 +411,29 @@ export function createCaptureService(deps: CaptureDeps): CaptureService {
 
   const service: CaptureService = {
     async start(mode = 'lasso') {
-      // Circling again while the chat sits in the owl: bring it back, ready to draw.
-      if (service.restore(true)) return
+      // Circling again while the chat sits in the owl: bring it back, ready to
+      // draw, about the app in front now (the next shape waits for that).
+      const back = open
+      if (service.restore(true)) {
+        if (back) {
+          back.reading = inFront().then(
+            (app) => {
+              if (open === back) readFrom(back, app)
+            },
+            () => undefined
+          )
+        }
+        return
+      }
       if (busy) return
       if (store.get('chat').pendingAttachments.length >= MAX_PENDING) {
         notify(COPY.full)
         return
       }
       busy = true
-      // Before anything of ours takes focus: was VS Code in front?
-      const code = live ? (deps.codeWindow?.() ?? null) : null
-      const page = live && !code ? (deps.browserPage?.() ?? null) : null
       try {
+        // Before anything of ours takes focus: was VS Code (or a browser) in front?
+        const { code, page } = live ? await inFront() : NOTHING
         hidden = await hide()
         await wait(HIDE_DELAY_MS)
         const grabStarted = Date.now()
@@ -401,6 +456,7 @@ export function createCaptureService(deps: CaptureDeps): CaptureService {
           focus: null,
           code,
           page,
+          reading: Promise.resolve(),
           init: {
             // Live: '' tells the overlay to show the real screen, not a still.
             imageDataUrl: live ? '' : grab.image.toJpegDataUrl(90),
@@ -476,6 +532,9 @@ export function createCaptureService(deps: CaptureDeps): CaptureService {
     async click(at) {
       const current = open
       if (!live || !current || !deps.clickScreen) return false
+      // The user's cursor was on the chat ("Click for me"), so the overlay was
+      // taking clicks; let it pass through before the pointer moves and clicks.
+      overlay.passThrough?.()
       const { bounds } = current.grab.display
       const x = Math.min(Math.max(0, at.x), bounds.width - 1)
       const y = Math.min(Math.max(0, at.y), bounds.height - 1)

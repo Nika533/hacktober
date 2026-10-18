@@ -13,6 +13,7 @@ import {
   AttachmentsRow,
   ChatPane,
   ClipboardChip,
+  codeChangesFor,
   coldStartPatches,
   formatAccelerator,
   GlossaryPane,
@@ -175,6 +176,7 @@ function Studio({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
           onRegenerate={() => run((h) => h.chat.regenerate())}
           onRetry={() => run((h) => h.chat.regenerate())}
           onNewChat={() => run((h) => h.chat.newChat())}
+          onNewAgent={() => run((h) => h.agents.create())}
           onLock={() => run((h) => h.windows.lockStudio())}
           onPin={(id) => run((h) => h.pins.create(id))}
           onSpeak={(id) => run((h) => h.voice.speak(id))}
@@ -182,6 +184,7 @@ function Studio({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
           onOpenLink={(href) => run((h) => h.app.openExternal(href))}
           onAddKey={() => run((h) => h.windows.openStudio('settings'))}
           onOpenSettings={() => run((h) => h.windows.openStudio('settings'))}
+          answerFooter={codeChangesFor(hoot?.code, session)}
           onEmptySend={
             pending.length > 0
               ? () => run((h) => h.chat.send({ quickAction: 'explain' }))

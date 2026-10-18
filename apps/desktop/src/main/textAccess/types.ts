@@ -32,6 +32,8 @@ export interface TextAccess {
   /** Readable text inside a screen rectangle (DIP), capped at TEXT_IN_RECT_MAX characters. */
   textInRect(rect: Rect): Promise<string | null>
   foreground(): Promise<ForegroundApp | null>
+  /** The app whose window is at a screen point (DIP), looking through Hoot's own windows. */
+  windowAt(at: Point): Promise<ForegroundApp | null>
   /**
    * The agent's eyes on the user's hands: every left click anywhere on screen
    * (screen DIP, where the button was released), while at least one listener

@@ -71,6 +71,7 @@ const DISABLED: TextAccess = {
   selection: async () => null,
   textInRect: async () => null,
   foreground: async () => null,
+  windowAt: async () => null,
   onClick: () => () => undefined,
   click: async () => false,
   prewarm: () => undefined,
@@ -210,6 +211,18 @@ export function createTextAccess(deps: TextAccessDeps): TextAccess {
       return guard('foreground', null, async () => {
         const r = await helper.call('foreground')
         return r ? appOf(r) : null
+      })
+    },
+
+    windowAt(at) {
+      return guard('windowAt', null, async () => {
+        const p = scr.pointToScreen(at)
+        const r = await helper.call('windowAt', {
+          x: Math.round(p.x),
+          y: Math.round(p.y),
+          excludePid: selfPid
+        })
+        return r?.['found'] === true ? appOf(r) : null
       })
     },
 

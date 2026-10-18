@@ -11,7 +11,8 @@
  * are up; never into a terminal), clipSave/clipClear/clipText/clipRestore
  * (a full snapshot of every memory format, held in the helper), textInRect
  * {x,y,w,h,excludePid} (windows of that process are looked through),
- * watchClicks {on}, click {x,y}.
+ * windowAt {x,y,excludePid} (the top-level window there, looking through that
+ * process's windows), watchClicks {on}, click {x,y}.
  *
  * The C# half travels in an environment variable (HELPER_TYPES_ENV): with it
  * on the command line the encoded command would brush the 32K limit.
@@ -81,11 +82,11 @@ var a=new[]{Key(17,29,0),Key(67,46,0),Key(67,46,2),Key(17,29,2)};
 return SendInput(4,a,Sz())==4;
 }
 public static bool Click(int x,int y){
-Idle(new[]{1,2,4,16,17,18,91,92});
+var w=Stopwatch.StartNew();while(w.ElapsedMilliseconds<150){bool d=false;foreach(int k in new[]{1,2,4,16,17,18,91,92})if((GetAsyncKeyState(k)&0x8000)!=0)d=true;if(!d)break;Thread.Sleep(4);}
 if(!SetCursorPos(x,y))return false;
 bool sw=GetSystemMetrics(23)!=0;
 if(SendInput(1,new[]{Btn(sw?8u:2u)},Sz())!=1)return false;
-Thread.Sleep(30);
+Thread.Sleep(8);
 return SendInput(1,new[]{Btn(sw?16u:4u)},Sz())==1;
 }
 static volatile bool watching;static Thread watcher;
@@ -216,6 +217,11 @@ $res=Walk $hs $R $sw
 if(-not $res.hit -and @($hs|Where-Object{[HT]::Cls($_) -like 'Chrome_WidgetWin*'}).Count){Start-Sleep -Milliseconds 250;$res=Walk $hs $R $sw}
 @{items=$res.items;nodes=$res.nodes}
 }
+function Wat($q){
+$h=[HT]::Target([int]$q.x,[int]$q.y,[uint32]$q.excludePid)
+if($h -eq [IntPtr]::Zero){return @{found=$false}}
+$p=[HT]::Pid($h);@{found=$true;process=(Pn $p);title=[HT]::Title($h)}
+}
 $in=New-Object IO.StreamReader ([Console]::OpenStandardInput()),$u
 [HT]::Line('{"ready":true}')
 while($null -ne ($l=$in.ReadLine())){
@@ -231,6 +237,7 @@ $r=switch($q.cmd){
 'clipText'{@{text=[HT]::Text()}}
 'clipRestore'{@{done=[HT]::Restore([int]$q.token)}}
 'textInRect'{Tir $q}
+'windowAt'{Wat $q}
 'watchClicks'{@{on=[HT]::Watch([bool]$q.on)}}
 'click'{@{done=[HT]::Click([int]$q.x,[int]$q.y)}}
 'ping'{@{}}

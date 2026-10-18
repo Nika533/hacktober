@@ -222,6 +222,28 @@ export interface HootApi {
     /** Read one assistant message of the active chat aloud. */
     speak(messageId: string): Promise<void>
   }
+  /**
+   * Agents: extra chats answering at the same time as the owl's, each in its
+   * own window (the `agents` slice). `create` comes from the card or Studio;
+   * every other call comes from an agent's window and acts on that agent.
+   */
+  agents: {
+    /** Call a new agent; its window opens by the owl. False when MAX_AGENTS are already out. */
+    create(): Promise<boolean>
+    send(payload: SendPayload): Promise<void>
+    stop(): Promise<void>
+    regenerate(): Promise<void>
+    /** Shrink into its coloured owl: the window becomes just the owl. */
+    minimize(): Promise<void>
+    /** Open again out of the owl. */
+    restore(): Promise<void>
+    /** Done with this agent: the window closes; its chat stays in Studio's list. */
+    close(): Promise<void>
+    /** The minimized owl is a drag handle: main moves the window 1:1 with the cursor. */
+    dragStart(): void
+    dragMove(): void
+    dragEnd(v: DragEnd): void
+  }
   app: {
     /** Opens http(s) URLs on the allowlist in the default browser. */
     openExternal(url: string): Promise<void>

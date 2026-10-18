@@ -84,6 +84,7 @@ export function initialSlices(input: {
     sessions: { list: [], pendingDelete: null },
     pins: { pins: [] },
     lens: { bridge: 'stopped', clients: 0, lastError: null },
-    voice: VOICE_OFF
+    voice: VOICE_OFF,
+    agents: { list: [] }
   }
 }

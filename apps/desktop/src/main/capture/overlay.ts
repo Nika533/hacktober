@@ -13,6 +13,11 @@ export interface OverlayHost {
    * grabbed, so the model sees the screen, not Hoot's glow and chat.
    */
   setCaptureExcluded?(excluded: boolean): void
+  /**
+   * Live mode only: let the next click straight through to the app under the
+   * overlay (before Hoot clicks a highlighted spot for the user).
+   */
+  passThrough?(): void
   /** Live mode only: tell the overlay where the user just clicked (overlay DIP). */
   userClicked?(at: Point): void
   /** Live mode only: hide the window but keep the page (its chat) as it is. */
@@ -189,6 +194,10 @@ export function createOverlayWindow(deps: {
     setCaptureExcluded(excluded) {
       if (!win || win.isDestroyed()) return
       win.setContentProtection(excluded)
+    },
+    passThrough() {
+      if (!live || !win || win.isDestroyed()) return
+      setIgnore(win, true)
     },
     userClicked(at) {
       if (!win || win.isDestroyed() || !showing || minimized) return

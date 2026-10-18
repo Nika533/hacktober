@@ -52,13 +52,15 @@ export interface OverlayInit {
    */
   owlAt?: Point | null
   /**
-   * Live overlay: VS Code was in front when it opened, so Hoot reads the code
-   * from the editor instead of grabbing the screen (`name`: the workspace).
+   * Live overlay: the current shape is over VS Code (or VS Code was in front
+   * when it opened), so Hoot reads the code from the editor instead of
+   * grabbing the screen (`name`: the workspace). Pull again after a commit.
    */
   code?: { name: string } | null
   /**
-   * Live overlay: a browser with the Hoot extension was in front when it
-   * opened, so each message also carries that page as text (`title`: the tab).
+   * Live overlay: the current shape is over a browser with the Hoot extension
+   * (or one was in front when it opened), so each message also carries that
+   * page as text (`title`: the tab).
    */
   page?: { title: string } | null
 }

@@ -1,3 +1,4 @@
+import type { AgentColor } from '@hoot/core'
 import { animate, motion, useMotionValue, useReducedMotion, type MotionValue } from 'motion/react'
 import { useEffect, useId, useRef } from 'react'
 import { springs } from '../motion/springs'
@@ -16,6 +17,8 @@ export interface OwlProps {
   talkSignal?: number
   /** Accessible name. Without it the owl is decorative (aria-hidden). */
   label?: string
+  /** An agent's plumage; Hoot's own owl when absent. */
+  tint?: AgentColor
   className?: string
 }
 
@@ -38,6 +41,7 @@ export function Owl({
   gaze,
   talkSignal,
   label,
+  tint,
   className
 }: OwlProps): React.JSX.Element {
   const reduced = useReducedMotion() ?? false
@@ -170,6 +174,7 @@ export function Owl({
       viewBox="0 0 56 56"
       className={className ? `hoot-owl ${className}` : 'hoot-owl'}
       data-mood={mood}
+      data-tint={tint}
       style={{ x: shakeX, y: bobY }}
       {...a11y}
     >

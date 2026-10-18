@@ -1,0 +1,78 @@
+/* Under an answer that read VS Code: the changes Hoot proposes (Apply) and the spots it points at. */
+.hoot-code-changes {
+  display: grid;
+  gap: var(--space-1-5);
+}
+.hoot-code-changes__title {
+  margin: 0;
+  font-family: var(--font-small);
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.hoot-code-changes__list {
+  display: grid;
+  gap: var(--space-1-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.hoot-code-changes__item {
+  display: grid;
+  gap: var(--space-1-5);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--accent-subtle);
+}
+.hoot-code-changes__item[data-kind='line'] {
+  border-color: color-mix(in srgb, var(--warning) 40%, transparent);
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+}
+.hoot-code-changes__item[data-state='applied'] {
+  border-color: color-mix(in srgb, var(--success) 45%, transparent);
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+}
+.hoot-code-changes__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+.hoot-code-changes__kind {
+  font-weight: 600;
+}
+.hoot-code-changes__where {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-2);
+}
+.hoot-code-changes__label {
+  flex: 1 1 100%;
+  color: var(--text-1);
+}
+.hoot-code-changes__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1-5);
+}
+.hoot-code-changes__note {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--danger);
+}
+.hoot-code-changes__note[data-ok='true'] {
+  color: var(--success);
+}
+
+@media (forced-colors: active) {
+  .hoot-code-changes__item {
+    border-color: CanvasText;
+  }
+}
