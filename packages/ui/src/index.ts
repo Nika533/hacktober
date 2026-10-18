@@ -101,6 +101,13 @@ export {
   type LensSettingsFeed
 } from './lens/ipcLensBackend'
 export { ReadingPane, type ReadingPaneProps } from './lens/ReadingPane'
+export { ColdStart, type ColdStartProps } from './lens/ColdStart'
+export {
+  COLD_START_TOPICS,
+  coldStartPatches,
+  KNOWN_TOPIC_FAMILIARITY,
+  type ColdStartSetup
+} from './lens/coldStartSetup'
 export { GEMINI_TERMS_URL, languageName, siteFromInput, siteLabel } from './lens/sites'
 export { ProfilePane, type ProfilePaneProps } from './lens/ProfilePane'
 export { GlossaryPane, type GlossaryPaneProps } from './lens/GlossaryPane'

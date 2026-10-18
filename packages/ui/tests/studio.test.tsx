@@ -121,6 +121,30 @@ describe('state mirror', () => {
     expect(failed?.error).toBeInstanceOf(Error)
     expect(failed?.state).toBeNull()
   })
+
+  it('useHootState replays patches that beat a late subscribe reply (#94)', async () => {
+    let onPatch: ((p: StatePatch) => void) | undefined
+    let reply: (p: StatePatch) => void = () => undefined
+    const api = {
+      state: {
+        subscribe: () => new Promise<StatePatch>((r) => (reply = r)),
+        onPatch: (cb: (p: StatePatch) => void) => ((onPatch = cb), () => undefined)
+      },
+      chat: { onDelta: () => () => undefined }
+    } as unknown as HootApi
+    const SL = ['chat'] as const
+    let seen: ReturnType<typeof useHootState<'chat'>> | undefined
+    function Probe(): null {
+      seen = useHootState(api, SL)
+      return null
+    }
+    render(<Probe />)
+    // Main's newer patch lands first, then the older snapshot.
+    act(() => onPatch?.({ chat: { ...chat, session: null } }))
+    expect(seen?.state).toBeNull()
+    await act(async () => reply({ chat }))
+    expect(seen?.state?.chat?.session).toBeNull()
+  })
 })
 
 describe('views', () => {

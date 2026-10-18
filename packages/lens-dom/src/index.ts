@@ -37,6 +37,7 @@ export {
 } from './selection'
 export { MARK_TAG, UI_TAG, checkRange, isInsideLens } from './guard'
 export { ReadingTracker, rarityOf } from './signals'
+export { guessLanguage } from './language'
 export {
   DynamicPageDetector,
   STRONG_MARKERS,

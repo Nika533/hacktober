@@ -9,7 +9,8 @@ import {
   createPersistence,
   migrateSession,
   PersistenceError,
-  type Persistence
+  type Persistence,
+  type UiStateStore
 } from '../src/main/store/persistence'
 
 const silent: Logger = { info: () => {}, warn: () => {}, error: () => {} }
@@ -17,7 +18,7 @@ const silent: Logger = { info: () => {}, warn: () => {}, error: () => {} }
 let root: string
 let history = true
 let errors: PersistenceError[]
-let p: Persistence
+let p: Persistence & UiStateStore
 
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), 'hoot-persist-'))
@@ -280,5 +281,30 @@ describe('attachments', () => {
   it('rejects unsafe ids', () => {
     expect(() => p.attachmentPath('../x')).toThrow(PersistenceError)
     expect(p.attachmentPath('ok_1')).toContain('attachments')
+  })
+})
+
+describe('ui-state', () => {
+  it('missing file -> step 0', async () => {
+    expect(await p.loadUiState()).toEqual({ onboardingStep: 0 })
+  })
+
+  it('save + load round-trip', async () => {
+    await p.saveUiState({ onboardingStep: 2 })
+    expect(await p.loadUiState()).toEqual({ onboardingStep: 2 })
+  })
+
+  it('corrupt JSON -> backup + 0', async () => {
+    await writeFile(join(root, 'ui-state.json'), '{nope')
+    expect(await p.loadUiState()).toEqual({ onboardingStep: 0 })
+    const backups = (await readdir(root)).filter((f) => f.startsWith('ui-state.corrupt-'))
+    expect(backups.length).toBe(1)
+  })
+
+  it('out-of-range step -> backup + 0', async () => {
+    await writeFile(join(root, 'ui-state.json'), JSON.stringify({ onboardingStep: 99 }))
+    expect(await p.loadUiState()).toEqual({ onboardingStep: 0 })
+    const backups = (await readdir(root)).filter((f) => f.startsWith('ui-state.corrupt-'))
+    expect(backups.length).toBe(1)
   })
 })

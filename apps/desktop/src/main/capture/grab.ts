@@ -12,19 +12,36 @@ export interface Grab {
 export interface ScreenGrabber {
   /** The whole display under the cursor, or null when it couldn't be grabbed. */
   grab(): Promise<Grab | null>
-  /** The first getSources call takes about 3 s cold (D1-00), so make it once at idle. */
+  /**
+   * The first getSources call is slow (D1-00: ~3 s) and blocks the whole main
+   * process while it runs (measured: ~1.7 s on a fast machine), so it's made
+   * once the app has settled, never during startup. A capture warms it anyway.
+   */
   prewarm(): void
 }
 
-/**
- * desktopCapturer for the display under the cursor. `HOOT_FAKE_CAPTURE=<png>`
- * returns that file instead (e2e and demos without a real screen).
- */
+export interface ScreenGrabberOptions {
+  /** `HOOT_FAKE_CAPTURE=<png>`: return that file instead (e2e and demos without a real screen). */
+  fakePath?: string
+  /** Off in test runs (`HOOT_TEST=1`): a stalled main process makes other specs time out. */
+  warm?: boolean
+  /** How long after `prewarm()` the warm-up grab runs. */
+  warmDelayMs?: number
+}
+
+export const PREWARM_DELAY_MS = 10_000
+
+/** desktopCapturer for the display under the cursor. */
 export function createScreenGrabber(
   log: Logger,
-  fakePath = process.env['HOOT_FAKE_CAPTURE']
+  options: ScreenGrabberOptions = {
+    fakePath: process.env['HOOT_FAKE_CAPTURE'],
+    warm: process.env['HOOT_TEST'] !== '1'
+  }
 ): ScreenGrabber {
+  const { fakePath, warm = true, warmDelayMs = PREWARM_DELAY_MS } = options
   let warmed = false
+  let timer: ReturnType<typeof setTimeout> | null = null
   return {
     async grab() {
       const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
@@ -40,6 +57,7 @@ export function createScreenGrabber(
         const image = nativeImage.createFromPath(fakePath).resize(size)
         return { image: fromNativeImage(image), display: target }
       }
+      warmed = true
       const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: size })
       const source = sources.find((s) => s.display_id === String(display.id)) ?? sources[0]
       if (!source) return null
@@ -51,11 +69,18 @@ export function createScreenGrabber(
       return { image: fromNativeImage(source.thumbnail), display: target }
     },
     prewarm() {
-      if (warmed || fakePath) return
-      warmed = true
-      desktopCapturer
-        .getSources({ types: ['screen'], thumbnailSize: { width: 16, height: 16 } })
-        .catch((e: unknown) => log.warn(`capture: prewarm failed: ${String(e)}`))
+      if (warmed || timer || fakePath || !warm) return
+      timer = setTimeout(() => {
+        timer = null
+        if (warmed) return
+        warmed = true
+        const started = Date.now()
+        desktopCapturer
+          .getSources({ types: ['screen'], thumbnailSize: { width: 16, height: 16 } })
+          .then(() => log.info(`capture: grabber warmed in ${Date.now() - started} ms`))
+          .catch((e: unknown) => log.warn(`capture: prewarm failed: ${String(e)}`))
+      }, warmDelayMs)
+      timer.unref?.()
     }
   }
 }

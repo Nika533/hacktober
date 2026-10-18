@@ -13,6 +13,7 @@ import {
   AttachmentsRow,
   ChatPane,
   ClipboardChip,
+  coldStartPatches,
   formatAccelerator,
   GlossaryPane,
   HootUIProvider,
@@ -222,6 +223,17 @@ function Studio({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
           onUpdate={(lens) => run((h) => h.settings.update({ lens }))}
           onOpenView={(v) => run((h) => h.windows.openStudio(v))}
           onOpenLink={(url) => run((h) => h.app.openExternal(url))}
+          onColdStart={async (setup) => {
+            if (!hoot) return
+            const { profile, settings: lens } = coldStartPatches(setup)
+            try {
+              await hoot.lens.patchProfile(profile)
+              await hoot.settings.update({ lens })
+              toast.show({ message: 'Thanks. Hoot will explain things your way.' })
+            } catch {
+              toast.show({ tone: 'danger', message: 'Hoot couldn’t save that. Try again.' })
+            }
+          }}
           onBack={() => run((h) => h.windows.openStudio('chat'))}
         />
       ) : view === 'profile' ? (

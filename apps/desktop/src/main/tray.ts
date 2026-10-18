@@ -15,7 +15,7 @@ export interface TrayMenuState {
 }
 
 export type TrayAction =
-  'summon' | 'capture' | 'toggleNotes' | 'openStudio' | 'openSettings' | 'quit'
+  'summon' | 'capture' | 'toggleNotes' | 'openStudio' | 'openReader' | 'openSettings' | 'quit'
 
 export type TrayTemplateItem = MenuItemConstructorOptions & { id?: TrayAction }
 
@@ -35,6 +35,7 @@ export function buildTrayTemplate(s: TrayMenuState): TrayTemplateItem[] {
     },
     { type: 'separator' },
     { id: 'openStudio', label: 'Open Studio' },
+    { id: 'openReader', label: 'Open in Hoot Reader…' },
     { id: 'openSettings', label: 'Settings…' },
     { type: 'separator' },
     { id: 'quit', label: 'Quit' }
@@ -52,6 +53,8 @@ export interface TrayDeps {
   /** The user toggled notes; `hidden` is the new state. */
   onToggleNotes(hidden: boolean): void
   onOpenStudio(): void
+  /** "Open in Hoot Reader…": the file picker. */
+  onOpenReader(): void
   onOpenSettings(): void
   onQuit(): void
 }
@@ -86,6 +89,7 @@ export function createTray(deps: TrayDeps): TrayHandle {
       rebuild()
     },
     openStudio: deps.onOpenStudio,
+    openReader: deps.onOpenReader,
     openSettings: deps.onOpenSettings,
     quit: deps.onQuit
   }

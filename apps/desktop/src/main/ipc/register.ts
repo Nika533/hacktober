@@ -10,6 +10,7 @@ import { registerBuddyIpc } from './buddy'
 import { registerClipboardIpc } from './clipboard'
 import { handleInvoke, onSend } from './handle'
 import { registerOnboardingIpc } from './onboarding'
+import { registerReaderIpc } from './reader'
 import { registerSettingsIpc } from './settings'
 import { registerWindowsIpc } from './windows'
 
@@ -88,6 +89,7 @@ export function registerDomains(ctx: AppContext): void {
   registerWindowsIpc(ctx)
   registerOnboardingIpc(ctx)
   registerClipboardIpc(ctx)
+  registerReaderIpc(ctx)
   registerAppIpc()
   registerBuddyIpc(ctx)
   registerHandlerMap(createLensHandlers(ctx.lens))

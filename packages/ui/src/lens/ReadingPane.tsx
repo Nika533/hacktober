@@ -16,6 +16,8 @@ import { Slider } from '../components/Slider'
 import { Switch } from '../components/Switch'
 import { TextField } from '../components/TextField'
 import { useToast } from '../components/toastContext'
+import { ColdStart } from './ColdStart'
+import type { ColdStartSetup } from './coldStartSetup'
 import { ExtensionStatus } from './ExtensionStatus'
 import {
   COMMON_LANGUAGES,
@@ -36,6 +38,8 @@ export interface ReadingPaneProps {
   onOpenView: (view: 'profile' | 'glossary') => void
   /** Opens a link in the browser (`app.openExternal`). */
   onOpenLink: (url: string) => void
+  /** Saves the optional 30-second setup; offered after consent until it's done. */
+  onColdStart?: (setup: ColdStartSetup) => Promise<void>
   onBack: () => void
   /** Clock for the consent timestamp (tests pin it). */
   now?: () => number
@@ -79,6 +83,7 @@ export function ReadingPane({
   onUpdate,
   onOpenView,
   onOpenLink,
+  onColdStart,
   onBack,
   now = Date.now
 }: ReadingPaneProps): React.JSX.Element {
@@ -105,6 +110,7 @@ export function ReadingPane({
                 onChange={(enabled) => onUpdate({ enabled })}
               />
               {status && <ExtensionStatus bridge={status.bridge} clients={status.clients} />}
+              {onColdStart && !lens.coldStartDone && <ColdStart onFinish={onColdStart} />}
               <details className="hoot-reading__sent">
                 <summary>What Lens sends, and when</summary>
                 <DataTerms onOpenLink={onOpenLink} />

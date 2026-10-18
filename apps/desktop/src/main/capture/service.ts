@@ -79,7 +79,10 @@ export interface CaptureService {
   /** Close the overlay without capturing. */
   cancel(): Promise<void>
   isCapturing(): boolean
-  /** Create the overlay window and warm up the screen grabber; call once at idle. */
+  /**
+   * Create the overlay window now; the screen grabber warms up once the app has
+   * settled (its first grab blocks main). Safe to call at startup.
+   */
   prewarm(): void
 }
 
@@ -157,7 +160,11 @@ export function createCaptureService(deps: CaptureDeps): CaptureService {
       try {
         hidden = await hide()
         await wait(HIDE_DELAY_MS)
+        const grabStarted = Date.now()
         const grab = await grabber.grab()
+        log.info(
+          `capture: ${mode}, grab ${grab ? `${grab.image.width}×${grab.image.height}` : 'none'} in ${Date.now() - grabStarted} ms`
+        )
         if (!grab || grab.image.isBlank()) {
           log.warn(`capture: ${grab ? 'blank image' : 'no screen source'}`)
           notify(COPY.failed)
