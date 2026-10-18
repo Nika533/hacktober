@@ -1,6 +1,12 @@
 import '@hoot/ui/styles.css'
 import './studio.css'
-import { DEFAULT_SUBSCRIPTIONS, type ApiKeyResult, type HootApi, type StudioView } from '@hoot/core'
+import {
+  DEFAULT_SUBSCRIPTIONS,
+  type ApiKeyResult,
+  type HootApi,
+  type HotkeyError,
+  type StudioView
+} from '@hoot/core'
 import {
   applyAccent,
   applyTheme,
@@ -226,32 +232,18 @@ function Connecting({ failed }: { failed: boolean }): React.JSX.Element {
   )
 }
 
-/**
- * Hotkey registration errors, keyed by shortcut. Accepts both the current
- * string[] (today) and the structured { which, message } from contract PR #19.
- */
-function hotkeyErrorsByShortcut(errors: readonly unknown[]): {
-  summonHotkey?: string
-  captureHotkey?: string
-} {
-  const out: { summonHotkey?: string; captureHotkey?: string } = {}
-  for (const e of errors) {
-    if (typeof e === 'string') {
-      if (/summon/i.test(e)) out.summonHotkey ??= e
-      else if (/circle|capture/i.test(e)) out.captureHotkey ??= e
-    } else if (e && typeof e === 'object' && 'which' in e && 'message' in e) {
-      const { which, message } = e as { which: unknown; message: unknown }
-      if ((which === 'summonHotkey' || which === 'captureHotkey') && typeof message === 'string')
-        out[which] ??= message
-    }
-  }
+/** Hotkey registration errors, keyed by shortcut (the first one per row wins). */
+function hotkeyErrorsByShortcut(
+  errors: readonly HotkeyError[]
+): Partial<Record<HotkeyError['which'], string>> {
+  const out: Partial<Record<HotkeyError['which'], string>> = {}
+  for (const { which, message } of errors) out[which] ??= message
   return out
 }
 
-/** Pauses global shortcuts while recording, once main offers it (contract PR #19). */
+/** Pauses global shortcuts while a recorder listens, so Windows hands Studio the keys. */
 function suspendHotkeys(hoot: HootApi | undefined, on: boolean): void {
-  const settings = hoot?.settings as { suspendHotkeys?: (on: boolean) => Promise<void> } | undefined
-  void settings?.suspendHotkeys?.(on).catch(() => undefined)
+  void hoot?.settings.suspendHotkeys(on).catch(() => undefined)
 }
 
 type LaterView = Exclude<StudioView, 'chat' | 'settings' | 'onboarding'>
