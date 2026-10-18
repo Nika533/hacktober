@@ -1,14 +1,12 @@
 import { shell } from 'electron'
 import { handleInvoke } from './handle'
 
-const ALLOWED_EXTERNAL_HOSTS = [
-  'aistudio.google.com',
-  'ai.google.dev',
-  'support.google.com',
-  'github.com'
-]
-
-/** Exact host, or a subdomain of an allowed host; https only. */
+/**
+ * Links in model answers (Studio Markdown, the card, sticky notes) all open
+ * through here, so there is no host allowlist (rebuild-plan correction #54).
+ * What matters for `shell.openExternal` is the scheme: only http(s), and no
+ * credentials smuggled into the URL.
+ */
 export function isAllowedExternal(url: string): boolean {
   let u: URL
   try {
@@ -16,9 +14,9 @@ export function isAllowedExternal(url: string): boolean {
   } catch {
     return false
   }
-  if (u.protocol !== 'https:') return false
-  const host = u.hostname.toLowerCase()
-  return ALLOWED_EXTERNAL_HOSTS.some((h) => host === h || host.endsWith(`.${h}`))
+  if (u.protocol !== 'https:' && u.protocol !== 'http:') return false
+  if (u.username !== '' || u.password !== '') return false
+  return u.hostname !== ''
 }
 
 export function registerAppIpc(): void {
