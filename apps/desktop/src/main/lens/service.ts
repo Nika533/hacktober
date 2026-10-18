@@ -1,7 +1,9 @@
 import { promises as fs } from 'node:fs'
 import {
+  applyLensEvent,
   buildExplainMore,
   buildProfileSummary,
+  decayTopics,
   type AssessResult,
   type ExplainMoreMessage,
   type GlossaryEntry,
@@ -77,6 +79,9 @@ export async function createLensService(deps: LensServiceDeps): Promise<LensServ
     LensHistory.load(deps.storage)
   ])
   await history.prune(deps.getLensSettings().retentionDays, now()).catch(onError)
+  // Topics not seen for 60 days drift back toward 0.5 (hoot-lens.md §8.3).
+  const decayed = decayTopics(profile.get(), now())
+  if (decayed !== profile.get()) await profile.replace(decayed).catch(onError)
 
   const engine = new LensEngine({
     getProvider: deps.getProvider,
@@ -96,7 +101,17 @@ export async function createLensService(deps: LensServiceDeps): Promise<LensServ
     assess: (reqId, ctx) => engine.assess(reqId, ctx),
     rewrite: (reqId, req) => engine.rewrite(reqId, req),
     cancel: (reqId) => engine.cancel(reqId),
-    feedback: (event) => history.record(event, (key) => cache.getRewrite(key)),
+    async feedback(event) {
+      // Measured from the change's `shown` event, before this event is recorded.
+      const shownAt = event.kind === 'shown' ? undefined : history.shownAt(event.cacheKey)
+      await history.record(event, (key) => cache.getRewrite(key))
+      const current = profile.get()
+      const next = applyLensEvent(current, event, {
+        msSinceShown: shownAt === undefined ? null : Math.max(0, event.ts - shownAt),
+        now: now()
+      })
+      if (JSON.stringify(next) !== JSON.stringify(current)) await profile.replace(next)
+    },
     async explain(ctx) {
       const summary = buildProfileSummary(profile.get(), deps.getLensSettings().languages, ctx)
       deps.onExplain?.(buildExplainMore(ctx, summary), ctx)

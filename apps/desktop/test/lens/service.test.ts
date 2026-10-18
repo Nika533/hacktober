@@ -236,3 +236,69 @@ describe('createLensHandlers', () => {
     await expect(handlers['lens:recentChanges'](5)).resolves.toEqual([])
   })
 })
+
+describe('learning from feedback (C-30)', () => {
+  const T = 1_760_000_000_000
+
+  async function shown(): Promise<string> {
+    const out = await service.rewrite(`r-${Math.random()}`, req())
+    if (out.kind !== 'rewritten') throw new Error('expected a rewrite')
+    await service.feedback(event('shown', out.result.cacheKey, T))
+    return out.result.cacheKey
+  }
+
+  it('"I knew this" marks the term known and pushes the new snapshot', async () => {
+    const pushed: string[][] = []
+    service.onProfile((s) => pushed.push(s.knownTerms))
+    const key = await shown()
+    const before = service.snapshot()
+    await service.feedback(event('knew_it', key, T + 1000))
+    const after = service.snapshot()
+    expect(after.knownTerms).toEqual(['api'])
+    expect(after.version).toBe(before.version + 1)
+    expect(after.threshold).toBeCloseTo(before.threshold + 0.03)
+    expect(pushed.at(-1)).toEqual(['api'])
+  })
+
+  it('measures a revert from the shown event: fast raises θ, slow does not', async () => {
+    const key = await shown()
+    const base = service.snapshot().threshold
+    await service.feedback(event('reverted', key, T + 2000))
+    expect(service.snapshot().threshold).toBeCloseTo(base + 0.03)
+
+    const slowKey = await shown()
+    const mid = service.snapshot().threshold
+    await service.feedback(event('reverted', slowKey, T + 30_000))
+    expect(service.snapshot().threshold).toBe(mid)
+  })
+
+  it('counts down the cold-start Ask-first triggers on shown', async () => {
+    const before = service.snapshot().askFirstRemaining
+    await shown()
+    expect(service.snapshot().askFirstRemaining).toBe(before - 1)
+  })
+
+  it('decays stale topics when the service starts', async () => {
+    const storage2 = createMemoryLensStorage()
+    const stale = Date.now() - 200 * 24 * 60 * 60 * 1000
+    const profile = {
+      ...(
+        await createLensService({
+          storage: storage2,
+          getLensSettings: () => lens,
+          getProvider: async () => null
+        })
+      ).profileView().profile,
+      topics: { law: { familiarity: 0.95, depth: 0, updatedAt: stale } }
+    }
+    await storage2.writeJson('profile.json', profile)
+    const restarted = await createLensService({
+      storage: storage2,
+      getLensSettings: () => lens,
+      getProvider: async () => null
+    })
+    const familiarity = restarted.profileView().profile.topics['law']?.familiarity ?? 0
+    expect(familiarity).toBeLessThan(0.95)
+    expect(familiarity).toBeGreaterThan(0.5)
+  })
+})
