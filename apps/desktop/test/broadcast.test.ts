@@ -118,6 +118,28 @@ describe('broadcaster', () => {
     expect(sink.messages.map(([c]) => c)).toEqual(['chat:delta', 'state:patch'])
   })
 
+  it('emit reaches every sink when no slice filter is given', () => {
+    const { broadcaster } = setup()
+    const a = new FakeSink(1)
+    const b = new FakeSink(2)
+    broadcaster.subscribe(a, ['chat'])
+    broadcaster.subscribe(b, ['pins'])
+    broadcaster.emit('reader:document', { name: 'x.pdf' })
+    expect(a.messages).toEqual([['reader:document', { name: 'x.pdf' }]])
+    expect(b.messages).toEqual([['reader:document', { name: 'x.pdf' }]])
+  })
+
+  it('emit with a slice filter reaches only subscribers of that slice', () => {
+    const { broadcaster } = setup()
+    const lensSink = new FakeSink(1)
+    const chatSink = new FakeSink(2)
+    broadcaster.subscribe(lensSink, ['lens'])
+    broadcaster.subscribe(chatSink, ['chat'])
+    broadcaster.emit('lens:profileChanged', { seq: 1 }, 'lens')
+    expect(lensSink.messages).toEqual([['lens:profileChanged', { seq: 1 }]])
+    expect(chatSink.messages).toEqual([])
+  })
+
   it('unsubscribes on destroy', async () => {
     const { store, broadcaster } = setup()
     const sink = new FakeSink(1)

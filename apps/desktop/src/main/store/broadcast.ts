@@ -1,4 +1,10 @@
-import { HOOT_API_ROUTES, type ChatDelta, type SliceName, type StatePatch } from '@hoot/core'
+import {
+  HOOT_API_ROUTES,
+  type ChatDelta,
+  type EventChannel,
+  type SliceName,
+  type StatePatch
+} from '@hoot/core'
 import type { Store } from './store'
 
 const PATCH_CHANNEL = HOOT_API_ROUTES.state.onPatch.channel
@@ -20,6 +26,11 @@ export interface Broadcaster {
   unsubscribe(id: number): void
   /** Immediate, synchronous, to every sink subscribed to 'chat'. Never batched. */
   delta(d: ChatDelta): void
+  /**
+   * Send an arbitrary event channel to every sink — or only sinks subscribed
+   * to `onlySlice` (e.g. `lens:profileChanged` to 'lens' subscribers).
+   */
+  emit(channel: EventChannel, payload: unknown, onlySlice?: SliceName): void
 }
 
 interface Subscription {
@@ -58,6 +69,12 @@ export function createBroadcaster(store: Store): Broadcaster {
     delta(d) {
       for (const { sink, slices } of subs.values()) {
         if (slices.has('chat')) sink.send(DELTA_CHANNEL, d)
+      }
+    },
+    emit(channel, payload, onlySlice) {
+      for (const { sink, slices } of subs.values()) {
+        if (onlySlice !== undefined && !slices.has(onlySlice)) continue
+        sink.send(channel, payload)
       }
     }
   }
