@@ -10,12 +10,31 @@ import {
 } from '@hoot/core'
 
 /**
+ * The canvas extends past the card on every side so the owl and capsule
+ * shadows (~18 px --shadow-2) render soft instead of clipping at the window
+ * edge (#82). It may extend past the work area — transparent pixels click
+ * through natively and the hit-region poller gates the rest.
+ */
+export const BUDDY_CANVAS_PAD = 16
+
+/**
  * The buddy window is one fixed card-sized canvas in every mode; dot and
  * pill are drawn inside it around the owl. `layoutForMode('card', …)` keeps
- * the owl centre on `anchor` and clamps the window inside the work area.
+ * the owl centre on `anchor` and clamps the window inside the work area;
+ * the pad then grows the canvas outward without moving the anchor.
  */
 export function fixedLayout(anchor: Point, workArea: Rect): ModeLayout {
-  return layoutForMode('card', anchor, workArea)
+  const base = layoutForMode('card', anchor, workArea)
+  return {
+    ...base,
+    bounds: {
+      x: base.bounds.x - BUDDY_CANVAS_PAD,
+      y: base.bounds.y - BUDDY_CANVAS_PAD,
+      width: base.bounds.width + 2 * BUDDY_CANVAS_PAD,
+      height: base.bounds.height + 2 * BUDDY_CANVAS_PAD
+    },
+    owl: { x: base.owl.x + BUDDY_CANVAS_PAD, y: base.owl.y + BUDDY_CANVAS_PAD }
+  }
 }
 
 /**

@@ -167,7 +167,8 @@ describe('buddy window', () => {
     const buddySlice = store.get('buddy')
     expect(buddySlice.mode).toBe('pill')
     expect(buddySlice.greeting).not.toBeNull()
-    expect(buddySlice.layout?.bounds).toMatchObject({ width: 420, height: 620 })
+    // 420×620 card canvas padded 16 DIP on every side (#82 shadow fix).
+    expect(buddySlice.layout?.bounds).toMatchObject({ width: 452, height: 652 })
     expect(fake.calls.show).toBe(1)
     expect(fake.calls.invalidate).toBe(1)
     expect(transitions(fake.sent)).toEqual([{ id: 1, from: 'hidden', to: 'pill' }])
