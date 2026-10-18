@@ -1,0 +1,58 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [5 0 R 7 0 R] /Count 2 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Length 987 >>
+stream
+BT /F1 24 Tf 72 720 Td (Reading Regression Output) Tj ET
+BT /F1 11 Tf 72 690 Td (A short guide for people who did not take statistics.) Tj ET
+BT /F1 16 Tf 72 650 Td (What the residuals tell you) Tj ET
+BT /F1 11 Tf 72 625 Td (When the spread of the residuals grows with the fitted values,) Tj ET
+BT /F1 11 Tf 72 611 Td (the model shows heteroscedasticity. Ordinary least squares still gives) Tj ET
+BT /F1 11 Tf 72 597 Td (unbiased estimates, but the standard errors are wrong, so the confi-) Tj ET
+BT /F1 11 Tf 72 583 Td (dence intervals and p-values cannot be trusted as printed.) Tj ET
+BT /F1 11 Tf 72 555 Td (A residual plot is the quickest check. Look for a funnel shape rather) Tj ET
+BT /F1 11 Tf 72 541 Td (than an even band around zero.) Tj ET
+BT /F1 16 Tf 72 505 Td (Fixing it) Tj ET
+BT /F1 11 Tf 72 480 Td (Robust standard errors are the usual first step. They change the) Tj ET
+BT /F1 11 Tf 72 466 Td (uncertainty around each coefficient, not the coefficients themselves.) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 4 0 R >>
+endobj
+6 0 obj
+<< /Length 348 >>
+stream
+BT /F1 16 Tf 72 720 Td (When to worry) Tj ET
+BT /F1 11 Tf 72 695 Td (Mild unevenness rarely matters for a large sample. It matters most when) Tj ET
+BT /F1 11 Tf 72 681 Td (decisions depend on whether one effect is significant at 5 percent.) Tj ET
+BT /F1 11 Tf 72 653 Td (Report what you checked and how, so a reader can judge for themselves.) Tj ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 6 0 R >>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000127 00000 n 
+0000000224 00000 n 
+0000001262 00000 n 
+0000001388 00000 n 
+0000001787 00000 n 
+trailer
+<< /Size 8 /Root 1 0 R >>
+startxref
+1913
+%%EOF

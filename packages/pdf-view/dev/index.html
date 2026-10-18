@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pdf-view harness</title>
+  </head>
+  <body>
+    <main class="harness">
+      <div class="harness__bar" role="toolbar" aria-label="Document">
+        <div class="harness__group" role="group" aria-label="View">
+          <button type="button" data-mode="pages" aria-pressed="true">Pages</button>
+          <button type="button" data-mode="reflow" aria-pressed="false">Text only</button>
+        </div>
+        <div class="harness__group" role="group" aria-label="Zoom">
+          <button type="button" data-zoom="out" aria-label="Zoom out">−</button>
+          <button type="button" data-zoom="fit">Fit width</button>
+          <button type="button" data-zoom="in" aria-label="Zoom in">+</button>
+        </div>
+        <div class="harness__group" role="group" aria-label="Lens">
+          <button type="button" data-lens="demo">Show Lens marks</button>
+          <button type="button" data-lens="clear">Restore all</button>
+        </div>
+        <span class="harness__page" aria-live="polite"></span>
+        <label class="harness__open">
+          Open PDF…
+          <input type="file" accept="application/pdf" />
+        </label>
+      </div>
+      <div class="harness__doc"></div>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

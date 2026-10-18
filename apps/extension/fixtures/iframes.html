@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Reading across frames</title>
+    <link rel="stylesheet" href="./fixture.css" />
+  </head>
+  <body>
+    <main id="article" data-fixture="iframes">
+      <h1>Reading across frames</h1>
+      <p id="p-top">
+        The top document talks about multicollinearity, which inflates the variance of coefficient
+        estimates.
+      </p>
+      <h2>Same-origin frame</h2>
+      <iframe id="same-origin" title="Same-origin article" src="./frame-child.html"></iframe>
+      <h2>Inline document</h2>
+      <iframe
+        id="srcdoc"
+        title="Inline document"
+        srcdoc="<!doctype html><html lang='en'><body><p id='p-srcdoc'>An srcdoc frame mentions the variance inflation factor.</p></body></html>"
+      ></iframe>
+      <h2>Cross-origin frame</h2>
+      <p class="meta">
+        Pass <code>?cross=http://localhost:PORT</code> to load the child from a second origin.
+      </p>
+      <iframe id="cross-origin" title="Cross-origin article"></iframe>
+    </main>
+    <script>
+      const cross = new URLSearchParams(location.search).get('cross')
+      if (cross) document.getElementById('cross-origin').src = `${cross}/frame-child.html`
+    </script>
+  </body>
+</html>

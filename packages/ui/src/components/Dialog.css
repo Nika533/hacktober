@@ -1,0 +1,81 @@
+.hoot-dialog {
+  width: min(28rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  padding: 0;
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-lg);
+  background: var(--surface-solid);
+  color: var(--text-1);
+  box-shadow: var(--shadow-3);
+  overflow: hidden;
+  opacity: 0;
+  scale: calc(1 - 0.04 * var(--motion));
+  transition:
+    opacity var(--dur-base) var(--ease-out),
+    scale var(--dur-slow) var(--ease-spring),
+    overlay var(--dur-base) allow-discrete,
+    display var(--dur-base) allow-discrete;
+}
+.hoot-dialog[open] {
+  opacity: 1;
+  scale: 1;
+  display: flex;
+  flex-direction: column;
+}
+@starting-style {
+  .hoot-dialog[open] {
+    opacity: 0;
+    scale: calc(1 - 0.04 * var(--motion));
+  }
+}
+
+/* Dim to focus: the scrim fades with the dialog. */
+.hoot-dialog::backdrop {
+  background: var(--scrim);
+  opacity: 0;
+  transition:
+    opacity var(--dur-base) var(--ease-out),
+    overlay var(--dur-base) allow-discrete,
+    display var(--dur-base) allow-discrete;
+}
+.hoot-dialog[open]::backdrop {
+  opacity: 1;
+}
+@starting-style {
+  .hoot-dialog[open]::backdrop {
+    opacity: 0;
+  }
+}
+
+.hoot-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-6);
+  overflow-y: auto;
+}
+.hoot-dialog__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  line-height: 1.625rem;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+}
+.hoot-dialog__desc {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--text-2);
+}
+
+/* Windows ContentDialog footer: equal-width buttons on a recessed band. */
+.hoot-dialog__actions {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: var(--space-2);
+  padding: var(--space-5) var(--space-6);
+  border-top: 1px solid var(--stroke);
+  background: var(--fill-sunken);
+}

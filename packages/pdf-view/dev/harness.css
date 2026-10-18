@@ -1,0 +1,62 @@
+/* Harness chrome only: system colours, so pdf-view runs on its fallbacks
+   exactly as it will in the extension viewer (no @hoot/ui tokens). */
+:root {
+  color-scheme: light dark;
+  font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+}
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+.harness {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.harness__bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid GrayText;
+  user-select: none;
+}
+.harness__group {
+  display: flex;
+  gap: 0.25rem;
+}
+.harness__bar button,
+.harness__open {
+  font: inherit;
+  font-size: 0.8125rem;
+  padding: 0.25rem 0.625rem;
+}
+button[data-mode][aria-pressed='true'] {
+  font-weight: 600;
+  outline: 2px solid Highlight;
+}
+.harness__page {
+  margin-inline-start: auto;
+  font-size: 0.75rem;
+}
+.harness__open input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.harness__open:has(:focus-visible) {
+  outline: 2px solid Highlight;
+}
+.harness__doc {
+  flex: 1;
+  min-height: 0;
+}

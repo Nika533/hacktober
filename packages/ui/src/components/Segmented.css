@@ -1,0 +1,90 @@
+.hoot-seg-field {
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+}
+.hoot-seg-field__label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-1);
+}
+
+.hoot-seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-md);
+  background: var(--fill-sunken);
+}
+
+.hoot-seg__item {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: var(--space-1-5);
+  min-height: calc(var(--control-md) - 6px);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.125rem;
+  white-space: nowrap;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-press) var(--ease-out);
+}
+.hoot-seg--sm .hoot-seg__item {
+  min-height: calc(var(--control-sm) - 6px);
+  padding: var(--space-0-5) var(--space-2-5);
+  font-size: 0.75rem;
+}
+.hoot-seg__item:hover:not([data-disabled]) {
+  color: var(--text-1);
+}
+.hoot-seg__item:active:not([data-disabled]) {
+  transform: scale(var(--press-scale));
+}
+.hoot-seg__item[data-checked] {
+  color: var(--text-1);
+}
+.hoot-seg__item[data-disabled] {
+  opacity: 0.45;
+}
+.hoot-seg__item:has(:focus-visible) {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.hoot-seg__thumb {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--control-thumb);
+  box-shadow:
+    var(--shadow-1),
+    0 0 0 0.5px var(--stroke);
+}
+.hoot-seg__hint {
+  font-family: var(--font-small);
+  font-size: 0.6875rem;
+  font-weight: 400;
+  color: var(--text-2);
+}
+
+@media (forced-colors: active) {
+  .hoot-seg__item[data-checked] {
+    forced-color-adjust: none;
+    color: HighlightText;
+  }
+  .hoot-seg__item[data-checked] .hoot-seg__thumb {
+    background: Highlight;
+  }
+  .hoot-seg__item[data-checked] .hoot-seg__hint {
+    color: HighlightText;
+  }
+}

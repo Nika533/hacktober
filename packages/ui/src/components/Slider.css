@@ -1,0 +1,86 @@
+.hoot-slider {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+  min-width: 12rem;
+}
+.hoot-slider[data-disabled] {
+  opacity: 0.5;
+}
+.hoot-slider__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+.hoot-slider__label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-1);
+}
+.hoot-slider__value {
+  font-size: 0.8125rem;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.hoot-slider__ends {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-family: var(--font-small);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--text-2);
+}
+
+.hoot-slider__input {
+  --thumb-ring: 5px;
+  appearance: none;
+  width: 100%;
+  height: 20px;
+  margin: 0;
+  background: transparent;
+  cursor: default;
+}
+.hoot-slider__input:focus-visible {
+  outline: none;
+}
+.hoot-slider__input::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    to right,
+    var(--accent) var(--hoot-slider-fill, 0%),
+    var(--stroke-control) var(--hoot-slider-fill, 0%)
+  );
+}
+.hoot-slider__input::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow:
+    inset 0 0 0 var(--thumb-ring) var(--control-thumb),
+    0 0 0 1px var(--stroke),
+    var(--shadow-1);
+  transition: box-shadow var(--dur-fast) var(--ease-out);
+}
+/* The accent core grows on hover and shrinks on press. */
+.hoot-slider__input:hover:not(:disabled) {
+  --thumb-ring: 4px;
+}
+.hoot-slider__input:active:not(:disabled) {
+  --thumb-ring: 6px;
+}
+.hoot-slider__input:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+@media (forced-colors: active) {
+  .hoot-slider__input {
+    appearance: auto;
+  }
+}

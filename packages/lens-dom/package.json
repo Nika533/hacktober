@@ -1,0 +1,21 @@
+{
+  "name": "@hoot/lens-dom",
+  "version": "0.0.0",
+  "private": true,
+  "description": "In-page Hoot Lens: selection, renderers and shadow-DOM UI. Framework-free (owner: d2)",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "demo": "node demo/build.mjs"
+  },
+  "dependencies": {
+    "@hoot/core": "*"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

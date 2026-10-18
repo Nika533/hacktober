@@ -131,6 +131,13 @@ export interface HootApi {
     validateApiKey(key: string): Promise<boolean>
     clearApiKey(): Promise<void>
     resetAnchor(): Promise<void>
+    /**
+     * Pause Hoot's global shortcuts while a hotkey recorder is recording:
+     * Windows delivers a registered combination only to its owner, so the
+     * recorder would never see it. Main resumes them when the calling window
+     * closes, or after 60 s, even if `false` never arrives.
+     */
+    suspendHotkeys(on: boolean): Promise<void>
   }
   windows: {
     openStudio(view?: StudioView): Promise<void>

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Reading regression output</title>
+    <style>
+      body {
+        max-width: 42rem;
+        margin: 3rem auto;
+        padding: 0 1rem;
+        font-family: Georgia, serif;
+        font-size: 18px;
+        line-height: 1.6;
+      }
+      .pre-wrap {
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- prettier-ignore -->
+    <article id="article">
+      <h1>Reading regression output</h1>
+      <h2>Residuals</h2>
+      <p id="p1">When you fit a linear model, look at the residuals. If they fan out as the fitted values grow, the model shows <em>heteroscedasticity</em>, and the usual standard errors are no longer trustworthy.</p>
+      <p id="p2">The   <b>OLS</b>  estimator&nbsp;is still unbiased,
+        but it is no longer <a href="#blue">BLUE</a>; weighted least squares or
+        heteroscedasticity-consistent (HC3) errors fix the inference.</p>
+      <h3>Notation</h3>
+      <p id="p3" class="pre-wrap">Var(εᵢ | Xᵢ) = σ²ᵢ	— not a constant σ².
+  Each observation  gets its own variance.</p>
+      <p id="p4">Café owners don’t need p-values 🙂 — but 統計 students do. Spacing:&nbsp;&nbsp;two&#8239;thin, end. </p>
+      <ul id="list">
+        <li>Plot residuals against fitted values.</li>
+        <li>Run the <span class="test">Breusch–Pagan</span> test.</li>
+      </ul>
+    </article>
+  </body>
+</html>

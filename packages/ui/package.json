@@ -1,0 +1,41 @@
+{
+  "name": "@hoot/ui",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Hoot design system: tokens, materials, motion presets and React components (owner: d3)",
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./styles.css": "./src/styles.css",
+    "./gallery": "./src/gallery/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --config vitest.config.ts",
+    "gallery": "vite --config dev/vite.config.ts",
+    "shots": "node scripts/gallery-shots.mjs"
+  },
+  "dependencies": {
+    "@hoot/core": "*",
+    "lucide-react": "1.55.0",
+    "motion": "14.1.0",
+    "react-markdown": "10.1.0",
+    "remark-gfm": "4.0.1"
+  },
+  "peerDependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "vite": "^8.3.4"
+  }
+}

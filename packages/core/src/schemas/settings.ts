@@ -11,6 +11,7 @@ import { LangSchema, PointSchema, RectSchema, SiteSchema, TimestampSchema } from
 
 export const SiteRuleSchema = z.enum(['always', 'paused', 'never'])
 export const LensModeSchema = z.enum(['auto', 'gloss', 'ask'])
+const DomainRiskSchema = z.enum(['normal', 'high'])
 
 const MAX_SITE_RULES = 2000
 
@@ -28,6 +29,9 @@ export const LensSettingsSchema = z.object({
   sites: z
     .record(SiteSchema, SiteRuleSchema)
     .refine((r) => Object.keys(r).length <= MAX_SITE_RULES, 'too many site rules'),
+  riskOverrides: z
+    .record(SiteSchema, DomainRiskSchema)
+    .refine((r) => Object.keys(r).length <= MAX_SITE_RULES, 'too many overrides'),
   retentionDays: z.union([z.literal(30), z.literal(90), z.literal(365)]),
   coldStartDone: z.boolean()
 })
@@ -65,6 +69,7 @@ export const LensSettingsPatchSchema = z.strictObject({
     })
     .optional(),
   sites: z.record(SiteSchema, SiteRuleSchema.nullable()).optional(),
+  riskOverrides: z.record(SiteSchema, DomainRiskSchema.nullable()).optional(),
   retentionDays: LensSettingsSchema.shape.retentionDays.optional(),
   coldStartDone: z.boolean().optional()
 })
@@ -129,19 +134,26 @@ export function applySettingsPatch(settings: Settings, patch: SettingsPatch): Se
   const next: Settings = { ...settings, ...stripUndefined(top) }
   if (!lensPatch) return next
 
-  const { sites, languages, ...lensTop } = lensPatch
+  const { sites, riskOverrides, languages, ...lensTop } = lensPatch
   const lens: LensSettings = { ...settings.lens, ...stripUndefined(lensTop) }
   if (languages) lens.languages = { ...settings.lens.languages, ...stripUndefined(languages) }
-  if (sites) {
-    const merged = { ...settings.lens.sites }
-    for (const [site, rule] of Object.entries(sites)) {
-      if (rule === null) delete merged[site]
-      else merged[site] = rule
-    }
-    lens.sites = merged
-  }
+  if (sites) lens.sites = mergeRecord(settings.lens.sites, sites)
+  if (riskOverrides) lens.riskOverrides = mergeRecord(settings.lens.riskOverrides, riskOverrides)
   next.lens = lens
   return next
+}
+
+/** Merge a keyed patch where null removes the key. */
+function mergeRecord<V>(
+  base: Record<string, V>,
+  patch: Record<string, V | null>
+): Record<string, V> {
+  const merged = { ...base }
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === null) delete merged[key]
+    else merged[key] = value
+  }
+  return merged
 }
 
 function stripUndefined<T extends object>(o: T): Partial<T> {

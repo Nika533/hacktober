@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>When regression errors misbehave</title>
+    <link rel="stylesheet" href="./fixture.css" />
+  </head>
+  <body>
+    <!-- prettier-ignore -->
+    <main id="article" data-fixture="article">
+      <h1>When regression errors misbehave</h1>
+      <p class="byline">A static article fixture for Hoot Lens.</p>
+      <h2>Residuals that fan out</h2>
+      <p id="p-hetero">When you fit a linear model, plot the residuals against the fitted values. If they fan out as the fitted values grow, the model shows <em>heteroscedasticity</em>, and the usual standard errors are no longer trustworthy.</p>
+      <p id="p-ols">The   <b>OLS</b>  estimator&nbsp;is still unbiased,
+        but it is no longer <a href="#blue">BLUE</a>; weighted least squares or
+        heteroscedasticity-consistent (HC3) errors fix the inference.</p>
+      <h3>A denser explanation</h3>
+      <p id="p-dense">Because the conditional variance of the disturbance term is a function of the regressors, the Gauss–Markov conditions fail, so the ordinary covariance estimator is inconsistent even though the coefficient estimates themselves remain consistent.</p>
+      <h2>Multicollinearity</h2>
+      <p id="p-vif">A variance inflation factor (VIF) above 10 is a common rule of thumb for trouble, but it is not a test: it does not tell you whether the imprecision matters for your question.</p>
+      <h3>Notation</h3>
+      <p id="p-notation" class="pre-wrap">Var(εᵢ | Xᵢ) = σ²ᵢ	— not a constant σ².
+  Each observation  gets its own variance.</p>
+      <h2>What to try</h2>
+      <ul id="steps">
+        <li>Plot residuals against fitted values.</li>
+        <li>Run the <span class="test">Breusch–Pagan</span> test.</li>
+        <li>Report robust (HC3) standard errors.</li>
+      </ul>
+      <p id="p-mixed">Café owners don’t need p-values 🙂 — but 統計 students do. Spacing:&nbsp;&nbsp;two&#8239;thin, end. </p>
+      <h2 id="blue">Glossary</h2>
+      <p>BLUE stands for best linear unbiased estimator.</p>
+    </main>
+  </body>
+</html>

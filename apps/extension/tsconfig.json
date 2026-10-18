@@ -1,8 +1,17 @@
 {
   "extends": "../../tsconfig.base.json",
-  "include": ["src/**/*", "e2e/**/*", "playwright.config.ts"],
+  "include": [
+    "src/**/*",
+    "test/**/*",
+    "e2e/**/*",
+    "scripts/*.ts",
+    "fixtures/**/*.tsx",
+    "playwright.config.ts"
+  ],
   "compilerOptions": {
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
-    "types": ["chrome", "node"]
+    "types": ["chrome", "node"],
+    "jsx": "react-jsx",
+    "allowImportingTsExtensions": true
   }
 }

@@ -1,0 +1,30 @@
+{
+  "name": "@hoot/pdf-view",
+  "version": "0.0.0",
+  "private": true,
+  "description": "PDF.js document view with a selectable text layer and a reflow mode, shared by the extension viewer and the Hoot Reader (owner: d3)",
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./styles.css": "./src/styles.css"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --config vitest.config.ts",
+    "fixture": "node scripts/gen-fixture.mjs",
+    "dev": "vite --config dev/vite.config.ts",
+    "shots": "node scripts/shots.mjs"
+  },
+  "dependencies": {
+    "@hoot/core": "*",
+    "@hoot/lens-dom": "*",
+    "pdfjs-dist": "6.4.299"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0",
+    "vite": "^8.3.4"
+  }
+}

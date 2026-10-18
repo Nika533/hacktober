@@ -66,7 +66,8 @@ export const HOOT_API_ROUTES = {
     setApiKey: invoke('settings:setApiKey'),
     validateApiKey: invoke('settings:validateApiKey'),
     clearApiKey: invoke('settings:clearApiKey'),
-    resetAnchor: invoke('settings:resetAnchor')
+    resetAnchor: invoke('settings:resetAnchor'),
+    suspendHotkeys: invoke('settings:suspendHotkeys')
   },
   windows: {
     openStudio: invoke('windows:openStudio'),

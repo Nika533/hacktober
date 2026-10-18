@@ -4,6 +4,17 @@ export default defineProject({
   test: {
     name: 'extension',
     include: ['test/**/*.test.ts'],
-    environment: 'happy-dom'
+    environment: 'happy-dom',
+    environmentOptions: {
+      happyDOM: {
+        settings: {
+          disableCSSFileLoading: true,
+          disableJavaScriptFileLoading: true,
+          disableJavaScriptEvaluation: true,
+          disableIframePageLoading: true,
+          handleDisabledFileLoadingAsSuccess: true
+        }
+      }
+    }
   }
 })
