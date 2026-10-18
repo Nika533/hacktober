@@ -17,6 +17,7 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
+    "@hoot/bridge": "*",
     "@hoot/core": "*",
     "@hoot/lens-dom": "*",
     "@hoot/ui": "*",
