@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/explicit-function-return-type */
 // Writes tests/fixtures/article.pdf: a small two-page article with a title,
 // headings, wrapped paragraphs (one hyphenated line break) and a two-line
 // heading, using the built-in Helvetica so no font is embedded.

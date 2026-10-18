@@ -53,3 +53,23 @@ export { Composer, type ComposerProps } from './chat/Composer'
 export { AttachmentsRow, type AttachmentsRowProps } from './chat/AttachmentsRow'
 export { QuickChips, type QuickChipsProps } from './chat/QuickChips'
 export { ClipboardChip, type ClipboardChipProps } from './chat/ClipboardChip'
+
+// Settings pieces (D3-12)
+export {
+  acceleratorFromEvent,
+  acceleratorKeys,
+  formatAccelerator,
+  type RecorderKeyEvent
+} from './settings/accelerator'
+export { HotkeyRecorder, type HotkeyRecorderProps } from './settings/HotkeyRecorder'
+
+// Window state (shared by every renderer)
+export { applyDelta, applyPatch, type Mirror } from './state/slices'
+export { useHootState } from './state/useHootState'
+
+// Studio (D3-11)
+export { SessionList, type SessionListProps } from './studio/SessionList'
+export { StudioSidebar, type StudioSidebarProps } from './studio/StudioSidebar'
+export { StudioLayout, type StudioLayoutProps } from './studio/StudioLayout'
+export { ChatPane, type ChatPaneProps } from './studio/ChatPane'
+export { QUICK_ACTION_CHIPS, toAttachmentViews, toMessageViews } from './chat/views'
