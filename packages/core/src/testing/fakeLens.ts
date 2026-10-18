@@ -59,10 +59,9 @@ function fakeText(transform: Transform, span: string): string {
       return `For example: a fake example of ${span}.`
     case 'unpack':
       return `In words: ${span}`
-    case 'simplify': {
-      const words = span.split(/\s+/)
-      return `In short: ${words.slice(0, 8).join(' ')}${words.length > 8 ? '…' : ''}`
-    }
+    case 'simplify':
+      // Keeps the whole span, so fake replacements never drop a number or a "not".
+      return `In short: ${span}`
   }
 }
 

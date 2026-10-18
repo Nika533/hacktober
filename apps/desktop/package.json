@@ -14,7 +14,8 @@
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
     "icons": "node scripts/gen-icons.mjs",
-    "postinstall": "install-electron"
+    "postinstall": "install-electron",
+    "eval": "vitest run --config vitest.eval.config.mts"
   },
   "dependencies": {
     "@google/genai": "2.28.0",
