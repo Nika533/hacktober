@@ -1,4 +1,4 @@
-import { createLens, type Lens } from '@hoot/lens-dom'
+import { UI_TAG, createLens, guessLanguage, type Lens } from '@hoot/lens-dom'
 import { PdfOverlayRenderer, PdfView, openPdf, type PdfViewMode } from '@hoot/pdf-view'
 import { Button, IconButton, Segmented, type SegmentedOption } from '@hoot/ui'
 import { Minus, Plus } from 'lucide-react'
@@ -26,6 +26,29 @@ const parse = (file: string): URL | null => {
 const fileName = (url: URL): string =>
   decodeURIComponent(url.pathname.split('/').pop() || url.hostname || 'PDF')
 
+type PdfDocument = Awaited<ReturnType<typeof openPdf>>
+
+/** Text read from the first pages for the language guess. */
+const SAMPLE_PAGES = 3
+const SAMPLE_CHARS = 4000
+
+/**
+ * The PDF's language: its /Lang, else a guess from its first pages, else ''
+ * (unknown). Never the viewer's own English, or every PDF would read as
+ * English and foreign ones would never be translated.
+ */
+async function pdfLanguage(doc: PdfDocument): Promise<string> {
+  const meta = await doc.getMetadata().catch(() => null)
+  const declared = (meta?.info as { Language?: unknown } | undefined)?.Language
+  if (typeof declared === 'string' && declared.trim()) return declared.trim()
+  let sample = ''
+  for (let n = 1; n <= Math.min(doc.numPages, SAMPLE_PAGES) && sample.length < SAMPLE_CHARS; n++) {
+    const { items } = await (await doc.getPage(n)).getTextContent()
+    sample += ` ${items.map((item) => ('str' in item ? item.str : '')).join(' ')}`
+  }
+  return guessLanguage(sample)
+}
+
 /** Hands this one PDF back to the browser's own viewer. */
 async function openNative(file: string): Promise<void> {
   await chrome.runtime.sendMessage({ type: 'lens.pdf.native', url: file }).catch(() => undefined)
@@ -48,11 +71,12 @@ export function Viewer({
   const [phase, setPhase] = useState<Phase>('loading')
   const [mode, setMode] = useState<PdfViewMode>('pages')
   const [page, setPage] = useState({ current: 1, total: 0 })
+  const [docLang, setDocLang] = useState('')
 
   useEffect(() => {
     if (!url) return
     let cancelled = false
-    let doc: Awaited<ReturnType<typeof openPdf>> | null = null
+    let doc: PdfDocument | null = null
     void (async () => {
       if (url.protocol === 'file:' && !(await chrome.extension.isAllowedFileSchemeAccess())) {
         await chrome.storage.local.set({ [FILE_ASKED_KEY]: true })
@@ -75,6 +99,8 @@ export function Viewer({
       })
       setPage({ current: 1, total: opened.numPages })
       setPhase('ready')
+      const lang = await pdfLanguage(opened).catch(() => '')
+      if (!cancelled) setDocLang(lang)
     })().catch(() => {
       if (!cancelled) setPhase('error')
     })
@@ -107,6 +133,10 @@ export function Viewer({
         renderer: renderer ?? 'inline',
         shadowMode: __HOOT_E2E__ ? 'open' : 'closed'
       })
+      // As in the content script: e2e waits for this before selecting anything.
+      if (__HOOT_E2E__) {
+        void lens.ready.then(() => document.querySelector(UI_TAG)?.setAttribute('data-ready', ''))
+      }
     })()
     return () => {
       stopped = true
@@ -160,7 +190,12 @@ export function Viewer({
         <span className="hoot-viewer__spacer" />
         {fallback}
       </header>
-      <main ref={host} className="hoot-viewer__doc" data-phase={phase}>
+      <main
+        ref={host}
+        className="hoot-viewer__doc"
+        data-phase={phase}
+        lang={phase === 'ready' ? docLang : undefined}
+      >
         {(!url || phase === 'error') && (
           <section className="hoot-viewer__notice" role="alert">
             <h2 className="hoot-t-subtitle">Hoot couldn’t open this PDF</h2>

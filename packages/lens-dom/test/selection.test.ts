@@ -129,6 +129,24 @@ describe('SelectionWatcher', () => {
     input.blur()
   })
 
+  it('still sees selections while a checkbox, radio or button has focus', () => {
+    for (const type of ['checkbox', 'radio', 'button']) {
+      const input = document.createElement('input')
+      input.type = type
+      document.body.append(input)
+      input.focus()
+      events = []
+      select(rangeForText(article, 'residuals'))
+      advance(300)
+      expect(
+        events.map((event) => event.type),
+        type
+      ).toEqual(['settled'])
+      select(null)
+      input.remove()
+    }
+  })
+
   it('classifies selections that span blocks as multi-paragraph', () => {
     const items = article.querySelectorAll('#list li')
     select(rangeAcross(items[0]!.firstChild!, 0, items[1]!.lastChild!, 3))

@@ -36,7 +36,19 @@ export interface SelectionWatcherOptions {
 
 const TERM_WORDS = 3
 const PHRASE_WORDS = 10
-const EDITABLE = new Set(['INPUT', 'TEXTAREA', 'SELECT'])
+/** Inputs you don't type text into: focusing one (a click on a radio) must not switch Lens off. */
+const NON_TEXT_INPUTS = new Set([
+  'button',
+  'checkbox',
+  'color',
+  'file',
+  'hidden',
+  'image',
+  'radio',
+  'range',
+  'reset',
+  'submit'
+])
 
 export function sizeClass(words: number, multiBlock: boolean): SelectionSize {
   if (multiBlock) return 'multi-paragraph'
@@ -55,9 +67,12 @@ function isTypingKey(event: KeyboardEvent): boolean {
   )
 }
 
+/** The user is typing: a text field or editable content has focus. */
 function inEditable(doc: Document): boolean {
   const active = doc.activeElement as HTMLElement | null
-  return !!active && (EDITABLE.has(active.tagName) || active.isContentEditable === true)
+  if (!active) return false
+  if (active.tagName === 'TEXTAREA' || active.isContentEditable === true) return true
+  return active.tagName === 'INPUT' && !NON_TEXT_INPUTS.has((active as HTMLInputElement).type)
 }
 
 export class SelectionWatcher {
