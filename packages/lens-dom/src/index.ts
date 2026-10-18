@@ -26,6 +26,7 @@ export {
   type PageContext
 } from './context'
 export { findTextRange, trimRange } from './find'
+export { KEPT_AFTER_MS, KEPT_TICK_MS, KeptTracker, type KeptTrackerOptions } from './kept'
 export {
   SelectionWatcher,
   sizeClass,

@@ -12,6 +12,7 @@ import {
 import { CopyController } from './clipboard'
 import { extractContext, type PageContext } from './context'
 import { COPY, announceChange } from './copy'
+import { KeptTracker } from './kept'
 import { DynamicPageDetector } from './render/detect'
 import { InlineRenderer } from './render/inline'
 import { OverlayRenderer } from './render/overlay'
@@ -139,6 +140,7 @@ export function createLens(options: CreateLensOptions): Lens {
       if (previous) {
         applied.set(event.mark.id, { ...previous, mark: event.mark, renderer })
         order.push(event.mark.id)
+        kept.replace(event.previousId, event.mark)
       }
       ui.attach(event.mark)
     }
@@ -188,10 +190,19 @@ export function createLens(options: CreateLensOptions): Lens {
       .catch(report)
   }
 
+  const kept = new KeptTracker({
+    document: doc,
+    onKept: (id) => {
+      const entry = applied.get(id)
+      if (entry) feedback(entry, 'kept')
+    }
+  })
+
   const restore = (mark: Mark, kind: LensEventKind): void => {
     const entry = applied.get(mark.id)
     if (!entry) return
     forget(mark.id)
+    kept.forget(mark.id)
     entry.renderer.restore(mark.id, { animate })
     feedback(entry, kind)
     ui.announce(COPY.restored)
@@ -362,6 +373,7 @@ export function createLens(options: CreateLensOptions): Lens {
       ui.attach(mark)
       ui.announce(announceChange(spec))
       feedback(entry, 'shown', now() - started)
+      kept.track(mark)
       sync()
       return mark
     } catch (error) {
@@ -414,6 +426,7 @@ export function createLens(options: CreateLensOptions): Lens {
       destroyed = true
       inflight?.abort()
       watcher.destroy()
+      kept.destroy()
       detector.stop()
       for (const undo of cleanup.splice(0)) undo()
       renderers.inline?.destroy()

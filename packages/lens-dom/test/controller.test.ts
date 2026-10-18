@@ -237,6 +237,33 @@ describe('createLens with @hoot/core fakes', () => {
     expect(await pending).toBeNull()
     expect(lens!.marks()).toHaveLength(0)
   })
+
+  it('reports "kept" for a change that stayed on screen for 30 s', async () => {
+    await start()
+    select('heteroscedasticity')
+    const mark = await ask()
+    vi.spyOn(mark!, 'rects').mockReturnValue([new DOMRect(40, 120, 160, 24)])
+    vi.advanceTimersByTime(29_000)
+    expect(backend.events.map((event) => event.kind)).toEqual(['shown'])
+    vi.advanceTimersByTime(1_000)
+    expect(backend.events.map((event) => event.kind)).toEqual(['shown', 'kept'])
+    expect(LensEventSchema.parse(backend.events[1])).toMatchObject({
+      kind: 'kept',
+      term: 'heteroscedasticity',
+      transform: 'define'
+    })
+  })
+
+  it('never reports "kept" for a change restored within 30 s', async () => {
+    await start()
+    select('heteroscedasticity')
+    const mark = await ask()
+    vi.spyOn(mark!, 'rects').mockReturnValue([new DOMRect(40, 120, 160, 24)])
+    vi.advanceTimersByTime(10_000)
+    lens!.undoLast()
+    vi.advanceTimersByTime(60_000)
+    expect(backend.events.map((event) => event.kind)).toEqual(['shown', 'reverted'])
+  })
 })
 
 describe('isForeignLanguage', () => {
