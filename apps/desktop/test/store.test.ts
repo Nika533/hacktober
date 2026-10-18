@@ -11,7 +11,15 @@ const system: StateSlices['system'] = {
   highContrast: false
 }
 
-const makeStore = (): Store => createStore(initialSlices({ settings: DEFAULT_SETTINGS, system }))
+const makeStore = (): Store =>
+  createStore(
+    initialSlices({
+      settings: DEFAULT_SETTINGS,
+      hasApiKey: false,
+      keyStorage: 'os-encrypted',
+      system
+    })
+  )
 
 const flush = async (): Promise<void> => {
   await new Promise((r) => setTimeout(r, 0))
@@ -19,10 +27,15 @@ const flush = async (): Promise<void> => {
 
 describe('initialSlices', () => {
   it('defaults every slice', () => {
-    const s = initialSlices({ settings: DEFAULT_SETTINGS, system })
+    const s = initialSlices({
+      settings: DEFAULT_SETTINGS,
+      hasApiKey: true,
+      keyStorage: 'os-encrypted',
+      system
+    })
     expect(s.settings).toEqual({
       settings: DEFAULT_SETTINGS,
-      hasApiKey: false,
+      hasApiKey: true,
       keyStorage: 'os-encrypted',
       hotkeyErrors: []
     })
