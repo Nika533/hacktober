@@ -33,6 +33,7 @@ function setup(): { store: Store; capture: CaptureService } {
   const capture = createCaptureService({
     store,
     windows,
+    studio: { open: noop, isVisible: () => false },
     persistence: {} as Persistence,
     log: silent
   })

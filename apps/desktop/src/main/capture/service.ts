@@ -3,6 +3,7 @@ import type { Logger } from '../log'
 import type { Persistence } from '../store/persistence'
 import type { Store } from '../store/store'
 import type { WindowRegistry } from '../windows/base'
+import type { StudioWindow } from '../windows/studio'
 
 /** Captures one message may carry (the composer's chips). */
 export const MAX_PENDING = 4
@@ -21,6 +22,8 @@ export interface CaptureSurfaces {
 export interface CaptureDeps {
   store: Store
   windows: WindowRegistry
+  /** A capture started from Studio hides it for the grab and reopens it on the same view. */
+  studio: Pick<StudioWindow, 'open' | 'isVisible'>
   /** Captures are saved as attachments (PNG) and listed in `chat.pendingAttachments`. */
   persistence: Persistence
   log: Logger
