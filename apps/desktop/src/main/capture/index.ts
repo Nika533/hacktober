@@ -7,3 +7,5 @@ export {
   type CaptureSurfaces
 } from './service'
 export { createCaptureHandlers, type CaptureChannel, type CaptureHandlers } from './ipc'
+export { addImageAttachment, type AttachmentDeps } from './attachments'
+export { fromNativeImage, type CaptureImage } from './image'
