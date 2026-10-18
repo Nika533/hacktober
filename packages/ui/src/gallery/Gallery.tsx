@@ -22,6 +22,7 @@ import { Switch } from '../components/Switch'
 import { TextField } from '../components/TextField'
 import { useConfirm } from '../components/confirmContext'
 import { useToast } from '../components/toastContext'
+import { ExtensionStatus } from '../lens/ExtensionStatus'
 import { applyAccent, applyTheme, type ThemePreference } from '../theme'
 import { ChatDemo } from './ChatDemo'
 import { OnboardingDemo } from './OnboardingDemo'
@@ -153,6 +154,14 @@ export function Gallery({
 
         <Section title="Onboarding" wide>
           <OnboardingDemo />
+        </Section>
+
+        <Section title="Hoot Lens">
+          <div className="gallery__stack">
+            <ExtensionStatus bridge="connected" clients={1} />
+            <ExtensionStatus bridge="listening" clients={0} />
+            <ExtensionStatus bridge="stopped" clients={0} />
+          </div>
         </Section>
 
         <Section title="Chat" wide>

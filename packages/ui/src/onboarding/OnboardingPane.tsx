@@ -1,10 +1,11 @@
-import type { ApiKeyResult, Settings, SettingsPatch } from '@hoot/core'
-import { Keyboard, Lasso, Pin } from 'lucide-react'
+import type { ApiKeyResult, Settings, SettingsPatch, StateSlices } from '@hoot/core'
+import { BookOpenText, Keyboard, Lasso, Pin } from 'lucide-react'
 import { AnimatePresence, motion, type Variants } from 'motion/react'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Button } from '../components/Button'
 import { Kbd } from '../components/Kbd'
 import { Owl } from '../components/Owl'
+import { ExtensionStatus } from '../lens/ExtensionStatus'
 import { springs } from '../motion/springs'
 import { acceleratorKeys } from '../settings/accelerator'
 import { ApiKeyField } from '../settings/ApiKeyField'
@@ -25,6 +26,8 @@ export interface OnboardingPaneProps {
   onSaveKey: (key: string) => Promise<ApiKeyResult>
   onOpenLink: (url: string) => void
   onRecordingChange?: (recording: boolean) => void
+  /** The `lens` slice, when main serves it: shows whether the browser extension is connected. */
+  lens?: Pick<StateSlices['lens'], 'bridge' | 'clients'>
 }
 
 // Forward enters from the right and leaves to the left; Back is the mirror.
@@ -102,9 +105,9 @@ function StepBody(p: OnboardingPaneProps): React.JSX.Element {
       return (
         <Step
           intro
-          art={<Owl mood="idle" size={88} label="Hoot" />}
+          art={<Owl mood="idle" size={72} label="Hoot" />}
           title="Hi, I’m Hoot"
-          lead="A small owl that lives on your desktop and helps with whatever is on your screen."
+          lead="A small owl that helps with whatever is on your screen."
           footer={
             <Button variant="primary" onClick={next}>
               Get started
@@ -119,6 +122,9 @@ function StepBody(p: OnboardingPaneProps): React.JSX.Element {
               Circle anything on screen and ask about it
             </Feature>
             <Feature icon={<Pin />}>Pin answers as sticky notes</Feature>
+            <Feature icon={<BookOpenText />}>
+              Explain hard words in place, in your browser and PDFs
+            </Feature>
           </ul>
         </Step>
       )
@@ -174,7 +180,7 @@ function StepBody(p: OnboardingPaneProps): React.JSX.Element {
       return (
         <Step
           intro
-          art={<Owl mood="celebrate" size={88} label="Hoot" />}
+          art={<Owl mood="celebrate" size={72} label="Hoot" />}
           title="You’re all set"
           lead={
             <>
@@ -189,8 +195,15 @@ function StepBody(p: OnboardingPaneProps): React.JSX.Element {
             </Button>
           }
         >
+          {p.lens && (
+            <ExtensionStatus
+              className="hoot-onb__wide"
+              bridge={p.lens.bridge}
+              clients={p.lens.clients}
+            />
+          )}
           {!p.hasApiKey && (
-            <p className="hoot-onb__note">
+            <p className="hoot-onb__note hoot-onb__wide">
               Hoot can’t answer until you add a Gemini key. You can add one any time in Settings.
             </p>
           )}

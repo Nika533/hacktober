@@ -80,3 +80,6 @@ export { ShortcutFields, type ShortcutFieldsProps } from './settings/ShortcutFie
 // Onboarding (D3-13)
 export { OnboardingPane, type OnboardingPaneProps } from './onboarding/OnboardingPane'
 export { ONBOARDING_STEPS } from './onboarding/steps'
+
+// Lens (D3-13, D3-20)
+export { ExtensionStatus, type ExtensionStatusProps } from './lens/ExtensionStatus'

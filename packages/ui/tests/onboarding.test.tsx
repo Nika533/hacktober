@@ -93,6 +93,29 @@ describe('OnboardingPane', () => {
     expect(step.textContent).not.toContain('can’t answer')
   })
 
+  it('shows the live extension status on the last step only when main serves it', () => {
+    const { container } = setup(3)
+    expect(current(container).querySelector('.hoot-extstatus')).toBeNull()
+    const withLens = render(
+      <HootUIProvider>
+        <OnboardingPane
+          step={3}
+          summonHotkey={DEFAULT_SETTINGS.summonHotkey}
+          captureHotkey={DEFAULT_SETTINGS.captureHotkey}
+          hasApiKey
+          keyStorage="os-encrypted"
+          lens={{ bridge: 'connected', clients: 1 }}
+          onStep={() => undefined}
+          onFinish={() => undefined}
+          onUpdate={() => undefined}
+          onSaveKey={async () => ({ ok: true })}
+          onOpenLink={() => undefined}
+        />
+      </HootUIProvider>
+    )
+    expect(current(withLens.container).textContent).toContain('Hoot Lens is connected')
+  })
+
   it('clamps an out-of-range step from main', () => {
     const { container } = setup(9)
     expect(current(container).querySelector('h1')?.textContent).toBe('You’re all set')

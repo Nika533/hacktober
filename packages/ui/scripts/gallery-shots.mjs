@@ -104,7 +104,15 @@ try {
       await axe(page, `${v.name} + onboarding shortcuts`)
       await onb.getByRole('button', { name: 'Continue' }).click()
       await onbStep(3, 'You’re all set')
+      await onb.getByText('Hoot Lens is connected').waitFor()
+      await page.waitForTimeout(450)
+      await onb.screenshot({ path: resolve(out, `onboarding-3-connected-${v.name}.png`) })
+      await axe(page, `${v.name} + onboarding connected`)
       await onb.getByRole('button', { name: 'Start using Hoot' }).click()
+
+      await gallerySection(page, 'Hoot Lens').screenshot({
+        path: resolve(out, `lens-status-${v.name}.png`)
+      })
 
       // Chat: the resting conversation, then a fresh question mid-stream.
       const chat = gallerySection(page, 'Chat')
