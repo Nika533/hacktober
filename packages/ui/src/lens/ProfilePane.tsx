@@ -7,7 +7,7 @@ import {
   type TermState
 } from '@hoot/core'
 import { ArrowLeft, X } from 'lucide-react'
-import { useId, useState, type FormEvent, type ReactNode } from 'react'
+import { useId, useState, type FormEvent } from 'react'
 import { Button } from '../components/Button'
 import { useConfirm } from '../components/confirmContext'
 import { IconButton } from '../components/IconButton'
@@ -18,6 +18,7 @@ import { TextField } from '../components/TextField'
 import { useToast } from '../components/toastContext'
 import { siteLabel } from './sites'
 import { timeAgo } from './useLensPages'
+import { SettingsGroup as Group } from '../settings/SettingsGroup'
 
 export interface ProfilePaneProps {
   /** Null while loading. */
@@ -360,17 +361,5 @@ function Changes({ changes, now }: { changes: RecentChange[]; now: number }): Re
         </li>
       ))}
     </ol>
-  )
-}
-
-function Group({ title, children }: { title: string; children: ReactNode }): React.JSX.Element {
-  const id = useId()
-  return (
-    <section className="hoot-settings__group" aria-labelledby={id}>
-      <h2 id={id} className="hoot-settings__heading">
-        {title}
-      </h2>
-      {children}
-    </section>
   )
 }

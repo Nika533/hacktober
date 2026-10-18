@@ -25,6 +25,7 @@ import {
   siteLabel,
   sortedSites
 } from './sites'
+import { SettingsGroup as Group } from '../settings/SettingsGroup'
 
 export interface ReadingPaneProps {
   lens: LensSettings
@@ -477,17 +478,5 @@ function LinkRow({
       </span>
       <ChevronRight className="hoot-reading__link-chevron" aria-hidden />
     </button>
-  )
-}
-
-function Group({ title, children }: { title: string; children: ReactNode }): React.JSX.Element {
-  const id = useId()
-  return (
-    <section className="hoot-settings__group" aria-labelledby={id}>
-      <h2 id={id} className="hoot-settings__heading">
-        {title}
-      </h2>
-      {children}
-    </section>
   )
 }

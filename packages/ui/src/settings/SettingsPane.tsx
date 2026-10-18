@@ -6,7 +6,7 @@ import {
   type SettingsPatch
 } from '@hoot/core'
 import { ArrowLeft } from 'lucide-react'
-import { useId, useState, type ReactNode } from 'react'
+import { useId, useState } from 'react'
 import { Button } from '../components/Button'
 import { useConfirm } from '../components/confirmContext'
 import { IconButton } from '../components/IconButton'
@@ -16,6 +16,7 @@ import { TextField } from '../components/TextField'
 import { useToast } from '../components/toastContext'
 import { ApiKeyField } from './ApiKeyField'
 import { ShortcutFields } from './ShortcutFields'
+import { SettingsGroup as Group } from './SettingsGroup'
 
 export interface SettingsPaneProps {
   settings: Settings
@@ -223,18 +224,6 @@ export function SettingsPane({
 
         {version && <p className="hoot-settings__about">Hoot {version}</p>}
       </div>
-    </section>
-  )
-}
-
-function Group({ title, children }: { title: string; children: ReactNode }): React.JSX.Element {
-  const id = useId()
-  return (
-    <section className="hoot-settings__group" aria-labelledby={id}>
-      <h2 id={id} className="hoot-settings__heading">
-        {title}
-      </h2>
-      {children}
     </section>
   )
 }
