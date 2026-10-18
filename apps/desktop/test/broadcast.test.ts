@@ -32,7 +32,14 @@ class FakeSink implements PatchSink {
 }
 
 const setup = (): { store: Store; broadcaster: Broadcaster } => {
-  const store = createStore(initialSlices({ settings: DEFAULT_SETTINGS, system }))
+  const store = createStore(
+    initialSlices({
+      settings: DEFAULT_SETTINGS,
+      hasApiKey: false,
+      keyStorage: 'os-encrypted',
+      system
+    })
+  )
   const broadcaster = createBroadcaster(store)
   return { store, broadcaster }
 }
