@@ -3,7 +3,11 @@ import {
   applyLensEvent,
   buildExplainMore,
   buildProfileSummary,
+  COLD_START_THRESHOLD,
   decayTopics,
+  DEFAULT_THRESHOLD,
+  THRESHOLD_MAX,
+  THRESHOLD_MIN,
   type AssessResult,
   type ExplainMoreMessage,
   type GlossaryEntry,
@@ -92,16 +96,48 @@ export async function createLensService(deps: LensServiceDeps): Promise<LensServ
     now
   })
 
+  // Finishing the cold-start setup (Studio → Reading, hoot-lens.md §8.4)
+  // relaxes Lens at once: the cold-start premium comes off the threshold
+  // (what feedback taught it stays) and the remaining Ask-first triggers go.
+  // Checked on every call, since the setting arrives through settings, not
+  // here; a profile still in cold start at launch is finished too (#59).
+  let coldStartDoneSeen = deps.getLensSettings().coldStartDone
+  const syncColdStart = (): void => {
+    const done = deps.getLensSettings().coldStartDone
+    const flipped = done && !coldStartDoneSeen
+    coldStartDoneSeen = done
+    const current = profile.get()
+    if (!flipped && !(done && current.askFirstRemaining > 0)) return
+    const premium = COLD_START_THRESHOLD - DEFAULT_THRESHOLD
+    // replace() swaps the profile synchronously, then saves and notifies.
+    void profile
+      .replace({
+        ...current,
+        threshold: Math.min(THRESHOLD_MAX, Math.max(THRESHOLD_MIN, current.threshold - premium)),
+        askFirstRemaining: 0,
+        version: current.version + 1
+      })
+      .catch(onError)
+  }
+  syncColdStart()
+
   const view = (): ProfileView => ({
     profile: profile.get(),
     summary: buildProfileSummary(profile.get(), deps.getLensSettings().languages)
   })
 
   return {
-    assess: (reqId, ctx) => engine.assess(reqId, ctx),
-    rewrite: (reqId, req) => engine.rewrite(reqId, req),
+    assess: (reqId, ctx) => {
+      syncColdStart()
+      return engine.assess(reqId, ctx)
+    },
+    rewrite: (reqId, req) => {
+      syncColdStart()
+      return engine.rewrite(reqId, req)
+    },
     cancel: (reqId) => engine.cancel(reqId),
     async feedback(event) {
+      syncColdStart()
       // Measured from the change's `shown` event, before this event is recorded.
       const shownAt = event.kind === 'shown' ? undefined : history.shownAt(event.cacheKey)
       await history.record(event, (key) => cache.getRewrite(key))
@@ -116,9 +152,16 @@ export async function createLensService(deps: LensServiceDeps): Promise<LensServ
       const summary = buildProfileSummary(profile.get(), deps.getLensSettings().languages, ctx)
       deps.onExplain?.(buildExplainMore(ctx, summary), ctx)
     },
-    profileView: view,
-    snapshot: () => profile.snapshot(),
+    profileView: () => {
+      syncColdStart()
+      return view()
+    },
+    snapshot: () => {
+      syncColdStart()
+      return profile.snapshot()
+    },
     async patchProfile(patch) {
+      syncColdStart()
       await profile.patch(patch, now())
       return view()
     },
