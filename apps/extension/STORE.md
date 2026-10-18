@@ -19,7 +19,6 @@ change is marked and can be undone.
 | `storage` | Lens settings (on/off, mode, per-site rules), the connection back-off, and a random per-install salt for hashed page addresses. |
 | `webRequest` | Observes top-level responses (no blocking) to notice PDFs and open them in the Lens viewer. |
 | `webNavigation` | Notices local `file://` PDFs, which `webRequest` doesn't see, to open them in the viewer. |
-| `scripting` | Not used by the current code. Request: remove it from the manifest before submission. |
 
 ## Data
 
@@ -42,6 +41,5 @@ change is marked and can be undone.
 - **Short description:** Select text you don't understand: Hoot rewrites it in place,
   marks the change, and undoes it with one click.
 - **Icons:** `static/icons/icon-{16,32,48,128}.png` (regenerate with
-  `node scripts/icons.ts`). Request: add them to the manifest's `icons` and
-  `action.default_icon`.
+  `node scripts/icons.ts`), used as the manifest's `icons` and `action.default_icon`.
 - **Screenshots:** `screenshots/` (options page, Lens UI, PDF viewer; light and dark).
