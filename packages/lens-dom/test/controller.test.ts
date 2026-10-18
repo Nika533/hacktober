@@ -297,6 +297,14 @@ describe('createLens with @hoot/core fakes', () => {
     expect(backend.events.map((event) => event.kind)).toEqual(['shown'])
   })
 
+  it('sends the rarity of acronyms and notation with the context (s6)', async () => {
+    const rewrite = vi.spyOn(backend, 'rewrite')
+    await start()
+    select('OLS')
+    await ask()
+    expect(rewrite.mock.calls[0]?.[0].ctx.signals).toMatchObject({ rarity: 0.8, reread: 0 })
+  })
+
   it('reports "reselected" when the reader selects a changed term again', async () => {
     await start()
     select('heteroscedasticity')

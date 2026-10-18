@@ -18,6 +18,7 @@ import { InlineRenderer } from './render/inline'
 import { OverlayRenderer } from './render/overlay'
 import type { Mark, MarkSpec, Renderer, RendererEvent } from './render/types'
 import { SelectionWatcher, type SelectionCandidate } from './selection'
+import { ReadingTracker, rarityOf } from './signals'
 import { normalizeWhitespace } from './text'
 import { LensUi } from './ui/lens-ui'
 import { viewportOf } from './ui/position'
@@ -293,6 +294,7 @@ export function createLens(options: CreateLensOptions): Lens {
     }
   })
 
+  const reading = new ReadingTracker(doc)
   const watcher = new SelectionWatcher(
     { document: doc, now },
     {
@@ -341,8 +343,8 @@ export function createLens(options: CreateLensOptions): Lens {
         copiedWithinMs: target.signals.copiedWithinMs,
         dwellMs: target.signals.dwellMs,
         reselectCount: target.signals.reselectCount,
-        reread: 0,
-        rarity: 0,
+        reread: reading.reread(target.range),
+        rarity: rarityOf(page.span, page.lang, page.paragraph),
         knownTerm: knownTerms.has(page.span.toLowerCase()),
         topicFamiliarity: null,
         foreignLanguage: isForeignLanguage(page.lang, current.languages),
@@ -451,6 +453,7 @@ export function createLens(options: CreateLensOptions): Lens {
       destroyed = true
       inflight?.abort()
       watcher.destroy()
+      reading.destroy()
       kept.destroy()
       detector.stop()
       for (const undo of cleanup.splice(0)) undo()

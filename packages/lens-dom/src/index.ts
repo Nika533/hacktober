@@ -36,6 +36,7 @@ export {
   type SelectionWatcherOptions
 } from './selection'
 export { MARK_TAG, UI_TAG, checkRange, isInsideLens } from './guard'
+export { ReadingTracker, rarityOf } from './signals'
 export {
   DynamicPageDetector,
   STRONG_MARKERS,
