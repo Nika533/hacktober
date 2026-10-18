@@ -11,7 +11,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 await esbuild.build({
   entryPoints: {
     'hoot-bridge': join(root, 'src/host/main.ts'),
-    'register-native-host': join(root, 'src/register.ts')
+    'register-native-host': join(root, 'src/registerCli.ts')
   },
   outdir: join(root, 'dist'),
   outExtension: { '.js': '.cjs' },

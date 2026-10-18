@@ -25,6 +25,7 @@ jobs:
     outputs:
       code: ${{ steps.diff.outputs.code }}
       ui: ${{ steps.diff.outputs.ui }}
+      packaging: ${{ steps.diff.outputs.packaging }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -38,15 +39,18 @@ jobs:
           if [ "$EVENT" != "pull_request" ]; then
             echo "code=true" >> "$GITHUB_OUTPUT"
             echo "ui=true" >> "$GITHUB_OUTPUT"
+            echo "packaging=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           files=$(git diff --name-only "origin/$BASE...HEAD")
           echo "$files"
-          code=false; ui=false
+          code=false; ui=false; packaging=false
           if echo "$files" | grep -qvE '^(docs/.*|.*\.md)$'; then code=true; fi
           if echo "$files" | grep -qE '^(packages/ui/|apps/desktop/src/renderer/)'; then ui=true; fi
+          if echo "$files" | grep -qE '^(apps/desktop/(electron-builder\.yml|build/|package\.json|src/main/)|packages/(bridge|core)/|scripts/smoke-packaged\.mjs|package-lock\.json)'; then packaging=true; fi
           echo "code=$code" >> "$GITHUB_OUTPUT"
           echo "ui=$ui" >> "$GITHUB_OUTPUT"
+          echo "packaging=$packaging" >> "$GITHUB_OUTPUT"
 
   ownership:
     if: github.event_name == 'pull_request'
@@ -108,6 +112,33 @@ jobs:
           path: |
             apps/desktop/test-results
             apps/extension/test-results
+          retention-days: 7
+
+  # The NSIS installer and the packaged smoke test (F-C5): the unpacked app on
+  # the fakes, its first window, and hoot-bridge.cmd → the app, as Chrome runs
+  # it. Not a required check; runs on main and on PRs that touch packaging,
+  # main, core or the bridge. The installer is kept as an artifact.
+  packaged:
+    needs: [changes, checks]
+    if: needs.changes.outputs.packaging == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Build the installer (unsigned)
+        run: npm run build:win -w @hoot/desktop -- --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Packaged smoke (fake AI, fake Lens)
+        run: node scripts/smoke-packaged.mjs --register
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: hoot-installer
+          path: apps/desktop/dist/*-setup.exe
           retention-days: 7
 
   # Gallery screenshots (light, dark, high contrast) + axe. Fails on any axe
