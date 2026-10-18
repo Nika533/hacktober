@@ -12,6 +12,7 @@ import {
   Owl,
   QUICK_ACTION_CHIPS,
   QuickChips,
+  SettingsPane,
   StudioLayout,
   StudioSidebar,
   toAttachmentViews,
@@ -160,6 +161,26 @@ function Studio({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
             </>
           }
         />
+      ) : view === 'settings' ? (
+        <SettingsPane
+          settings={settings}
+          hasApiKey={state.settings.hasApiKey}
+          keyStorage={state.settings.keyStorage}
+          hotkeyErrors={hotkeyErrorsByShortcut(state.settings.hotkeyErrors)}
+          version={state.system?.version}
+          onUpdate={(patch) => run((h) => h.settings.update(patch))}
+          onSaveKey={(key) =>
+            hoot
+              ? hoot.settings.setApiKey(key)
+              : Promise.resolve({ ok: false, reason: 'unreachable' })
+          }
+          onClearKey={() => (hoot ? hoot.settings.clearApiKey() : Promise.resolve())}
+          onClearChats={() => (hoot ? hoot.sessions.clearAll() : Promise.resolve())}
+          onResetAnchor={() => (hoot ? hoot.settings.resetAnchor() : Promise.resolve())}
+          onOpenLink={(url) => run((h) => h.app.openExternal(url))}
+          onRecordingChange={(on) => suspendHotkeys(hoot, on)}
+          onBack={() => run((h) => h.windows.openStudio('chat'))}
+        />
       ) : (
         <NotYet view={view} onBack={() => run((h) => h.windows.openStudio('chat'))} />
       )}
@@ -182,6 +203,34 @@ function Connecting({ failed }: { failed: boolean }): React.JSX.Element {
       )}
     </main>
   )
+}
+
+/**
+ * Hotkey registration errors, keyed by shortcut. Accepts both the current
+ * string[] (today) and the structured { which, message } from contract PR #19.
+ */
+function hotkeyErrorsByShortcut(errors: readonly unknown[]): {
+  summonHotkey?: string
+  captureHotkey?: string
+} {
+  const out: { summonHotkey?: string; captureHotkey?: string } = {}
+  for (const e of errors) {
+    if (typeof e === 'string') {
+      if (/summon/i.test(e)) out.summonHotkey ??= e
+      else if (/circle|capture/i.test(e)) out.captureHotkey ??= e
+    } else if (e && typeof e === 'object' && 'which' in e && 'message' in e) {
+      const { which, message } = e as { which: unknown; message: unknown }
+      if ((which === 'summonHotkey' || which === 'captureHotkey') && typeof message === 'string')
+        out[which] ??= message
+    }
+  }
+  return out
+}
+
+/** Pauses global shortcuts while recording, once main offers it (contract PR #19). */
+function suspendHotkeys(hoot: HootApi | undefined, on: boolean): void {
+  const settings = hoot?.settings as { suspendHotkeys?: (on: boolean) => Promise<void> } | undefined
+  void settings?.suspendHotkeys?.(on).catch(() => undefined)
 }
 
 const VIEW_NAMES: Record<Exclude<StudioView, 'chat'>, string> = {
