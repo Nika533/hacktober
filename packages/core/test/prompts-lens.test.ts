@@ -4,6 +4,7 @@ import {
   PROFILE_SUMMARY_MAX_CHARS,
   REWRITE_SYSTEM_PROMPT,
   buildAssessPrompt,
+  buildExplainMore,
   buildProfileSummary,
   buildRewritePrompt,
   escapeForPrompt
@@ -162,5 +163,22 @@ describe('profile helpers', () => {
     )
     expect(snap.knownTerms).toEqual(['new', 'old'])
     expect(ProfileSnapshotSchema.safeParse(snap).success).toBe(true)
+  })
+})
+
+describe('buildExplainMore', () => {
+  it('shows a compact quote and sends the full context', () => {
+    const msg = buildExplainMore(sampleContext(), 'Reader profile:\n- Primary language: English')
+    expect(msg.text).toBe('Explain “heteroscedasticity”')
+    expect(msg.sentText).toContain('“A gentle guide to regression › Regression diagnostics”')
+    expect(msg.sentText).toContain('The residuals show heteroscedasticity')
+    expect(msg.sentText).toContain('Primary language: English')
+  })
+
+  it('clips long selections in the visible line only', () => {
+    const span = 'word '.repeat(40).trim()
+    const msg = buildExplainMore(sampleContext({ span }), '')
+    expect(msg.text.length).toBeLessThanOrEqual(90)
+    expect(msg.sentText).toContain(span)
   })
 })
