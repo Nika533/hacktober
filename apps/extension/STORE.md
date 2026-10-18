@@ -26,7 +26,10 @@ change is marked and can be undone.
   threshold, or when you click "Make this clearer?"): the selected text, its paragraph
   (up to 1,500 characters), the page title and up to three headings, the page language,
   the site's registrable domain, and the selection signals Lens scored. The app sends the
-  text on to Google Gemini with the user's own API key.
+  text on to Anthropic (Claude) with the user's own API key. Anthropic doesn't train its
+  models on what Hoot sends with that key, and deletes it within 30 days (longer only if
+  it's flagged under Anthropic's Usage Policy); see
+  [Anthropic's terms](https://www.anthropic.com/legal/commercial-terms).
 - **Never sent:** form fields, other page content, cookies, full URLs. Pages with a
   password field, deny-listed hosts (banking, email, chat, password managers, health
   portals) and private windows are skipped.

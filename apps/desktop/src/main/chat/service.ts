@@ -27,7 +27,7 @@ export interface ChatDeps {
   broadcaster: Broadcaster
   persistence: Persistence
   writer: DebouncedWriter
-  /** Null when no Gemini key is configured (the answer then shows "Add your key"). */
+  /** Null when no Claude key is configured (the answer then shows "Add your key"). */
   getProvider(): Promise<AiProvider | null>
   log: Logger
   /** Armed clipboard text from the clipboard chip (d1); returned once, then cleared. */

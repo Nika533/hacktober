@@ -3,7 +3,7 @@ import type { Persistence } from '../store/persistence'
 import type { Store } from '../store/store'
 import type { CaptureImage } from './image'
 
-/** Long edge sent to the model (Gemini tiles larger images anyway). */
+/** Long edge sent to the model (Claude scales larger images down anyway). */
 export const MAX_LONG_EDGE = 1568
 const THUMB_EDGE = 160
 

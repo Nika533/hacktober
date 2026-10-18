@@ -54,6 +54,18 @@ describe('migrateSettings', () => {
     expect(s.lens.enabled).toBe(true)
   })
 
+  it('moves a saved Gemini model to the Claude model with the same role', () => {
+    expect(migrateSettings({ ...DEFAULT_SETTINGS, model: 'gemini-3.5-flash-lite' }).model).toBe(
+      'claude-haiku-5-5'
+    )
+    expect(migrateSettings({ ...DEFAULT_SETTINGS, model: 'gemini-4-argon' }).model).toBe(
+      'claude-opus-5-5'
+    )
+    expect(migrateSettings({ ...DEFAULT_SETTINGS, model: 'claude-3-opus' }).model).toBe(
+      'claude-sonnet-5-5'
+    )
+  })
+
   it('drops unknown keys', () => {
     const s = migrateSettings({ ...DEFAULT_SETTINGS, evil: true }) as unknown as Record<
       string,
@@ -66,7 +78,7 @@ describe('migrateSettings', () => {
 describe('SettingsPatchSchema', () => {
   it('accepts user-editable fields and nested lens changes', () => {
     const r = SettingsPatchSchema.safeParse({
-      model: 'gemini-4-argon',
+      model: 'claude-opus-5-5',
       lens: { mode: 'ask', sites: { 'example.com': 'paused', 'old.org': null } }
     })
     expect(r.success).toBe(true)
@@ -78,7 +90,7 @@ describe('SettingsPatchSchema', () => {
       { pillAnchor: { x: 1, y: 2 } },
       { schemaVersion: 3 },
       { lens: { surprise: 1 } },
-      { model: 'claude-opus-5-5' },
+      { model: 'gemini-4-argon' },
       { lens: { sites: { '../etc': 'never' } } }
     ]) {
       expect(SettingsPatchSchema.safeParse(bad).success, JSON.stringify(bad)).toBe(false)

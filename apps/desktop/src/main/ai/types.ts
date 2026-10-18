@@ -5,7 +5,7 @@ export interface ChatStreamRequest {
   model: string
   system: string
   messages: ConversationMessage[]
-  /** Gemini counts thinking tokens against this cap too. */
+  /** Output token cap for the answer. */
   maxTokens: number
   signal: AbortSignal
 }
@@ -16,11 +16,11 @@ export interface JsonRequest<T> {
   model: string
   system: string
   prompt: string
-  /** The reply must parse as JSON and match this schema (also sent to Gemini). */
+  /** The reply must match this schema (sent to Claude as the forced tool's input schema). */
   schema: z.ZodType<T>
   /** Default 1024; thinking counts against it. */
   maxTokens?: number
-  /** Default 'minimal'. Gemini 4 Argon only accepts low, medium and high. */
+  /** Reasoning effort hint; Claude answers without extended thinking. */
   thinking?: ThinkingLevel
   /** Caller cancellation; rejects with an AbortError. */
   signal?: AbortSignal

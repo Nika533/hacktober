@@ -1,7 +1,7 @@
 # Hoot: rules for every builder
 
 Hoot is a Windows-first AI desktop buddy (a floating owl: Dot → Pill → Card →
-Studio, circle-anything capture, sticky pins, streaming Gemini chat) plus
+Studio, circle-anything capture, sticky pins, streaming Claude chat) plus
 **Hoot Lens**, which rewrites text you don't understand in place, in the
 browser and in local PDFs.
 
@@ -24,7 +24,7 @@ Read in this order before writing code:
 | `packages/pdf-view` | PDF.js view, overlay renderer, reflow mode | d3 |
 | `packages/bridge` | hoot-bridge native messaging host | C |
 | `apps/desktop/src/main` | Lifecycle, store, persistence, windows, buddy mode machine, hotkeys, tray, IPC registration (wires every feature) | d1 |
-| `apps/desktop/src/main/{ai,lens,bridge}` | Gemini provider, Lens engine and profile, pipe server | C |
+| `apps/desktop/src/main/{ai,lens,bridge}` | Claude provider, Lens engine and profile, pipe server | C |
 | `apps/desktop/src/main/{chat,pins}` + `renderer/note` | Chat service, pins and sticky notes | C |
 | `apps/desktop/src/main/capture` + `renderer/capture` | Capture overlay | d2 |
 | `apps/desktop/src/preload` | `window.hoot` (built from the routes in core) | d1 |
@@ -48,8 +48,8 @@ the `.ps1` shims.
 | `npm.cmd run typecheck` | `tsc` in every workspace |
 | `npm.cmd run lint` | ESLint over the repo |
 | `npm.cmd test` | Vitest, every workspace as its own project |
-| `npm.cmd run test:live` | Real Gemini calls; needs `GEMINI_API_KEY` |
-| `npm.cmd run eval` | Lens rewrite-quality evals (C-31) on real Gemini; `EVAL_FAKE=1` dry-runs the harness; `EVAL_UPDATE_BASELINE=1` saves the baseline |
+| `npm.cmd run test:live` | Real Claude calls; needs `ANTHROPIC_API_KEY` |
+| `npm.cmd run eval` | Lens rewrite-quality evals (C-31) on real Claude (needs `ANTHROPIC_API_KEY`); `EVAL_FAKE=1` dry-runs the harness; `EVAL_UPDATE_BASELINE=1` saves the baseline |
 | `npm.cmd run build` | Build every workspace (desktop → `out/`, extension → `dist/`) |
 | `npm.cmd run build:e2e -w @hoot/extension` | Extension with the fake backend, open shadow roots and Lens on (what the e2e suite loads) |
 | `npm.cmd run serve:fixtures -w @hoot/extension` | Build and serve the Lens fixture pages on http://localhost:4510 |
@@ -60,7 +60,7 @@ the `.ps1` shims.
 | `npm.cmd run build:win` | Unsigned per-user NSIS installer, `apps/desktop/dist/Hoot-<version>-setup.exe`; it registers the native host (CI keeps it as the `hoot-installer` artifact) |
 | `npm.cmd run smoke:packaged` | Packaged smoke test after `build:unpack` (Windows; `-- --register` also writes and removes the real HKCU keys) |
 | `node scripts/gate-g1.mjs` | Gate G1 on the e2e build with the fakes, from a fresh profile |
-| `node scripts/gate-g2.mjs [--live --runs 2]` | Gate G2, desktop half (demo steps 1–2); `--live` uses real Gemini through onboarding |
+| `node scripts/gate-g2.mjs [--live --runs 2]` | Gate G2, desktop half (demo steps 1–2); `--live` uses real Claude through onboarding (needs `ANTHROPIC_API_KEY`) |
 | `npm.cmd run register-host -w @hoot/bridge` | Build hoot-bridge and register it for Chrome, Edge, Chromium and Brave (current user); `unregister-host` undoes it |
 | `npm.cmd run fake-server -w @hoot/bridge -- --port 7341 --code dev` | Fake Lens bridge on `ws://127.0.0.1:7341/?code=dev`, for using the extension without the app |
 | `npm.cmd run check:ownership -- --branch d2/x --base origin/main` | Local ownership check |
@@ -83,7 +83,7 @@ One workspace: `npm.cmd run <script> -w @hoot/desktop` (or `@hoot/extension`,
   `emulateMedia`. Windows refuses to steal focus, so call
   `setAlwaysOnTop(true, 'pop-up-menu')` + `moveTop()` before `capturePage` or a
   desktop grab, then restore. An occluded window captures empty.
-- No secrets in git. `GEMINI_API_KEY` comes from the environment only.
+- No secrets in git. `ANTHROPIC_API_KEY` comes from the environment only.
 
 ### Windows facts verified in D1-00
 
@@ -117,7 +117,7 @@ One workspace: `npm.cmd run <script> -w @hoot/desktop` (or `@hoot/extension`,
 
 | Variable | Effect |
 |---|---|
-| `GEMINI_API_KEY` | Dev fallback when no key is stored (`<userData>/hoot/gemini-key.bin`) |
+| `ANTHROPIC_API_KEY` | Dev fallback when no key is stored (`<userData>/hoot/claude-key.bin`) |
 | `HOOT_FAKE_AI=1` | Deterministic chat provider, no key or network |
 | `HOOT_FAKE_LENS=1` | Lens engine answers with `@hoot/core/testing` fakes |
 | `HOOT_TEST=1` | e2e build only: test hooks, no global hotkeys |
@@ -172,9 +172,14 @@ One workspace: `npm.cmd run <script> -w @hoot/desktop` (or `@hoot/extension`,
   `.hoot-chrome` to chrome that shouldn't be. `@hoot/ui` scripts: `typecheck`,
   `test`, `gallery` (vite on :5199, `#/gallery?theme=dark&accent=ca5010`),
   `shots` (Playwright screenshots + axe).
-- Gemini: `maxOutputTokens` includes thinking tokens; structured output uses
-  `responseJsonSchema` + zod. Gemini 4 Argon is paid-tier only and accepts
-  thinking levels low/medium/high (not minimal).
+- Claude: models are Haiku, Sonnet and Opus 5.5 (`CHAT_MODELS`, Sonnet by
+  default; `LENS_MODELS` uses Haiku and Sonnet). Structured output is a tool call:
+  the zod schema is the tool's `input_schema`, and the tool input is parsed with
+  the same schema. Force it with `tool_choice` only on Haiku 5.5: Sonnet 5.5 and
+  Opus 5.5 reject `tool_choice` `any`/`tool` with a 400 (use `auto` and name the
+  tool in the prompt). All three think adaptively when `thinking` is omitted, and
+  thinking counts against `max_tokens`. Images are capped at 1568 px on the long
+  edge (`MAX_LONG_EDGE`).
 
 ## Workflow
 

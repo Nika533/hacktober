@@ -69,7 +69,7 @@ describe('Toast', () => {
     const { toast } = setup()
     const onDismiss = vi.fn()
     act(() => {
-      toast.show({ message: "Couldn't reach Gemini.", tone: 'danger', duration: null, onDismiss })
+      toast.show({ message: "Couldn't reach Claude.", tone: 'danger', duration: null, onDismiss })
     })
     const item = document.querySelector('.hoot-toast')!
     expect(item.getAttribute('role')).toBe('alert')

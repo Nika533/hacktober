@@ -1,4 +1,10 @@
-import { DEFAULT_SETTINGS, type ApiKeyResult, type Settings, type SettingsPatch } from '@hoot/core'
+import {
+  CHAT_MODELS,
+  DEFAULT_SETTINGS,
+  type ApiKeyResult,
+  type Settings,
+  type SettingsPatch
+} from '@hoot/core'
 import { act } from 'react'
 import { describe, expect, it, vi, type Mock } from 'vitest'
 import { HootUIProvider } from '../src/components/HootUIProvider'
@@ -49,10 +55,10 @@ describe('ApiKeyField', () => {
     const onSave = vi.fn(async () => ({ ok: true }))
     const { input, form, container, onSaved } = setup(onSave)
     expect(byName<HTMLButtonElement>(container, 'button', 'Check and save').disabled).toBe(true)
-    typeInto(input, '  AIza-key  ')
+    typeInto(input, '  sk-ant-key  ')
     submit(form)
     await wait(0)
-    expect(onSave).toHaveBeenCalledWith('AIza-key')
+    expect(onSave).toHaveBeenCalledWith('sk-ant-key')
     expect(onSaved).toHaveBeenCalled()
     expect(input.value).toBe('')
     expect(container.textContent).toContain('Key saved')
@@ -60,26 +66,27 @@ describe('ApiKeyField', () => {
 
   it('explains a rejected or unreachable key inline', async () => {
     const { input, form, container } = setup(async () => ({ ok: false, reason: 'rejected' }))
-    typeInto(input, 'bad')
+    typeInto(input, 'sk-ant-bad')
     submit(form)
     await wait(0)
     expect(input.getAttribute('aria-invalid')).toBe('true')
-    expect(container.textContent).toContain('Google rejected this key')
+    expect(container.textContent).toContain('Anthropic rejected this key')
 
     const failing = setup(() => Promise.reject(new Error('offline')))
-    typeInto(failing.input, 'k')
+    typeInto(failing.input, 'sk-ant-k')
     submit(failing.form)
     await wait(0)
-    expect(failing.container.textContent).toContain('couldn’t reach Google')
+    expect(failing.container.textContent).toContain('couldn’t reach Anthropic')
   })
 
-  it('shows and hides the key, links to AI Studio, and describes the saved state', () => {
+  it('shows and hides the key, links to the Anthropic Console, and describes the saved state', () => {
     const { input, container, onOpenLink } = setup(async () => ({ ok: true }), true)
     expect(input.type).toBe('password')
     click(byName(container, 'button', 'Show'))
     expect(input.type).toBe('text')
-    click(byName(container, 'button', 'Get a free key'))
+    click(byName(container, 'button', 'Get a key'))
     expect(onOpenLink).toHaveBeenCalledWith(API_KEY_URL)
+    expect(API_KEY_URL).toBe('https://console.anthropic.com/settings/keys')
     expect(container.textContent).toContain('A key is saved, encrypted on this PC')
   })
 })
@@ -119,18 +126,32 @@ describe('SettingsPane', () => {
     return { ...r, ...h }
   }
 
-  it('saves the model and warns that Argon needs a paid tier', () => {
+  it('offers the Claude models and saves the one picked, with the same note for each', () => {
     const { container, onUpdate, rerender } = setup()
-    const argon = [...container.querySelectorAll<HTMLInputElement>('input[type="radio"]')].find(
-      (r) => r.value === 'gemini-4-argon'
-    )!
-    expect(argon.closest('label')?.textContent).toContain('paid tier')
-    click(argon)
-    expect(onUpdate).toHaveBeenCalledWith({ model: 'gemini-4-argon' })
+    const radios = (): HTMLInputElement[] => [
+      ...container.querySelectorAll<HTMLInputElement>('input[type="radio"]')
+    ]
+    const models = radios().filter((r) => r.value.startsWith('claude-'))
+    expect(models.map((r) => r.value)).toEqual(CHAT_MODELS.map((m) => m.id))
+    expect(models.map((r) => r.closest('label')?.textContent)).toEqual([
+      expect.stringContaining('Haiku'),
+      expect.stringContaining('Sonnet'),
+      expect.stringContaining('Opus')
+    ])
+    expect(models.find((r) => r.checked)?.value).toBe('claude-sonnet-5-5')
+    const note = 'Sonnet is a good default. Haiku answers fastest; Opus is the smartest.'
+    expect(container.textContent).toContain(note)
+
+    const hints = [...container.querySelectorAll('.hoot-seg__hint')].map((h) => h.textContent)
+    expect(hints).toEqual(['fastest', 'balanced', 'smartest'])
+
+    const opus = models.find((r) => r.value === 'claude-opus-5-5')!
+    click(opus)
+    expect(onUpdate).toHaveBeenCalledWith({ model: 'claude-opus-5-5' })
     rerender(
       <HootUIProvider>
         <SettingsPane
-          settings={{ ...DEFAULT_SETTINGS, model: 'gemini-4-argon' }}
+          settings={{ ...DEFAULT_SETTINGS, model: 'claude-opus-5-5' }}
           hasApiKey
           keyStorage="os-encrypted"
           onUpdate={onUpdate}
@@ -143,7 +164,10 @@ describe('SettingsPane', () => {
         />
       </HootUIProvider>
     )
-    expect(container.textContent).toContain('Argon needs a paid-tier Gemini key')
+    expect(radios().find((r) => r.value === 'claude-opus-5-5')?.checked).toBe(true)
+    // Opus needs no special key, so the note doesn't change.
+    const notes = [...container.querySelectorAll('.hoot-settings__note')].map((n) => n.textContent)
+    expect(notes).toContain(note)
   })
 
   it('saves behaviour toggles, the collapse delay and the translate language', () => {

@@ -26,7 +26,7 @@ import type { LensCache } from './cache'
 import type { ProfileStore } from './profileStore'
 
 export interface LensEngineDeps {
-  /** Null when no Gemini key is configured. */
+  /** Null when no Claude key is configured. */
   getProvider(): Promise<AiProvider | null>
   getLensSettings(): LensSettings
   profile: ProfileStore
@@ -36,9 +36,9 @@ export interface LensEngineDeps {
   now(): number
 }
 
-// Live Gemini (Oct 2026) answers even a two-token prompt in 5–7 s under load
-// (#49), so these are generous: a slow answer is better than none. Nothing
-// is retried after a timeout; the page shows its shimmer meanwhile.
+// Generous: a slow answer is better than none (Gemini, before the move to
+// Claude, took 5–7 s under load, #49). Nothing is retried after a timeout;
+// the page shows its shimmer meanwhile.
 const ASSESS_TIMEOUT_MS = 10_000
 const REWRITE_TIMEOUT_MS = 15_000
 
@@ -168,7 +168,7 @@ export class LensEngine {
 
   private async requireProvider(): Promise<AiProvider> {
     const provider = await this.deps.getProvider()
-    if (!provider) throw new LensBackendError('no_key', 'No Gemini API key')
+    if (!provider) throw new LensBackendError('no_key', 'No Claude API key')
     return provider
   }
 

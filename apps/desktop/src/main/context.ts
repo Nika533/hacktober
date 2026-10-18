@@ -15,7 +15,7 @@ import {
   type Unsubscribe
 } from '@hoot/core'
 import type { AiProvider } from './ai'
-import { createFakeProvider, createGeminiProvider } from './ai'
+import { createAiProvider, createFakeProvider } from './ai'
 import { AnotherInstanceError, createBridgeServer, type BridgeServer } from './bridge'
 import { applyChatActivity } from './buddy/activity'
 import { createBuddyWindow, type BuddyWindow } from './buddy/window'
@@ -69,7 +69,7 @@ export interface AppContext {
   secrets: SecretStore
   studio: StudioWindow
   buddy: BuddyWindow
-  /** Chat provider: fake under HOOT_FAKE_AI, Gemini when a key exists, else null. */
+  /** Chat provider: fake under HOOT_FAKE_AI, Claude when a key exists, else null. */
   ai: { createProvider(): AiProvider | null }
   lens: LensService
   bridge: BridgeServer
@@ -135,9 +135,10 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     }
   })
   const secrets = createSecretStore({
-    file: join(hootDir, 'gemini-key.bin'),
+    // A new file name: a Gemini key saved before the move to Claude is left behind.
+    file: join(hootDir, 'claude-key.bin'),
     safeStorage,
-    envKey: process.env['GEMINI_API_KEY'],
+    envKey: process.env['ANTHROPIC_API_KEY'],
     log
   })
   const flush = createFlushRegistry(log)
@@ -272,7 +273,7 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     createProvider() {
       if (env.fakeAi) return createFakeProvider()
       const key = secrets.get()
-      return key ? createGeminiProvider(key) : null
+      return key ? createAiProvider(key) : null
     }
   }
 

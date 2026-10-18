@@ -32,7 +32,7 @@ import type { LensStorage } from './storage'
 export interface LensServiceDeps {
   storage: LensStorage
   getLensSettings(): LensSettings
-  /** Null when no Gemini key is configured. */
+  /** Null when no Claude key is configured. */
   getProvider(): Promise<AiProvider | null>
   /** HOOT_FAKE_LENS=1 */
   fake?: boolean

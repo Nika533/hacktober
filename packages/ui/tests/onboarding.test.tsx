@@ -1,9 +1,12 @@
-import { DEFAULT_SETTINGS } from '@hoot/core'
+import { DEFAULT_SETTINGS, type ApiKeyResult } from '@hoot/core'
+import { act } from 'react'
 import { describe, expect, it, vi, type Mock } from 'vitest'
 import { HootUIProvider } from '../src/components/HootUIProvider'
-import { OnboardingPane } from '../src/onboarding/OnboardingPane'
-import { GEMINI_TERMS_URL } from '../src/lens/sites'
-import { byName, click, render } from './render'
+import { OnboardingPane, type OnboardingPaneProps } from '../src/onboarding/OnboardingPane'
+import { ONBOARDING_STEPS } from '../src/onboarding/steps'
+import { ANTHROPIC_TERMS_URL } from '../src/lens/sites'
+import { API_KEY_URL } from '../src/settings/ApiKeyField'
+import { byName, click, render, wait } from './render'
 
 type Handlers = {
   onStep: Mock<(n: number) => void>
@@ -37,6 +40,41 @@ function setup(
 const current = (root: ParentNode): HTMLElement =>
   [...root.querySelectorAll<HTMLElement>('[data-step]')].at(-1)!
 
+/** The key step on its own, with the handlers a test wants to watch. */
+function keyStep(over: Partial<OnboardingPaneProps> = {}): HTMLElement {
+  const { container } = render(
+    <HootUIProvider>
+      <OnboardingPane
+        step={1}
+        summonHotkey={DEFAULT_SETTINGS.summonHotkey}
+        captureHotkey={DEFAULT_SETTINGS.captureHotkey}
+        hasApiKey={false}
+        keyStorage="os-encrypted"
+        onUpdate={() => undefined}
+        onSaveKey={async () => ({ ok: true })}
+        onOpenLink={() => undefined}
+        onStep={() => undefined}
+        onFinish={() => undefined}
+        {...over}
+      />
+    </HootUIProvider>
+  )
+  return current(container)
+}
+
+function typeInto(el: HTMLInputElement, value: string): void {
+  act(() => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(el, value)
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+}
+
+function submit(form: HTMLFormElement): void {
+  act(() => {
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+  })
+}
+
 describe('OnboardingPane', () => {
   it('welcomes with the real shortcuts and starts the flow', () => {
     const { container, onStep } = setup(0)
@@ -55,12 +93,15 @@ describe('OnboardingPane', () => {
     expect(pips).toHaveLength(4)
     expect(pips[2]?.getAttribute('aria-current')).toBe('step')
     expect(pips[0]?.textContent).toBe('Welcome, done')
+    expect(pips[1]?.textContent).toBe('Claude key, done')
+    expect(ONBOARDING_STEPS).toEqual(['Welcome', 'Claude key', 'Shortcuts', 'Done'])
     expect(pips[3]?.getAttribute('aria-current')).toBeNull()
   })
 
   it('lets you skip the key, or continue once one is saved', () => {
     const { container, onStep, at } = setup(1)
     let step = current(container)
+    expect(step.querySelector('h1')?.textContent).toBe('Connect Claude')
     expect(document.activeElement).toBe(step.querySelector('input'))
     click(byName(step, 'button', 'Skip for now'))
     expect(onStep).toHaveBeenLastCalledWith(2)
@@ -74,29 +115,72 @@ describe('OnboardingPane', () => {
     expect(onStep).toHaveBeenLastCalledWith(2)
   })
 
-  it('says keys are 18+ and how a free key differs, linking the Gemini terms', () => {
+  it('asks for a Claude API key and links to the Anthropic Console', () => {
     const onOpenLink = vi.fn()
-    const { container } = render(
-      <HootUIProvider>
-        <OnboardingPane
-          step={1}
-          summonHotkey={DEFAULT_SETTINGS.summonHotkey}
-          captureHotkey={DEFAULT_SETTINGS.captureHotkey}
-          hasApiKey={false}
-          keyStorage="os-encrypted"
-          onUpdate={() => undefined}
-          onSaveKey={async () => ({ ok: true })}
-          onOpenLink={onOpenLink}
-          onStep={() => undefined}
-          onFinish={() => undefined}
-        />
-      </HootUIProvider>
+    const step = keyStep({ onOpenLink })
+    expect(step.querySelector('.hoot-onb__lead')?.textContent).toBe(
+      'Hoot answers with Claude, by Anthropic, using your own API key. Get one at console.anthropic.com.'
     )
-    const note = current(container).querySelector('.hoot-onb__note')!
-    expect(note.textContent).toContain('for people 18 and over')
-    expect(note.textContent).toContain('With a free key')
-    click(note.querySelector('a'))
-    expect(onOpenLink).toHaveBeenCalledWith(GEMINI_TERMS_URL)
+    const input = step.querySelector('input')!
+    expect(step.querySelector(`label[for="${input.id}"]`)?.textContent).toBe('Claude API key')
+    expect(input.placeholder).toBe('sk-ant-…')
+    expect(step.querySelector('.hoot-field__desc')?.textContent).toBe(
+      'Hoot uses your own Claude API key (it starts with sk-ant-). It stays on this PC, encrypted.'
+    )
+    click(byName(step, 'button', 'Get a key'))
+    expect(onOpenLink).toHaveBeenCalledWith(API_KEY_URL)
+    expect(API_KEY_URL).toBe('https://console.anthropic.com/settings/keys')
+    expect(step.textContent).not.toContain('free key')
+  })
+
+  it('says how Anthropic handles what Hoot sends, linking Anthropic’s terms', () => {
+    const onOpenLink = vi.fn()
+    const note = keyStep({ onOpenLink }).querySelector('.hoot-onb__note')!
+    expect(note.textContent).toBe(
+      'Anthropic doesn’t train its models on what Hoot sends with your API key, and deletes it ' +
+        'within 30 days (longer only if it’s flagged under Anthropic’s Usage Policy). Anthropic’s terms'
+    )
+    const link = note.querySelector('a')!
+    expect(link.textContent).toBe('Anthropic’s terms')
+    expect(link.getAttribute('href')).toBe(ANTHROPIC_TERMS_URL)
+    click(link)
+    expect(onOpenLink).toHaveBeenCalledWith(ANTHROPIC_TERMS_URL)
+  })
+
+  it('checks the key with Anthropic and says why one didn’t save', async () => {
+    const onSaveKey = vi.fn<(key: string) => Promise<ApiKeyResult>>(async () => ({
+      ok: false,
+      reason: 'rejected'
+    }))
+    const step = keyStep({ onSaveKey })
+    const input = step.querySelector('input')!
+    const form = step.querySelector('form')!
+    const error = (): string | null | undefined =>
+      step.querySelector('.hoot-field__error')?.textContent
+
+    typeInto(input, '  sk-ant-api03-revoked  ')
+    submit(form)
+    await wait(0)
+    expect(onSaveKey).toHaveBeenLastCalledWith('sk-ant-api03-revoked')
+    expect(input.getAttribute('aria-invalid')).toBe('true')
+    expect(error()).toBe(
+      'Anthropic rejected this key. Check it was copied in full, or create a new one.'
+    )
+
+    typeInto(input, 'AIza-not-a-claude-key')
+    submit(form)
+    await wait(0)
+    expect(error()).toBe(
+      'Anthropic rejected this key. Claude API keys start with sk-ant-, so check you copied the right one, in full.'
+    )
+
+    onSaveKey.mockResolvedValueOnce({ ok: false, reason: 'unreachable' })
+    typeInto(input, 'sk-ant-api03-offline')
+    submit(form)
+    await wait(0)
+    expect(error()).toBe(
+      'Hoot couldn’t reach Anthropic to check the key. Check your connection, then try again.'
+    )
   })
 
   it('moves focus to the new step’s heading', () => {
@@ -111,7 +195,7 @@ describe('OnboardingPane', () => {
   it('finishes, and reminds about the key only when there is none', () => {
     const { container, onFinish, at } = setup(3)
     let step = current(container)
-    expect(step.textContent).toContain('can’t answer until you add a Gemini key')
+    expect(step.textContent).toContain('can’t answer until you add a Claude API key')
     click(byName(step, 'button', 'Start using Hoot'))
     expect(onFinish).toHaveBeenCalledTimes(1)
     at(3, true)

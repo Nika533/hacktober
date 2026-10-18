@@ -60,5 +60,5 @@ export function languageName(tag: string): string {
   }
 }
 
-/** Linked from the Lens consent copy (opened through `app.openExternal`). */
-export const GEMINI_TERMS_URL = 'https://ai.google.dev/gemini-api/terms'
+/** Anthropic's API terms, linked from the consent and onboarding copy (opened through `app.openExternal`). */
+export const ANTHROPIC_TERMS_URL = 'https://www.anthropic.com/legal/commercial-terms'

@@ -107,7 +107,7 @@ async function setup(
 }
 
 describe('LensEngine.rewrite', () => {
-  it('asks Gemini with the rewrite prompt and returns a guarded result', async () => {
+  it('asks the model with the rewrite prompt and returns a guarded result', async () => {
     const { engine, calls } = await setup()
     const out = await engine.rewrite('r1', request())
     expect(out).toMatchObject({
@@ -134,6 +134,8 @@ describe('LensEngine.rewrite', () => {
   })
 
   it('falls back to the fast model when the strong one is rate-limited', async () => {
+    // Moot while both routes use the same model (Lens is all Haiku today).
+    if (LENS_MODELS.rewriteStrong === LENS_MODELS.rewriteFast) return
     const long = `${'The variance of the residuals grows with the fitted values '.repeat(3)}.`
     const simplify = {
       ...goodDefine,
@@ -178,7 +180,7 @@ describe('LensEngine.rewrite', () => {
     })
   })
 
-  it('skips without calling Gemini when Lens is off or the site is paused', async () => {
+  it('skips without calling the model when Lens is off or the site is paused', async () => {
     const off = await setup({ lens: { enabled: false } })
     expect(await off.engine.rewrite('r1', request())).toEqual({
       kind: 'skipped',

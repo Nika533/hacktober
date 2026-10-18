@@ -28,7 +28,7 @@ test('Settings changes save at once and survive a restart', async () => {
   await expectAxeClean(page)
 
   const model = page.getByRole('radiogroup', { name: 'Model' })
-  await model.getByText('Flash-Lite', { exact: true }).click()
+  await model.getByText('Haiku', { exact: true }).click()
   const clip = page.getByRole('switch', { name: 'Suggest copied text' })
   await expect(clip).toBeChecked()
   await clip.focus()
@@ -40,14 +40,14 @@ test('Settings changes save at once and survive a restart', async () => {
       const s = (await hook(app, 'getState')).settings?.settings
       return [s?.model, s?.clipboardHint]
     })
-    .toEqual(['gemini-3.5-flash-lite', false])
+    .toEqual(['claude-haiku-5-5', false])
 
   // Quitting flushes settings to disk; a new process reads them back.
   await app.close()
   app = await launch(profile)
   page = await openSettings()
   await expect(
-    page.getByRole('radiogroup', { name: 'Model' }).getByRole('radio', { name: /Flash-Lite/ })
+    page.getByRole('radiogroup', { name: 'Model' }).getByRole('radio', { name: /Haiku/ })
   ).toBeChecked()
   await expect(page.getByRole('switch', { name: 'Suggest copied text' })).not.toBeChecked()
 })

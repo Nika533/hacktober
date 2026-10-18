@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { CHAT_MODEL_IDS } from '../models'
+import { CHAT_MODEL_IDS, LEGACY_CHAT_MODELS } from '../models'
 import {
   DEFAULT_SETTINGS,
   SETTINGS_SCHEMA_VERSION,
@@ -112,10 +112,14 @@ function salvage<T extends object>(
 
 /**
  * Read settings.json of any version. Invalid fields fall back to their
- * defaults one by one, so one bad value never resets everything. A legacy
- * (v1) file names a Claude model, which falls back to the default model.
+ * defaults one by one, so one bad value never resets everything. A Gemini
+ * model from before the move to Claude becomes the Claude model with the same
+ * role; an older Claude model name falls back to the default model.
  */
 export function migrateSettings(raw: unknown): Settings {
+  if (isRecord(raw) && typeof raw.model === 'string' && raw.model in LEGACY_CHAT_MODELS) {
+    raw = { ...raw, model: LEGACY_CHAT_MODELS[raw.model] }
+  }
   const lens = salvage<LensSettings>(
     isRecord(raw) ? raw.lens : undefined,
     LensSettingsSchema.shape,

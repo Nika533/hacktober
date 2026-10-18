@@ -9,25 +9,25 @@ import {
   measureLatency,
   summarizeLatency
 } from '../evals/latency'
-import { createGeminiProvider } from '../src/main/ai/gemini'
+import { createAiProvider } from '../src/main/ai'
 import { createLensService } from '../src/main/lens/service'
 import { createMemoryLensStorage } from '../src/main/lens/storage'
 
 /**
- * F-C4: the demo spans against real Gemini, 3 cold + 3 cached runs each.
+ * F-C4: the demo spans against real Claude, 3 cold + 3 cached runs each.
  * Writes evals/reports/latency-<time>.md (git-ignored) and fails when the
  * spec §7.2 targets are missed, which means fixing the model routing.
  */
-const key = process.env['GEMINI_API_KEY'] ?? ''
+const key = process.env['ANTHROPIC_API_KEY'] ?? ''
 
-describe.skipIf(!key)('Lens latency (live Gemini)', () => {
+describe.skipIf(!key)('Lens latency (live Claude)', () => {
   it(`first visible change: p50 < ${LATENCY_TARGETS.p50} ms, p95 < ${LATENCY_TARGETS.p95} ms`, async () => {
     const samples = await measureLatency(
       () =>
         createLensService({
           storage: createMemoryLensStorage(),
           getLensSettings: () => ({ ...DEFAULT_LENS_SETTINGS, enabled: true, coldStartDone: true }),
-          getProvider: async () => createGeminiProvider(key)
+          getProvider: async () => createAiProvider(key)
         }),
       DEMO_CASES,
       { runs: 3 }

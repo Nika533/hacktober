@@ -8,7 +8,7 @@ import { Owl } from '../components/Owl'
 import { ExtensionStatus } from '../lens/ExtensionStatus'
 import { springs } from '../motion/springs'
 import { acceleratorKeys } from '../settings/accelerator'
-import { GEMINI_TERMS_URL } from '../lens/sites'
+import { ANTHROPIC_TERMS_URL } from '../lens/sites'
 import { ApiKeyField } from '../settings/ApiKeyField'
 import { ShortcutFields } from '../settings/ShortcutFields'
 import { ONBOARDING_STEPS } from './steps'
@@ -39,7 +39,7 @@ const slide: Variants = {
   exit: (dir: number) => ({ opacity: 0, x: -24 * dir })
 }
 
-/** First run: Welcome → Gemini key → shortcuts → done. Fills the Studio window. */
+/** First run: Welcome → Claude key → shortcuts → done. Fills the Studio window. */
 export function OnboardingPane(props: OnboardingPaneProps): React.JSX.Element {
   const last = ONBOARDING_STEPS.length - 1
   const step = Math.min(Math.max(0, Math.trunc(props.step)), last)
@@ -132,8 +132,8 @@ function StepBody(p: OnboardingPaneProps): React.JSX.Element {
     case 1:
       return (
         <Step
-          title="Connect Gemini"
-          lead="Hoot answers with Google Gemini, using your own API key. A free key takes about a minute to get."
+          title="Connect Claude"
+          lead="Hoot answers with Claude, by Anthropic, using your own API key. Get one at console.anthropic.com."
           onBack={back}
           footer={
             p.hasApiKey ? (
@@ -153,17 +153,16 @@ function StepBody(p: OnboardingPaneProps): React.JSX.Element {
             autoFocus={!p.hasApiKey}
           />
           <p className="hoot-onb__note">
-            Gemini API keys are for people 18 and over. With a free key, Google may use what you
-            send, screenshots included, to improve its products, and people at Google may read it.
-            With billing turned on, it doesn’t.{' '}
+            Anthropic doesn’t train its models on what Hoot sends with your API key, and deletes it
+            within 30 days (longer only if it’s flagged under Anthropic’s Usage Policy).{' '}
             <a
-              href={GEMINI_TERMS_URL}
+              href={ANTHROPIC_TERMS_URL}
               onClick={(e) => {
                 e.preventDefault()
-                p.onOpenLink(GEMINI_TERMS_URL)
+                p.onOpenLink(ANTHROPIC_TERMS_URL)
               }}
             >
-              Gemini API terms
+              Anthropic’s terms
             </a>
           </p>
         </Step>
@@ -219,7 +218,8 @@ function StepBody(p: OnboardingPaneProps): React.JSX.Element {
           )}
           {!p.hasApiKey && (
             <p className="hoot-onb__note hoot-onb__wide">
-              Hoot can’t answer until you add a Gemini key. You can add one any time in Settings.
+              Hoot can’t answer until you add a Claude API key. You can add one any time in
+              Settings.
             </p>
           )}
         </Step>

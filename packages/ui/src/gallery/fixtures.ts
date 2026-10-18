@@ -54,7 +54,7 @@ export const CONVERSATION: ChatMessageView[] = [
       'df.plot.bar(x="quarter", y="revenue")',
       '```',
       '',
-      'Source: [the Gemini API docs](https://ai.google.dev/gemini-api/docs) cover image input.'
+      'Source: [the Claude docs](https://docs.claude.com/en/docs/build-with-claude/vision) cover image input.'
     ].join('\n')
   },
   { id: 'u2', role: 'user', text: 'Why the dip in Q3?', status: 'done' },

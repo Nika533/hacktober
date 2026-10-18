@@ -20,8 +20,8 @@ export interface SecretStore {
 }
 
 /**
- * The Gemini API key lives in `gemini-key.bin`, encrypted by the OS via
- * safeStorage. Fallbacks, in order: the file, the `GEMINI_API_KEY` env var
+ * The Claude (Anthropic) API key lives in `claude-key.bin`, encrypted by the OS via
+ * safeStorage. Fallbacks, in order: the file, the `ANTHROPIC_API_KEY` env var
  * (dev, never written to disk), then memory-only when OS encryption is
  * unavailable. Never reads the legacy `secret.bin` (that was the old
  * Anthropic key).
@@ -61,7 +61,7 @@ export function createSecretStore(deps: {
             const ts = new Date().toISOString().replace(/:/g, '-')
             const backup = file.replace(/\.bin$/, `.corrupt-${ts}.bin`)
             await fs.rename(file, backup).catch(() => {})
-            log.warn(`gemini-key.bin did not decrypt; moved to ${backup}`)
+            log.warn(`the key file did not decrypt; moved to ${backup}`)
           }
         }
       }

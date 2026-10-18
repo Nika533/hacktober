@@ -1,14 +1,14 @@
 import { DEFAULT_LENS_SETTINGS, type LensContext } from '@hoot/core'
 import { describe, expect, it } from 'vitest'
-import { createGeminiProvider } from '../src/main/ai/gemini'
+import { createAiProvider } from '../src/main/ai'
 import { createLensService } from '../src/main/lens/service'
 import { createMemoryLensStorage } from '../src/main/lens/storage'
 
 /**
- * The whole Lens pipeline against real Gemini: prompt → structured output →
- * guardrails. `GEMINI_API_KEY=... npm run test:live` from the repo root.
+ * The whole Lens pipeline against real Claude: prompt → structured output →
+ * guardrails. `ANTHROPIC_API_KEY=... npm run test:live` from the repo root.
  */
-const key = process.env['GEMINI_API_KEY'] ?? ''
+const key = process.env['ANTHROPIC_API_KEY'] ?? ''
 
 const ctx = (span: string, paragraph: string): LensContext => ({
   span,
@@ -34,11 +34,11 @@ const ctx = (span: string, paragraph: string): LensContext => ({
   p: 0.85
 })
 
-describe.skipIf(!key)('Lens engine (live Gemini)', () => {
+describe.skipIf(!key)('Lens engine (live Claude)', () => {
   const service = createLensService({
     storage: createMemoryLensStorage(),
     getLensSettings: () => ({ ...DEFAULT_LENS_SETTINGS, enabled: true, coldStartDone: true }),
-    getProvider: async () => createGeminiProvider(key)
+    getProvider: async () => createAiProvider(key)
   })
 
   it('defines a jargon term in place', async () => {
