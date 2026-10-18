@@ -15,6 +15,7 @@ import {
 import type { AiProvider } from './ai'
 import { createFakeProvider, createGeminiProvider } from './ai'
 import { AnotherInstanceError, createBridgeServer, type BridgeServer } from './bridge'
+import { createBuddyWindow, type BuddyWindow } from './buddy/window'
 import type { AppEnv } from './env'
 import { handleInvoke } from './ipc/handle'
 import { registerDomains } from './ipc/register'
@@ -30,6 +31,7 @@ import { createPersistence, PersistenceError, type Persistence } from './store/p
 import { createStore, initialSlices, type Store } from './store/store'
 import { createDebouncedWriter, type DebouncedWriter } from './store/writer'
 import { readSystem, watchSystem } from './system'
+import { installTestHooks } from './testHooks'
 import { createWindowRegistry, type WindowRegistry } from './windows/base'
 import { createStudioWindow, type StudioWindow } from './windows/studio'
 
@@ -45,6 +47,7 @@ export interface AppContext {
   writer: DebouncedWriter
   secrets: SecretStore
   studio: StudioWindow
+  buddy: BuddyWindow
   /** Chat provider: fake under HOOT_FAKE_AI, Gemini when a key exists, else null. */
   ai: { createProvider(): AiProvider | null }
   lens: LensService
@@ -131,6 +134,12 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
   const studio = createStudioWindow({ store, windows, log })
   app.on('before-quit', () => studio.markQuitting())
 
+  // The fixed-size Buddy window; created hidden, summoned (or not) in start().
+  const buddy = createBuddyWindow({ store, windows, log })
+  // Locking Studio always returns to the card; the onboarding flow overrides
+  // with request('pill') afterwards.
+  studio.onLock(() => buddy.request('card'))
+
   const ai: AppContext['ai'] = {
     createProvider() {
       if (env.fakeAi) return createFakeProvider()
@@ -202,6 +211,7 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     writer,
     secrets,
     studio,
+    buddy,
     ai,
     lens,
     bridge,
@@ -214,8 +224,7 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
 
     onSecondInstance(argv) {
       log.info(`second instance invoked: ${argv.join(' ')}`)
-      // Buddy summon arrives in D1-14; for now surface the Studio window.
-      if (studio.isVisible()) studio.focus()
+      buddy.summon()
     },
 
     async start() {
@@ -240,12 +249,12 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
         log.warn(`bridge not started: ${lastError}`)
         store.set('lens', { bridge: 'stopped', clients: 0, lastError })
       }
-      // Placeholder until the buddy lands (D1-14: this becomes the pill
-      // summon). --hidden opens nothing (launch-at-login must never pop a
-      // window); otherwise first run goes to onboarding.
+      installTestHooks(ctx)
+      // --hidden opens nothing (launch-at-login must never pop a window);
+      // first run goes to onboarding, returning users get the owl.
       if (env.hidden) return
       if (!settings.onboardingDone) studio.open('onboarding')
-      else studio.open('chat')
+      else buddy.summon()
     },
 
     async stop() {
@@ -255,6 +264,7 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
       unwatchPersist = undefined
       unwatchLens?.()
       unwatchLens = undefined
+      buddy.dispose()
     }
   }
 
