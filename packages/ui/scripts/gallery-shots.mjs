@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/explicit-function-return-type */
 // Screenshots of the gallery (light, dark, high contrast) plus an axe pass.
 // Usage: npm.cmd run shots   (from packages/ui). Writes screenshots/*.png and
 // exits non-zero on any axe violation.
@@ -69,6 +68,21 @@ try {
       await chat.screenshot({ path: resolve(out, `chat-streaming-${v.name}.png`) })
       await axe(page, `${v.name} + streaming`)
       await chat.getByRole('button', { name: 'Stop answering' }).click()
+
+      // Shortcuts: at rest (one with a host error), then mid-recording.
+      const shortcuts = page.locator('section', {
+        has: page.getByRole('heading', { name: 'Shortcuts', exact: true })
+      })
+      await shortcuts.screenshot({ path: resolve(out, `shortcuts-${v.name}.png`) })
+      await shortcuts.locator('.hoot-hotkey__field').first().click()
+      await page.keyboard.down('Control')
+      await page.keyboard.down('Alt')
+      await page.waitForTimeout(150)
+      await shortcuts.screenshot({ path: resolve(out, `shortcuts-recording-${v.name}.png`) })
+      await axe(page, `${v.name} + recording`)
+      await page.keyboard.up('Alt')
+      await page.keyboard.up('Control')
+      await page.keyboard.press('Escape')
 
       // Overlays: keyboard tooltip, then the destructive confirm.
       // Tab from the previous button so focus is keyboard focus (:focus-visible).

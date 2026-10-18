@@ -1,0 +1,91 @@
+.hoot-hotkey {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-1) var(--space-4);
+  padding: var(--space-2) 0;
+  color: var(--text-1);
+}
+.hoot-hotkey[data-disabled] {
+  opacity: 0.5;
+}
+.hoot-hotkey__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+  min-width: 0;
+}
+.hoot-hotkey__label {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.hoot-hotkey__desc {
+  font-family: var(--font-small);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--text-2);
+}
+.hoot-hotkey__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.hoot-hotkey__reset[data-hidden] {
+  visibility: hidden;
+}
+
+.hoot-hotkey__field {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 9.5rem;
+  min-height: var(--control-md);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--stroke-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  color: var(--text-1);
+  cursor: default;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    transform var(--dur-press) var(--ease-out);
+}
+.hoot-hotkey__field:hover:not(:disabled) {
+  border-color: var(--stroke-control);
+}
+.hoot-hotkey__field:active:not(:disabled):not([data-recording]) {
+  transform: scale(var(--press-scale));
+}
+/* Recording reads as "listening": accent ring, accent prompt. */
+.hoot-hotkey__field[data-recording] {
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 1px var(--focus-ring);
+}
+.hoot-hotkey__field[data-recording]:focus-visible {
+  outline-offset: 3px;
+}
+.hoot-hotkey__prompt {
+  font-size: 0.8125rem;
+  color: var(--accent-text);
+}
+.hoot-hotkey[data-invalid] .hoot-hotkey__field:not([data-recording]) {
+  border-color: var(--danger);
+}
+.hoot-hotkey__error {
+  grid-column: 1 / -1;
+  justify-self: end;
+  margin: 0;
+  font-family: var(--font-small);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--danger);
+  text-align: end;
+}
+
+@media (forced-colors: active) {
+  .hoot-hotkey__field[data-recording] {
+    outline: 2px solid Highlight;
+  }
+}
