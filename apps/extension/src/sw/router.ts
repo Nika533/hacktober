@@ -6,6 +6,7 @@ import { parseContentMessage } from './validate'
 
 export interface Sender {
   id?: string
+  url?: string
   tab?: { id?: number }
 }
 
@@ -47,8 +48,11 @@ export function createRouter(options: RouterOptions): Router {
     }
   }
 
+  const ownPage = (sender: Sender): boolean =>
+    !!sender.url?.startsWith(`chrome-extension://${options.extensionId}/`)
+
   async function handle(raw: unknown, sender: Sender): Promise<Reply> {
-    if (sender.id !== options.extensionId || sender.tab?.id === undefined) {
+    if (sender.id !== options.extensionId || (sender.tab?.id === undefined && !ownPage(sender))) {
       return fail('unauthorized')
     }
     const message = parseContentMessage(raw)

@@ -1,0 +1,111 @@
+body {
+  background: var(--surface-solid);
+}
+
+.hoot-options {
+  max-width: 40rem;
+  margin-inline: auto;
+  padding: var(--space-10) var(--space-6) var(--space-12);
+}
+
+.hoot-options__header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
+}
+.hoot-options__title {
+  margin: 0;
+}
+.hoot-options__lede {
+  margin: var(--space-1) 0 0;
+  color: var(--text-2);
+}
+
+.hoot-options__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-bottom: var(--space-6);
+  margin-bottom: var(--space-6);
+  border-bottom: 1px solid var(--stroke);
+}
+.hoot-options__group:last-of-type {
+  border-bottom: 0;
+}
+.hoot-options__heading {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  line-height: 1.375rem;
+  font-weight: 600;
+}
+.hoot-options__mode {
+  align-self: flex-start;
+}
+.hoot-options__note {
+  margin: 0;
+  font-family: var(--font-small);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--text-2);
+}
+
+.hoot-options__consent {
+  margin-top: calc(-1 * var(--space-2));
+  color: var(--text-1);
+}
+
+.hoot-options__add {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.hoot-options__add-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.hoot-options__sites {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+}
+.hoot-options__site {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-1-5) var(--space-2) var(--space-1-5) var(--space-3);
+}
+.hoot-options__site + .hoot-options__site {
+  border-top: 1px solid var(--stroke);
+}
+.hoot-options__site-name {
+  flex: 1 1 10rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.hoot-options__error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-lg);
+  background: var(--danger-subtle);
+}
+.hoot-options__error p {
+  margin: 0;
+}
