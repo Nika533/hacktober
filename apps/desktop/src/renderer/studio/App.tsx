@@ -19,6 +19,7 @@ import {
   Owl,
   QUICK_ACTION_CHIPS,
   QuickChips,
+  ReadingPane,
   SettingsPane,
   StudioLayout,
   StudioSidebar,
@@ -140,6 +141,7 @@ function Studio({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
           onUndoDelete={(id) => run((h) => h.sessions.undoDelete(id))}
           onNewChat={() => run((h) => h.chat.newChat())}
           onOpenSettings={() => run((h) => h.windows.openStudio('settings'))}
+          onOpenReading={() => run((h) => h.windows.openStudio('reading'))}
         />
       }
     >
@@ -208,6 +210,15 @@ function Studio({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
           onRecordingChange={(on) => suspendHotkeys(hoot, on)}
           onBack={() => run((h) => h.windows.openStudio('chat'))}
         />
+      ) : view === 'reading' ? (
+        <ReadingPane
+          lens={settings.lens}
+          status={state.lens}
+          onUpdate={(lens) => run((h) => h.settings.update({ lens }))}
+          onOpenView={(v) => run((h) => h.windows.openStudio(v))}
+          onOpenLink={(url) => run((h) => h.app.openExternal(url))}
+          onBack={() => run((h) => h.windows.openStudio('chat'))}
+        />
       ) : (
         <NotYet view={view} onBack={() => run((h) => h.windows.openStudio('chat'))} />
       )}
@@ -246,10 +257,9 @@ function suspendHotkeys(hoot: HootApi | undefined, on: boolean): void {
   void hoot?.settings.suspendHotkeys(on).catch(() => undefined)
 }
 
-type LaterView = Exclude<StudioView, 'chat' | 'settings' | 'onboarding'>
+type LaterView = Exclude<StudioView, 'chat' | 'settings' | 'onboarding' | 'reading'>
 
 const VIEW_NAMES: Record<LaterView, string> = {
-  reading: 'Reading',
   profile: 'What Hoot knows about you',
   glossary: 'My glossary'
 }

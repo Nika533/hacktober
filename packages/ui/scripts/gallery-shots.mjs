@@ -110,6 +110,18 @@ try {
       await page.keyboard.press('Escape')
       await page.getByRole('alertdialog').waitFor({ state: 'hidden' })
 
+      // Reading: consent first, then Lens on with every setting.
+      const reading = page.locator('.gallery__reading')
+      await reading.scrollIntoViewIfNeeded()
+      await reading.screenshot({ path: resolve(out, `reading-consent-${v.name}.png`) })
+      await axe(page, `${v.name} + reading consent`)
+      await reading.getByRole('button', { name: 'Turn on Hoot Lens' }).click()
+      await reading.getByRole('switch', { name: 'Hoot Lens' }).waitFor()
+      await reading.locator('.hoot-settings__scroll').evaluate((el) => (el.scrollTop = 99999))
+      await page.waitForTimeout(200)
+      await reading.screenshot({ path: resolve(out, `reading-on-${v.name}.png`) })
+      await axe(page, `${v.name} + reading on`)
+
       // Onboarding: every step, saving a key on the way, then back to the start.
       const onb = page.locator('.gallery__onboarding')
       await onb.scrollIntoViewIfNeeded()

@@ -1,5 +1,5 @@
 import type { SessionMeta } from '@hoot/core'
-import { Plus, Search, Settings2 } from 'lucide-react'
+import { BookOpenText, Plus, Search, Settings2 } from 'lucide-react'
 import { useMemo, useState, type Ref } from 'react'
 import { Button } from '../components/Button'
 import { IconButton } from '../components/IconButton'
@@ -19,12 +19,14 @@ export interface StudioSidebarProps {
   onUndoDelete: (id: string) => void
   onNewChat: () => void
   onOpenSettings: () => void
+  /** Studio → Reading (Hoot Lens); the button shows only when given. */
+  onOpenReading?: () => void
   /** Shown in the footer as a reminder, e.g. 'Ctrl+Shift+Space'. */
   summonShortcut?: string
   searchRef?: Ref<HTMLInputElement>
 }
 
-/** Studio's left column: brand, New chat, search, the chat list, Settings. */
+/** Studio's left column: brand, New chat, search, the chat list, Settings and Reading. */
 export function StudioSidebar({
   sessions,
   activeId,
@@ -34,6 +36,7 @@ export function StudioSidebar({
   onUndoDelete,
   onNewChat,
   onOpenSettings,
+  onOpenReading,
   summonShortcut,
   searchRef
 }: StudioSidebarProps): React.JSX.Element {
@@ -92,6 +95,11 @@ export function StudioSidebar({
         <IconButton label="Settings" shortcut="Ctrl+," onClick={onOpenSettings}>
           <Settings2 />
         </IconButton>
+        {onOpenReading && (
+          <IconButton label="Reading (Hoot Lens)" onClick={onOpenReading}>
+            <BookOpenText />
+          </IconButton>
+        )}
         {summonShortcut && (
           <span className="hoot-studio-sidebar__hint">
             <span className="hoot-visually-hidden">Summon Hoot with </span>
