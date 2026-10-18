@@ -108,8 +108,11 @@ describe('createLens with @hoot/core fakes', () => {
       transform: 'define',
       term: 'heteroscedasticity',
       spanWords: 1,
+      topic: 'Reading regression output',
       cacheKey: expect.stringMatching(/^[0-9a-f]{16}$/)
     })
+    lens!.undoLast()
+    expect(backend.events[1]).toMatchObject({ kind: 'reverted', cacheKey: shown.cacheKey })
   })
 
   it('reports restore and "I knew this" as feedback and restores exactly', async () => {

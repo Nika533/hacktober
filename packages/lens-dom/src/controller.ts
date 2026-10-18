@@ -226,13 +226,13 @@ export function createLens(options: CreateLensOptions): Lens {
         transform: entry.mark.spec.transform,
         mode: entry.mode,
         term: entry.term,
-        topic: null,
+        topic: (entry.ctx.headingPath[0] ?? entry.ctx.title).slice(0, 200) || null,
         lang: entry.ctx.lang,
         spanWords: countWords(entry.ctx.span),
         p: entry.ctx.p,
         difficulty: entry.difficulty,
         latencyMs,
-        ...(kind === 'shown' || kind === 'kept' ? { cacheKey: entry.cacheKey } : {})
+        cacheKey: entry.cacheKey
       })
       .catch(report)
   }
