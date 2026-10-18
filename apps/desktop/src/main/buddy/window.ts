@@ -64,6 +64,12 @@ export interface BuddyDeps {
   screen?: BuddyScreen
   /** Default: a real secure BrowserWindow. Tests inject a fake. */
   createWindow?: (bounds: Rect) => BuddyWindowLike
+  /**
+   * Runs before a hidden → pill summon (the clipboard watcher probes here).
+   * The dispatch waits for a returned promise so the chip lands before the
+   * greeting is computed. Skipped when already visible.
+   */
+  beforeSummon?: () => Promise<void> | void
   timers?: BuddyTimers
   now?: () => number
 }
@@ -456,14 +462,29 @@ export function createBuddyWindow(deps: BuddyDeps): BuddyWindow {
     syncSlice()
   })
 
+  // Leaving `hidden` probes the clipboard first — the chip must be in the
+  // slice before the 'greet' effect computes the greeting (legacy order).
+  const summonDispatch = (e: BuddyEvent): void => {
+    const pending = machine.mode === 'hidden' ? deps.beforeSummon?.() : undefined
+    if (pending instanceof Promise)
+      void pending.then(
+        () => dispatch(e),
+        (err: unknown) => {
+          log.warn(`beforeSummon failed: ${String(err)}`)
+          dispatch(e)
+        }
+      )
+    else dispatch(e)
+  }
+
   const buddy: BuddyWindow = {
     summon: () => {
       ensureWin()
-      dispatch({ type: 'summon' })
+      summonDispatch({ type: 'summon' })
     },
     toggle: () => {
       ensureWin()
-      dispatch({ type: 'toggle', focused: focused || (win?.isFocused() ?? false) })
+      summonDispatch({ type: 'toggle', focused: focused || (win?.isFocused() ?? false) })
     },
     hide: () => dispatch({ type: 'hide' }),
     request: (mode) => {

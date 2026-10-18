@@ -7,14 +7,7 @@ export function registerClipboardIpc(ctx: AppContext): void {
     clipboard.writeText(text)
   })
 
-  // The hint itself is produced by the clipboard watcher (D1-21); arming just
-  // marks it selected so the next send includes the snapshot.
-  handleInvoke('clipboard:arm', () => {
-    const hint = ctx.store.get('chat').clipboardHint
-    if (hint) ctx.store.update('chat', { clipboardHint: { ...hint, selected: true } })
-  })
+  handleInvoke('clipboard:arm', () => ctx.clipboard.arm())
 
-  handleInvoke('clipboard:dismiss', () => {
-    ctx.store.update('chat', { clipboardHint: null })
-  })
+  handleInvoke('clipboard:dismiss', () => ctx.clipboard.dismiss())
 }

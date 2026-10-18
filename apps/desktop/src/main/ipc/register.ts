@@ -1,6 +1,7 @@
 import type { InvokeChannel, InvokeResult, SendChannel } from '@hoot/core'
 import type { InvokeArgs, SendArgs } from '@hoot/core/schemas'
 import type { AppContext } from '../context'
+import { createCaptureHandlers } from '../capture'
 import { createChatHandlers } from '../chat'
 import { createLensHandlers } from '../lens'
 import { createPinsHandlers } from '../pins'
@@ -81,10 +82,7 @@ export function registerSenderSendMap(map: SenderSendMap): void {
   }
 }
 
-/**
- * Domain handlers. capture:* lands when its folder does — an unregistered
- * invoke rejects naturally.
- */
+/** Domain handlers — all feature folders are wired now. */
 export function registerDomains(ctx: AppContext): void {
   registerSettingsIpc(ctx)
   registerWindowsIpc(ctx)
@@ -94,6 +92,7 @@ export function registerDomains(ctx: AppContext): void {
   registerBuddyIpc(ctx)
   registerHandlerMap(createLensHandlers(ctx.lens))
   registerHandlerMap(createChatHandlers(ctx.chat))
+  registerHandlerMap(createCaptureHandlers(ctx.capture))
   const pinsHandlers = createPinsHandlers(ctx.pins)
   registerSenderHandlerMap(pinsHandlers.invoke)
   registerSenderSendMap(pinsHandlers.send)

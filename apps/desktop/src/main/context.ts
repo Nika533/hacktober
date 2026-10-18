@@ -18,13 +18,18 @@ import { createFakeProvider, createGeminiProvider } from './ai'
 import { AnotherInstanceError, createBridgeServer, type BridgeServer } from './bridge'
 import { applyChatActivity } from './buddy/activity'
 import { createBuddyWindow, type BuddyWindow } from './buddy/window'
+import { createCaptureService, type CaptureService } from './capture'
 import { createChatService, type ChatService } from './chat'
+import { createClipboardWatcher, type ClipboardWatcher } from './clipboardWatch'
 import type { AppEnv } from './env'
+import { createHotkeys, type Hotkeys } from './hotkeys'
 import { handleInvoke } from './ipc/handle'
+import { finishOnboarding } from './ipc/onboarding'
 import { registerDomains } from './ipc/register'
 import { applySettingsUpdate } from './ipc/settings'
 import { createFsLensStorage, createLensService, type LensService } from './lens'
 import { createFlushRegistry, type FlushRegistry } from './lifecycle'
+import { reconcileLoginItem } from './login'
 import { createLogger, type Logger } from './log'
 import { createNoteWindows, createPinsService, type NoteWindows, type PinsService } from './pins'
 import { createSecretStore, type SecretStore } from './secrets'
@@ -36,6 +41,7 @@ import { createStore, initialSlices, type Store } from './store/store'
 import { createDebouncedWriter, type DebouncedWriter } from './store/writer'
 import { readSystem, watchSystem } from './system'
 import { installTestHooks } from './testHooks'
+import { createTray, type TrayHandle } from './tray'
 import { createWindowRegistry, rendererUrlFor, type WindowRegistry } from './windows/base'
 import { createStudioWindow, type StudioWindow } from './windows/studio'
 
@@ -59,22 +65,29 @@ export interface AppContext {
   chat: ChatService
   pins: PinsService
   notes: NoteWindows
+  capture: CaptureService
+  hotkeys: Hotkeys
+  tray: TrayHandle
+  clipboard: ClipboardWatcher
   /**
-   * Feature seams later PRs reassign (finish-plan §2): the buddy card owns
-   * showChatSurface/buddyAnchor once it exists, the clipboard watcher fills
-   * takeClipboardSelection. Kept mutable on purpose.
+   * Feature seams later PRs reassign (finish-plan §2): kept mutable on
+   * purpose so late-landing features can re-point them.
    */
   hooks: {
     /** Lens "Explain more" → surfaces chat and starts the explanation. */
     explain(message: ExplainMoreMessage, ctx: LensContext): void
-    /** Focus whatever surface shows the chat (Studio until the buddy card lands). */
+    /** Focus whatever surface shows the chat (Studio or the buddy card). */
     showChatSurface(): void
     /** The owl's anchor in screen DIP; notes cascade near it. */
     buddyAnchor(): Point
-    /** Armed clipboard text for the next send; null until D1-2x's watcher. */
+    /** Circle-something capture hotkey / tray item. */
+    startCapture(): void
+    /** Armed clipboard text for the next send; the watcher holds the snapshot. */
     takeClipboardSelection(): string | null
+    /** Tray "Hide pinned notes". */
+    setNotesVisible(visible: boolean): void
   }
-  /** False until the tray lands (D1-21); index.ts quits on window-all-closed. */
+  /** Tray-resident app: closing all windows no longer quits. */
   keepAliveWithoutWindows: boolean
   onSecondInstance(argv: readonly string[]): void
   start(): Promise<void>
@@ -145,6 +158,8 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
   const broadcaster = createBroadcaster(store)
   const windows = createWindowRegistry()
 
+  const clipboardWatcher = createClipboardWatcher({ store, log })
+
   // One Studio window, created hidden and reused. (Constructed here rather
   // than in start() so ctx.studio is always populated; nothing is visible
   // until start() decides what to open.)
@@ -157,10 +172,65 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
   })
 
   // The fixed-size Buddy window; created hidden, summoned (or not) in start().
-  const buddy = createBuddyWindow({ store, windows, log })
+  // beforeSummon runs the clipboard probe before hidden → pill, so the chip
+  // is in the slice when the greeting is computed.
+  const buddy = createBuddyWindow({
+    store,
+    windows,
+    log,
+    beforeSummon: () => clipboardWatcher.onSummon()
+  })
   // Locking Studio always returns to the card; the onboarding flow overrides
   // with request('pill') afterwards.
   studio.onLock(() => buddy.request('card'))
+
+  // Summon hotkey / tray "Show Hoot" / second-instance: Studio-aware toggle.
+  const onSummonHotkey = (): void => {
+    const s = store.get('studio')
+    if (s.open && s.view === 'onboarding') {
+      // Only the last step ("try it now") finishes on the hotkey.
+      if (s.onboardingStep >= 2) finishOnboarding(ctx)
+      else studio.focus()
+      return
+    }
+    if (s.open && studio.isVisible()) {
+      if (studio.isFocused()) studio.lock()
+      else studio.focus()
+      return
+    }
+    buddy.toggle()
+  }
+
+  const hotkeys = createHotkeys({
+    store,
+    log,
+    enabled: !env.test,
+    onSummon: onSummonHotkey,
+    onCapture: () => ctx.hooks.startCapture()
+  })
+  flush.add('hotkeys', async () => hotkeys.dispose())
+
+  const tray = createTray({
+    store,
+    log,
+    // Clicking the tray blurs Hoot first, so the focus test can't apply:
+    // hidden → summon with greeting, visible → hide; Studio wins focus.
+    onTrayClick: () => {
+      if (store.get('studio').open) {
+        studio.focus()
+        return
+      }
+      if (buddy.mode() === 'hidden') buddy.summon()
+      else buddy.request('hidden')
+    },
+    onSummon: onSummonHotkey,
+    onCapture: () => ctx.hooks.startCapture(),
+    onToggleNotes: (hidden) => ctx.hooks.setNotesVisible(!hidden),
+    onOpenStudio: () => studio.open(),
+    onOpenSettings: () => studio.open('settings'),
+    onQuit: () => app.quit()
+  })
+  flush.add('tray', async () => tray.destroy())
 
   const ai: AppContext['ai'] = {
     createProvider() {
@@ -214,6 +284,20 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     openSession: async (id) => {
       await chat.openSession(id)
       ctx.hooks.showChatSurface()
+    }
+  })
+
+  // Capture (d2 skeleton #60, overlay lands in F-D2-3): hides our surfaces
+  // before the grab; a composer-bound capture returns to the card.
+  const capture = createCaptureService({
+    store,
+    windows,
+    studio,
+    persistence,
+    log,
+    surfaces: {
+      hide: () => buddy.hide(),
+      restore: (added) => buddy.request(added ? 'card' : 'pill')
     }
   })
 
@@ -271,6 +355,10 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     chat,
     pins,
     notes,
+    capture,
+    hotkeys,
+    tray,
+    clipboard: clipboardWatcher,
     hooks: {
       explain(message) {
         ctx.hooks.showChatSurface()
@@ -285,13 +373,15 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
       buddyAnchor() {
         return buddy.anchor()
       },
-      takeClipboardSelection: () => null
+      startCapture: () => void capture.start('lasso'),
+      takeClipboardSelection: () => clipboardWatcher.take(),
+      setNotesVisible: (visible) => pins.setVisible(visible)
     },
-    keepAliveWithoutWindows: false,
+    keepAliveWithoutWindows: true,
 
     onSecondInstance(argv) {
       log.info(`second instance invoked: ${argv.join(' ')}`)
-      buddy.summon()
+      onSummonHotkey()
     },
 
     async start() {
@@ -320,6 +410,16 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
       // Sticky notes are the user's pins, not the app's windows — they
       // come back even on a hidden (launch-at-login) start.
       if (settings.restorePins) pins.restore()
+      // Packaged only: if Windows disagrees with the setting (Task Manager
+      // toggle), our settings win.
+      reconcileLoginItem(app, settings.launchAtLogin, log)
+      // Whatever was already on the clipboard is never suggested.
+      void clipboardWatcher
+        .init()
+        .catch((e: unknown) => log.warn(`clipboard init failed: ${String(e)}`))
+      hotkeys.apply()
+      // The first desktopCapturer grab takes ~3 s cold — warm it once idle.
+      capture.prewarm()
       // --hidden opens nothing (launch-at-login must never pop a window);
       // first run goes to onboarding, returning users get the owl.
       if (env.hidden) return
@@ -335,6 +435,8 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
       unwatchLens?.()
       unwatchLens = undefined
       buddy.dispose()
+      hotkeys.dispose()
+      tray.destroy()
     }
   }
 

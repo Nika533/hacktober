@@ -3,6 +3,7 @@ import type { ApiKeyResult, SettingsPatch } from '@hoot/core'
 import { applySettingsPatch } from '@hoot/core/schemas'
 import { createGeminiProvider, mapAiError } from '../ai'
 import type { AppContext } from '../context'
+import { loginItemArgs } from '../login'
 import type { SecretStore } from '../secrets'
 import type { Store } from '../store/store'
 import { handleInvoke } from './handle'
@@ -49,7 +50,7 @@ export function registerSettingsIpc(ctx: AppContext): void {
       {
         store: ctx.store,
         setLoginItem: (openAtLogin) => {
-          if (app.isPackaged) app.setLoginItemSettings({ openAtLogin, args: ['--hidden'] })
+          if (app.isPackaged) app.setLoginItemSettings({ openAtLogin, args: loginItemArgs() })
         }
       },
       patch
@@ -70,5 +71,13 @@ export function registerSettingsIpc(ctx: AppContext): void {
   handleInvoke('settings:resetAnchor', () => {
     const settings = ctx.store.get('settings').settings
     ctx.store.update('settings', { settings: { ...settings, pillAnchor: null } })
+  })
+
+  // A hotkey recorder suspends the globals so it can grab the combo. Resume
+  // when it asks, when its window is destroyed, or after the 60 s cap inside
+  // the service — false never has to arrive.
+  handleInvoke('settings:suspendHotkeys', (sender, on) => {
+    ctx.hotkeys.suspend(on, sender.id)
+    if (on) sender.once('destroyed', () => ctx.hotkeys.suspend(false))
   })
 }
