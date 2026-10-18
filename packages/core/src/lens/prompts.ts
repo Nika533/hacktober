@@ -166,3 +166,34 @@ export function buildProfileSummary(
   }
   return summary.slice(0, PROFILE_SUMMARY_MAX_CHARS)
 }
+
+/** Chat message for "Explain more": a short line shown, the full context sent. */
+export interface ExplainMoreMessage {
+  /** Shown in the transcript, e.g. Explain “heteroscedasticity” */
+  text: string
+  /** Sent to the model as the user turn (`Message.sentText`) */
+  sentText: string
+}
+
+const clip = (s: string, n: number): string => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
+
+/**
+ * "Explain more" from a Lens popover opens the Hoot card and starts
+ * answering immediately: the transcript shows a compact quote while the
+ * model gets the paragraph, page context and reader profile.
+ */
+export function buildExplainMore(ctx: LensContext, profileSummary: string): ExplainMoreMessage {
+  const where = [ctx.title, ...ctx.headingPath].filter(Boolean).join(' › ')
+  return {
+    text: `Explain “${clip(ctx.span.replace(/\s+/g, ' ').trim(), 80)}”`,
+    sentText: [
+      `I'm reading${where ? ` “${where}”` : ' a document'} and I don't fully understand the selected passage.`,
+      'Explain it in more depth for me, using the paragraph for context. The quoted text is from the page.',
+      '',
+      `Paragraph:\n"""\n${ctx.paragraph}\n"""`,
+      `Selected:\n"""\n${ctx.span}\n"""`,
+      '',
+      profileSummary
+    ].join('\n')
+  }
+}
