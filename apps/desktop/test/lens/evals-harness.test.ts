@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compare, loadCases, runEval, summarize, type CaseResult } from '../evals/harness'
+import { compare, loadCases, runEval, summarize, type CaseResult } from '../../evals/harness'
 
 describe('eval harness', () => {
   it('loads every case and covers each category', () => {
