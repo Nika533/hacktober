@@ -71,7 +71,7 @@ that isn't, open a `contract: …` PR (additive; C reviews it first).
 ## Feature hand-offs
 
 - **Capture → chat:** `addImageAttachment` saves `attachments/<id>.png` (`persistence.saveAttachment`) and appends to `chat.pendingAttachments`. `chat:send` takes every pending attachment and clears the list. `attachments:open` and `attachments:remove` belong to chat.
-- **Clipboard → chat:** `clipboard:arm` snapshots the text; `takeClipboardSelection()` returns it once and clears the hint. Chat wraps it with `clipboardTextBlock` (capped at 8,000 characters). Nothing copied is sent unless the user armed it.
+- **Clipboard → chat:** `clipboard:arm` toggles the chip; pressing an armed chip disarms it. Arming text snapshots it; `takeClipboardSelection()` returns it once and clears the hint. Chat wraps it with `clipboardTextBlock` (capped at 8,000 characters). Arming an image adds it to `chat.pendingAttachments` (`addImageAttachment`, kind `clipboard-image`) and clears the hint. Nothing copied is sent unless the user armed it.
 - **Explain more (Lens → chat):** `hooks.explain(message)` → `chat.startExplain(message)` stops a running answer, shows `text` and sends `sentText`.
 - **Chat → buddy:** `onActivity` reports `thinking` / `talking` / `done` / `stopped` / `error`; d1 maps them to the owl's mood and `answerReady`.
 - **Pins:** a note loads `note.html#<pinId>`. `pins:close`, `pins:openInHoot` and `pins:resize` act on the calling note's pin only. `pins:create` pins a finished answer of the open chat (a repeat shows the same note); `pins:createFromText` deduplicates on the exact text, which renders as Markdown.
