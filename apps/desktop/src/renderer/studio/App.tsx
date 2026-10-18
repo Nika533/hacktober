@@ -14,9 +14,11 @@ import {
   ChatPane,
   ClipboardChip,
   formatAccelerator,
+  GlossaryPane,
   HootUIProvider,
   OnboardingPane,
   Owl,
+  ProfilePane,
   QUICK_ACTION_CHIPS,
   QuickChips,
   ReadingPane,
@@ -26,6 +28,7 @@ import {
   toAttachmentViews,
   toMessageViews,
   useHootState,
+  useLensPages,
   useToast
 } from '@hoot/ui'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
@@ -94,6 +97,8 @@ function Studio({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
     () => toAttachmentViews(chat?.pendingAttachments ?? []),
     [chat?.pendingAttachments]
   )
+  const shownView = state?.studio?.view
+  const lensPages = useLensPages(hoot?.lens, shownView === 'profile' || shownView === 'glossary')
 
   if (!state?.studio || !state.chat || !state.sessions || !state.settings) {
     return <Connecting failed={error !== null} />
@@ -219,8 +224,26 @@ function Studio({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
           onOpenLink={(url) => run((h) => h.app.openExternal(url))}
           onBack={() => run((h) => h.windows.openStudio('chat'))}
         />
+      ) : view === 'profile' ? (
+        <ProfilePane
+          profile={lensPages.profile}
+          changes={lensPages.changes}
+          failed={lensPages.failed}
+          onRetry={lensPages.reload}
+          onPatch={lensPages.patch}
+          onExport={() => (hoot ? hoot.lens.exportProfile() : Promise.resolve(null))}
+          onReset={lensPages.reset}
+          onBack={() => run((h) => h.windows.openStudio('reading'))}
+        />
       ) : (
-        <NotYet view={view} onBack={() => run((h) => h.windows.openStudio('chat'))} />
+        <GlossaryPane
+          entries={lensPages.glossary}
+          failed={lensPages.failed}
+          onRetry={lensPages.reload}
+          onPin={(text) => (hoot ? hoot.pins.createFromText(text) : Promise.resolve())}
+          onMarkKnown={(term) => lensPages.patch({ terms: { [term]: 'known' } })}
+          onBack={() => run((h) => h.windows.openStudio('reading'))}
+        />
       )}
     </StudioLayout>
   )
@@ -255,24 +278,4 @@ function hotkeyErrorsByShortcut(
 /** Pauses global shortcuts while a recorder listens, so Windows hands Studio the keys. */
 function suspendHotkeys(hoot: HootApi | undefined, on: boolean): void {
   void hoot?.settings.suspendHotkeys(on).catch(() => undefined)
-}
-
-type LaterView = Exclude<StudioView, 'chat' | 'settings' | 'onboarding' | 'reading'>
-
-const VIEW_NAMES: Record<LaterView, string> = {
-  profile: 'What Hoot knows about you',
-  glossary: 'My glossary'
-}
-
-/** Views that land in later tasks (D3-20, D3-21). */
-function NotYet({ view, onBack }: { view: LaterView; onBack: () => void }): React.JSX.Element {
-  return (
-    <section className="studio-status" aria-labelledby="studio-notyet">
-      <h1 id="studio-notyet">{VIEW_NAMES[view]}</h1>
-      <p>This page is still being built.</p>
-      <button type="button" className="hoot-btn hoot-btn--secondary hoot-btn--md" onClick={onBack}>
-        Back to chat
-      </button>
-    </section>
-  )
 }
