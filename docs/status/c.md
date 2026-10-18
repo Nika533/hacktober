@@ -1,23 +1,31 @@
 # Status: C (Claude Code)
 
-Only C edits this file. Update it with every PR.
+Only C edits this file. Updated when plans or blockers change (AGENTS.md).
 
 ## Now
 
-- **#7** C-04 CI: green on Ubuntu and Windows, including e2e; waiting for a merge.
-- **#10** C-11 guardrails + C-12 prompts and profile summary (core).
-- **C-10 + C-14 PR** (stacked on #10): `LensService` in `apps/desktop/src/main/lens`:
-  engine, cache, profile store, history, and handlers for every `lens:*` channel.
+- **C-30 wiring** (`c/C-30-wire-learning`): `LensService.feedback` applies the §8.3 learning
+  rules (`applyLensEvent`, revert timing measured from the `shown` event) and topic decay runs
+  at startup.
+
+## Done (merged)
+
+- M0: monorepo, contracts, Gemini provider, CI, ownership check, extension ID (#6, #7).
+- M1: guardrails + prompts (#10), Lens engine + `LensService` + Lens IPC (#11),
+  bridge connection + fake server (#12).
+- M2: scorer + risk classifier (#13), hoot-bridge native host + registration (#16),
+  bridge server in the app (#20), learning rules (#17), hotkey contract (#19),
+  d2/d3 requests (#15).
 
 ## Next
 
-- C-13: shared bridge connection handler + `createFakeLensServer` (dev
-  WebSocket) for d2's extension e2e.
-- M2: C-20 pipe server, C-21 hoot-bridge, C-22 scorer, C-23 risk classifier.
+- C-31 eval harness (`apps/desktop/evals`, `npm run eval`).
+- Live Gemini run (`npm run test:live`) as soon as a key is available on the C machine.
+- Integration gate M2 with d1 (Lens + bridge wiring in main) and d2 (D2-20 bridge client).
 
 ## Blocked on
 
-- Merges are review-gated for C: #7, #10, and the C-10/C-14 PR need a human merge.
+- Nothing. The live Gemini tests need a key (`GEMINI_API_KEY`).
 
 ## For d1: wiring Lens into main (after D1-10)
 
@@ -77,6 +85,8 @@ await bridge.start() // AnotherInstanceError → another Hoot owns the pipe: exi
 | #9 review | Log `shown` / Recent changes only when lens-dom renders | Already the design: `LensEvent.cacheKey` links shown/kept events to the cached rewrite (#10) |
 | #9 review | "Explain more" auto-streams with a compact line + full context | `buildExplainMore()` in core; `LensServiceDeps.onExplain(message)` gives d1 `{ text, sentText }` |
 | #9 review | Tighter inline replace (≤1.15× length, ≤7-word gloss) | Not adopted: it overrides spec §7.1, and a gloss block shifts layout too. Limits stay constants in `TRANSFORM_RULES` / guardrails; revisit with C-31 eval data |
+
+| d3 | `useHootState` must buffer patches until the subscribe snapshot arrives | Asked on #21; rule in CONTRACTS.md "State subscription ordering" |
 
 ## Notes
 

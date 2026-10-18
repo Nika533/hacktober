@@ -100,6 +100,11 @@ export class LensHistory {
     }
   }
 
+  /** When the change with this cache key was shown, if it's still in Recent changes. */
+  shownAt(cacheKey: string | undefined): number | undefined {
+    return cacheKey ? this.recent.find((r) => r.id === cacheKey)?.ts : undefined
+  }
+
   recentChanges(limit: number): RecentChange[] {
     return this.recent.slice(0, limit)
   }
