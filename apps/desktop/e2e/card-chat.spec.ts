@@ -90,7 +90,6 @@ test('summon shows the pill; Chat opens the card; Esc steps back to the pill', a
 })
 
 test('the card streams an answer with the fake AI', async () => {
-  test.fixme(true, 'chat:* is not registered in main yet (#47)')
   const page = await openCard()
   const box = page.getByRole('textbox', { name: 'Message Hoot' })
   await box.fill('What is a lease?')
