@@ -157,7 +157,11 @@ export function createCaptureService(deps: CaptureDeps): CaptureService {
       try {
         hidden = await hide()
         await wait(HIDE_DELAY_MS)
+        const grabStarted = Date.now()
         const grab = await grabber.grab()
+        log.info(
+          `capture: ${mode}, grab ${grab ? `${grab.image.width}×${grab.image.height}` : 'none'} in ${Date.now() - grabStarted} ms`
+        )
         if (!grab || grab.image.isBlank()) {
           log.warn(`capture: ${grab ? 'blank image' : 'no screen source'}`)
           notify(COPY.failed)

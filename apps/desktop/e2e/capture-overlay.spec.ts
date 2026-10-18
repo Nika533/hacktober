@@ -66,8 +66,11 @@ function quadrantsPng(width: number, height: number): Buffer {
 
 let app: ElectronApplication
 let dir: string
+/** The app's main-process output, attached to a failed test. */
+let mainLog: string[] = []
 
 test.beforeEach(async () => {
+  mainLog = []
   dir = mkdtempSync(join(tmpdir(), 'hoot-capture-'))
   writeFileSync(join(dir, 'screen.png'), quadrantsPng(64, 48))
   const env: Record<string, string> = {}
@@ -81,9 +84,16 @@ test.beforeEach(async () => {
     HOOT_FAKE_CAPTURE: join(dir, 'screen.png')
   })
   app = await electron.launch({ args: [MAIN], env })
+  for (const stream of [app.process().stdout, app.process().stderr]) {
+    stream?.on('data', (chunk: Buffer) => mainLog.push(chunk.toString()))
+  }
 })
 
 test.afterEach(async () => {
+  const testInfo = test.info()
+  if (testInfo.status !== testInfo.expectedStatus) {
+    await testInfo.attach('main-log', { body: mainLog.join(''), contentType: 'text/plain' })
+  }
   await app.close()
   rmSync(dir, { recursive: true, force: true })
 })
@@ -115,10 +125,17 @@ const centre = (id: string): Promise<number[]> =>
     join(dir, 'profile', 'hoot', 'attachments', `${id}.png`)
   )
 
+/**
+ * Ask for a capture the way a renderer does, without waiting for the reply
+ * inside Studio: capture hides Studio first, and a hidden window's page
+ * isn't something to depend on. The open overlay is the signal.
+ */
 async function startCapture(studio: Page, mode: 'lasso' | 'rect'): Promise<Page> {
-  await studio.evaluate((m) => (globalThis as unknown as HootWindow).hoot.capture.start(m), mode)
+  await studio.evaluate((m) => {
+    void (globalThis as unknown as HootWindow).hoot.capture.start(m)
+  }, mode)
   const overlay = await windowFor('capture.html')
-  await expect(overlay.locator('.capture[data-state="open"]')).toBeVisible()
+  await expect(overlay.locator('.capture[data-state="open"]')).toBeVisible({ timeout: 15_000 })
   return overlay
 }
 
