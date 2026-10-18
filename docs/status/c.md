@@ -4,12 +4,15 @@ Only C edits this file. Updated when plans or blockers change (AGENTS.md).
 
 ## Now
 
-- **F-C5 installer + packaged smoke** (`c/F-C5-installer`): native-host registration in the
-  NSIS installer and on first run, the `packaged` CI job, the installer as a CI artifact.
+- **Waiting on the Gemini key (#48)** for the live half of F-C3 (`npm run test:live`, G2 live
+  runs with `node scripts/gate-g2.mjs --live --runs 2`) and F-C4 (the eval report with
+  `npm run eval`, and the §7.2 latency numbers from `test-live/latency.live.test.ts`).
+- In review: #96 (pins e2e), #98 (gate G2 script), #100 (AGENTS.md and CONTRACTS.md).
 
-Queue (docs/finish-plan.md §4): F-C0 ✅ → F-C1 ✅ #39 → F-C2 #41 → F-C3 (blocked: #47 G1
-needs d1's wiring, #48 Gemini key) → **F-C5** → F-C4 eval report + latency → F-C6 README/docs
-→ tag. Gate results go on the pinned tracking issue #49.
+Queue (docs/finish-plan.md §4): F-C0 ✅ → F-C1 ✅ #39 → F-C2 ✅ #41 (+ e2e #96) → F-C3: G1 ✅
+(#71), G2 offline ✅ (#98), live blocked on #48 → F-C4: harness ✅ #31, latency harness ✅ #56,
+report blocked on #48 → F-C5 ✅ #52 → F-C6: README ✅ #53 #58, AGENTS/CONTRACTS #100 → tag
+`hackathon-v1` when §1 passes. Gate results go on the pinned tracking issue #49.
 
 ## Done (merged)
 
@@ -17,14 +20,17 @@ needs d1's wiring, #48 Gemini key) → **F-C5** → F-C4 eval report + latency �
   engine and service, scorer, risk, learning rules; bridge connection, hoot-bridge, bridge
   server; hotkey contract (#6–#20).
 - F-C0: reviewed and merged #30; contract audit for chat, pins, capture and buddy found
-  nothing missing (every legacy channel and payload has a core counterpart).
-- F-C1: chat service (#39).
+  nothing missing.
+- F-C1 chat service (#39); F-C2 pins and sticky notes (#41); Lens cold-start finish (#62,
+  #74); data-terms check of the consent and onboarding copy (#55, #63, README #58).
+- F-C4 eval harness (#31) and latency harness (#56); F-C5 installer, native-host
+  registration, packaged smoke (#52); manifest hardening and icons (#44).
+- Gate G1 passed on `main` (#71, results on #49); gate G2's offline desktop half passed
+  (#98).
 
 ## Blocked on
 
-- G1: #47 (chat and pins wiring, buddy machine, Buddy renderer).
-- F-C3 live check and G2: #48 (a Gemini key on C's machine, environment variable only).
-- #31 and #35: Nika533's code-owner review (C wrote them).
+- #48: a Gemini key on C's machine (environment variable only).
 
 ## For d1: wiring chat, pins and the native host
 
