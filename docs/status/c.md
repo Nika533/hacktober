@@ -37,6 +37,25 @@ lens.onProfile((snap) => broadcast('lens:profileChanged', snap))
 // before-quit: await lens.flush()
 ```
 
+Bridge server (C-20), after `whenReady` and the single-instance lock (d1 request 1):
+
+```ts
+import { createBridgeServer, AnotherInstanceError } from './bridge'
+const bridge = createBridgeServer({
+  lens, appVersion: app.getVersion(), platform: process.platform, env: process.env,
+  pipePath: bridgePipePath(process.platform, os.userInfo().username, os.tmpdir()),
+  getLensSettings: () => state.settings.settings.lens,
+  patchLensSettings: (patch) => settings.update({ lens: patch }).then(() => state.settings.settings.lens),
+  devWebSocket: process.env.HOOT_DEV_BRIDGE === '1'
+    ? { port: Number(process.env.HOOT_DEV_BRIDGE_PORT ?? 7341), pairingCode: process.env.HOOT_DEV_BRIDGE_CODE ?? randomCode() }
+    : null,
+  onStatus: (s) => updateSlice('lens', s)
+})
+await bridge.start() // AnotherInstanceError → another Hoot owns the pipe: exit
+// when Lens settings change from Studio: bridge.pushSettings(newLensSettings)
+// will-quit: await bridge.stop()
+```
+
 ## Requests
 
 -
