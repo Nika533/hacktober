@@ -1,14 +1,23 @@
 import {
+  COLD_START_ASK_FIRST,
+  COLD_START_THRESHOLD,
+  GRAY_ZONE_MIN_DIFFICULTY,
+  PageRateLimiter,
   TRANSFORMS,
   classifySite,
+  confusionScore,
   countWords,
+  decide,
   isDeniedHost,
   type DomainRisk,
   type LensBackend,
   type LensContext,
+  type LensDecision,
+  type LensEvent,
   type LensEventKind,
   type LensSettings,
   type LensSurface,
+  type ProfileSnapshot,
   type SiteCategory
 } from '@hoot/core'
 import { CopyController } from './clipboard'
@@ -67,6 +76,20 @@ interface Applied {
   renderer: Renderer
   ctx: LensContext
   term: string | null
+  mode: LensEvent['mode']
+  difficulty: number | null
+  cacheKey: string
+}
+
+type Origin = 'ask' | 'auto'
+
+/** Until the app sends the reader's profile: cautious threshold and Ask-first (§8.4). */
+const COLD_PROFILE: ProfileSnapshot = {
+  version: 0,
+  threshold: COLD_START_THRESHOLD,
+  askFirstRemaining: COLD_START_ASK_FIRST,
+  knownTerms: [],
+  perSite: {}
 }
 
 export function pageBlockReason(doc: Document): 'password-field' | null {
@@ -123,9 +146,11 @@ export function createLens(options: CreateLensOptions): Lens {
   const order: string[] = []
   const cleanup: Array<() => void> = []
   let settings: LensSettings | null = null
+  let profile: ProfileSnapshot = COLD_PROFILE
   let knownTerms = new Set<string>()
   let candidate: SelectionCandidate | null = null
-  let inflight: AbortController | null = null
+  let inflight: { controller: AbortController; origin: Origin } | null = null
+  const limiter = new PageRateLimiter()
   let drops = 0
   let destroyed = false
 
@@ -199,14 +224,15 @@ export function createLens(options: CreateLensOptions): Lens {
         urlHash,
         kind,
         transform: entry.mark.spec.transform,
-        mode: 'ask',
+        mode: entry.mode,
         term: entry.term,
         topic: null,
         lang: entry.ctx.lang,
         spanWords: countWords(entry.ctx.span),
         p: entry.ctx.p,
-        difficulty: null,
-        latencyMs
+        difficulty: entry.difficulty,
+        latencyMs,
+        ...(kind === 'shown' || kind === 'kept' ? { cacheKey: entry.cacheKey } : {})
       })
       .catch(report)
   }
@@ -215,7 +241,9 @@ export function createLens(options: CreateLensOptions): Lens {
     document: doc,
     onKept: (id) => {
       const entry = applied.get(id)
-      if (entry) feedback(entry, 'kept')
+      if (!entry) return
+      if (entry.mode !== 'ask') limiter.recordKept()
+      feedback(entry, 'kept')
     }
   })
 
@@ -224,6 +252,9 @@ export function createLens(options: CreateLensOptions): Lens {
     if (!entry) return
     forget(mark.id)
     kept.forget(mark.id)
+    if (entry.mode !== 'ask' && (kind === 'reverted' || kind === 'knew_it')) {
+      limiter.recordRevert()
+    }
     entry.renderer.restore(mark.id, { animate })
     feedback(entry, kind)
     ui.announce(COPY.restored)
@@ -313,28 +344,49 @@ export function createLens(options: CreateLensOptions): Lens {
     }
   })
 
+  const showChip = (target: SelectionCandidate): void => {
+    const rects = Array.from(target.range.getClientRects())
+    ui.showChip(rects[rects.length - 1] ?? target.range.getBoundingClientRect())
+  }
+
+  const cancel = (origin?: Origin): void => {
+    if (!inflight || (origin && inflight.origin !== origin)) return
+    inflight.controller.abort()
+    inflight = null
+  }
+
   const reading = new ReadingTracker(doc)
   const watcher = new SelectionWatcher(
     { document: doc, now },
     {
       settled: (next) => {
-        inflight?.abort()
-        inflight = null
+        cancel()
         candidate = null
         ui.hideChip()
-        if (!active() || next.signals.sizeClass === 'multi-paragraph') return
+        if (!active() || !settings || next.signals.sizeClass === 'multi-paragraph') return
         const check = rendererFor().check(next.range)
         if (check.ok || check.reason !== 'marked') noteReselection(next.text)
         if (!check.ok) return
         candidate = next
-        const rects = Array.from(next.range.getClientRects())
-        ui.showChip(rects[rects.length - 1] ?? next.range.getBoundingClientRect())
+        if (settings.mode === 'ask' || judge(next, settings).decision.action === 'ask') {
+          showChip(next)
+        }
+      },
+      dwell: (next) => {
+        const current = settings
+        if (next !== candidate || !current || current.mode === 'ask' || !active()) return
+        const { decision, ctx, risk } = judge(next, current)
+        if (decision.action === 'ask') showChip(next)
+        else if (decision.action === 'rewrite') void rewrite(next, current, ctx, risk, 'auto')
+        else if (decision.action === 'assess') void assessThenRewrite(next, current, ctx, risk)
       },
       cleared: () => {
+        cancel('auto')
         candidate = null
         ui.hideChip()
       },
       copied: () => {
+        cancel('auto')
         candidate = null
         ui.hideChip()
       }
@@ -352,40 +404,67 @@ export function createLens(options: CreateLensOptions): Lens {
   ): { ctx: LensContext; risk: DomainRisk } => {
     const page = extractContext(target.range)
     const { siteCategory, risk } = classify(page)
+    const signals: LensContext['signals'] = {
+      sizeClass: target.signals.sizeClass,
+      copiedWithinMs: target.signals.copiedWithinMs,
+      dwellMs: target.signals.dwellMs,
+      reselectCount: target.signals.reselectCount,
+      reread: reading.reread(target.range),
+      rarity: rarityOf(page.span, page.lang, page.paragraph),
+      knownTerm: knownTerms.has(page.span.toLowerCase()),
+      topicFamiliarity: null,
+      foreignLanguage: isForeignLanguage(page.lang, current.languages),
+      blocked: null
+    }
     const ctx: LensContext = {
       ...page,
       site,
       siteCategory,
       surface,
-      signals: {
-        sizeClass: target.signals.sizeClass,
-        copiedWithinMs: target.signals.copiedWithinMs,
-        dwellMs: target.signals.dwellMs,
-        reselectCount: target.signals.reselectCount,
-        reread: reading.reread(target.range),
-        rarity: rarityOf(page.span, page.lang, page.paragraph),
-        knownTerm: knownTerms.has(page.span.toLowerCase()),
-        topicFamiliarity: null,
-        foreignLanguage: isForeignLanguage(page.lang, current.languages),
-        blocked: null
-      },
-      p: 0
+      signals,
+      p: confusionScore(signals)
     }
     return { ctx, risk }
   }
 
-  async function ask(): Promise<Mark | null> {
-    const target = candidate
-    const current = settings
-    candidate = null
-    ui.hideChip()
-    if (!target || !current || !active()) return null
-    const range = target.range
+  const judge = (
+    target: SelectionCandidate,
+    current: LensSettings
+  ): { decision: LensDecision; ctx: LensContext; risk: DomainRisk } => {
     const { ctx, risk } = contextFor(target, current)
+    const decision = decide({
+      signals: ctx.signals,
+      site,
+      lens: current,
+      profile,
+      page: limiter,
+      now: now()
+    })
+    return { decision, ctx, risk }
+  }
+
+  const begin = (origin: Origin): AbortController => {
+    cancel()
     const controller = new AbortController()
-    inflight?.abort()
-    inflight = controller
-    doc.getSelection()?.removeAllRanges()
+    inflight = { controller, origin }
+    return controller
+  }
+
+  const settle = (controller: AbortController): void => {
+    if (inflight?.controller === controller) inflight = null
+  }
+
+  async function rewrite(
+    target: SelectionCandidate,
+    current: LensSettings,
+    ctx: LensContext,
+    risk: DomainRisk,
+    origin: Origin,
+    difficulty: number | null = null,
+    controller = begin(origin)
+  ): Promise<Mark | null> {
+    const range = target.range
+    if (origin === 'ask') doc.getSelection()?.removeAllRanges()
     const started = now()
     const thinking = ui.thinking(Array.from(range.getClientRects()), COPY.thinking)
     try {
@@ -393,9 +472,9 @@ export function createLens(options: CreateLensOptions): Lens {
         { ctx, allowedTransforms: [...TRANSFORMS], risk },
         { signal: controller.signal }
       )
-      if (inflight !== controller || destroyed) return null
+      if (inflight?.controller !== controller || destroyed || !active()) return null
       if (outcome.kind === 'skipped') {
-        if (outcome.reason !== 'cancelled' && outcome.reason !== 'lens_off') {
+        if (origin === 'ask' && outcome.reason !== 'cancelled' && outcome.reason !== 'lens_off') {
           ui.announce(COPY.skipped)
         }
         return null
@@ -409,12 +488,22 @@ export function createLens(options: CreateLensOptions): Lens {
         text: result.text,
         highStakes: risk === 'high'
       }
+      if (origin === 'auto') doc.getSelection()?.removeAllRanges()
       const renderer = rendererFor()
       const mark = renderer.apply(range, spec, { animate: animate && inView(range) })
       if (!mark) return null
-      const entry: Applied = { mark, renderer, ctx, term: result.term }
+      const entry: Applied = {
+        mark,
+        renderer,
+        ctx,
+        term: result.term,
+        mode: origin === 'ask' ? 'ask' : spec.action,
+        difficulty,
+        cacheKey: result.cacheKey
+      }
       applied.set(mark.id, entry)
       order.push(mark.id)
+      if (origin === 'auto') limiter.recordChange(now())
       ui.attach(mark)
       ui.announce(announceChange(spec))
       feedback(entry, 'shown', now() - started)
@@ -423,13 +512,50 @@ export function createLens(options: CreateLensOptions): Lens {
       sync()
       return mark
     } catch (error) {
-      if (inflight === controller && !controller.signal.aborted) ui.announce(COPY.unavailable)
+      if (origin === 'ask' && inflight?.controller === controller && !controller.signal.aborted) {
+        ui.announce(COPY.unavailable)
+      }
       report(error)
       return null
     } finally {
       thinking.done()
-      if (inflight === controller) inflight = null
+      settle(controller)
     }
+  }
+
+  async function assessThenRewrite(
+    target: SelectionCandidate,
+    current: LensSettings,
+    ctx: LensContext,
+    risk: DomainRisk
+  ): Promise<void> {
+    const controller = begin('auto')
+    try {
+      const { difficulty } = await backend.assess(ctx, { signal: controller.signal })
+      if (inflight?.controller !== controller || difficulty < GRAY_ZONE_MIN_DIFFICULTY) {
+        settle(controller)
+        return
+      }
+      await rewrite(target, current, ctx, risk, 'auto', difficulty, controller)
+    } catch (error) {
+      settle(controller)
+      report(error)
+    }
+  }
+
+  async function ask(): Promise<Mark | null> {
+    const target = candidate
+    const current = settings
+    candidate = null
+    ui.hideChip()
+    if (!target || !current || !active()) return null
+    const { ctx, risk } = contextFor(target, current)
+    return rewrite(target, current, ctx, risk, 'ask')
+  }
+
+  function useProfile(next: ProfileSnapshot): void {
+    profile = next
+    knownTerms = new Set(next.knownTerms.map((term) => term.toLowerCase()))
   }
 
   const ready = Promise.all([
@@ -437,9 +563,7 @@ export function createLens(options: CreateLensOptions): Lens {
       settings = initial
       sync()
     }),
-    backend.getProfile().then((profile) => {
-      knownTerms = new Set(profile.knownTerms.map((term) => term.toLowerCase()))
-    })
+    backend.getProfile().then(useProfile)
   ]).then(
     () => undefined,
     (error: unknown) => report(error)
@@ -454,9 +578,7 @@ export function createLens(options: CreateLensOptions): Lens {
       }
       sync()
     }),
-    backend.onProfile((profile) => {
-      knownTerms = new Set(profile.knownTerms.map((term) => term.toLowerCase()))
-    })
+    backend.onProfile(useProfile)
   )
 
   return {
@@ -470,7 +592,7 @@ export function createLens(options: CreateLensOptions): Lens {
     destroy: () => {
       if (destroyed) return
       destroyed = true
-      inflight?.abort()
+      cancel()
       watcher.destroy()
       reading.destroy()
       kept.destroy()

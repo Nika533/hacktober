@@ -1,6 +1,15 @@
-import { DEFAULT_LENS_SETTINGS, type LensBackend, type LensSettings } from '@hoot/core'
+import {
+  DEFAULT_LENS_SETTINGS,
+  confusionScore,
+  type LensBackend,
+  type LensSettings
+} from '@hoot/core'
 import { LensContextSchema, LensEventSchema, RewriteRequestSchema } from '@hoot/core/schemas'
-import { createFakeLensBackend, type FakeLensBackend } from '@hoot/core/testing'
+import {
+  FAKE_PROFILE_SNAPSHOT,
+  createFakeLensBackend,
+  type FakeLensBackend
+} from '@hoot/core/testing'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createLens, isForeignLanguage, pageBlockReason, type Lens } from '../src/controller'
 import { UI_TAG } from '../src/guard'
@@ -83,9 +92,9 @@ describe('createLens with @hoot/core fakes', () => {
       lang: 'en',
       site: SITE,
       siteCategory: 'general',
-      surface: 'html',
-      p: 0
+      surface: 'html'
     })
+    expect(request?.ctx.p).toBeCloseTo(confusionScore(request!.ctx.signals))
     expect(request?.ctx.signals).toMatchObject({ sizeClass: 'term', reselectCount: 0 })
     expect(request?.risk).toBe('normal')
     expect(shadow().querySelector('.pill .status')?.textContent).toBe('Hoot changed 1 thing')
@@ -98,7 +107,8 @@ describe('createLens with @hoot/core fakes', () => {
       mode: 'ask',
       transform: 'define',
       term: 'heteroscedasticity',
-      spanWords: 1
+      spanWords: 1,
+      cacheKey: expect.stringMatching(/^[0-9a-f]{16}$/)
     })
   })
 
@@ -358,6 +368,121 @@ describe('createLens with @hoot/core fakes', () => {
     lens!.undoLast()
     vi.advanceTimersByTime(60_000)
     expect(backend.events.map((event) => event.kind)).toEqual(['shown', 'reverted'])
+  })
+})
+
+describe('Auto and Gloss-only modes (decide)', () => {
+  const AUTO: LensSettings = { ...ENABLED, mode: 'auto' }
+  const kinds = (): string[] => backend.events.map((event) => event.kind)
+
+  async function dwell(): Promise<void> {
+    now += 1500
+    vi.advanceTimersByTime(1200)
+    await vi.advanceTimersByTimeAsync(5)
+  }
+
+  function reselect(needle: string): void {
+    select(needle)
+    select('standard errors')
+    select(needle)
+  }
+
+  it('asks the model in the gray zone and rewrites when it says the text is hard', async () => {
+    backend = createFakeLensBackend({ settings: AUTO })
+    const assess = vi.spyOn(backend, 'assess')
+    await start()
+    select('OLS')
+    expect(chip().hidden).toBe(true)
+    await dwell()
+    expect(assess).toHaveBeenCalledOnce()
+    expect(lens!.marks()[0]?.anchor.textContent).toBe('OLS (Fake Expanded Form)')
+    const shown = LensEventSchema.parse(backend.events[0])
+    expect(shown).toMatchObject({ kind: 'shown', mode: 'replace', difficulty: 0.8 })
+    expect(shown.p).toBeGreaterThanOrEqual(0.6)
+    expect(shown.p).toBeLessThan(0.75)
+  })
+
+  it('rewrites without asking the model above the threshold', async () => {
+    backend = createFakeLensBackend({ settings: AUTO })
+    const assess = vi.spyOn(backend, 'assess')
+    await start()
+    reselect('OLS')
+    await dwell()
+    expect(assess).not.toHaveBeenCalled()
+    expect(lens!.marks()).toHaveLength(1)
+    expect(LensEventSchema.parse(backend.events[0]).p).toBeGreaterThanOrEqual(0.75)
+  })
+
+  it('leaves ordinary selections alone and sends nothing', async () => {
+    backend = createFakeLensBackend({ settings: AUTO })
+    const assess = vi.spyOn(backend, 'assess')
+    const rewrite = vi.spyOn(backend, 'rewrite')
+    await start()
+    select('heteroscedasticity')
+    await dwell()
+    expect(chip().hidden).toBe(true)
+    expect(assess).not.toHaveBeenCalled()
+    expect(rewrite).not.toHaveBeenCalled()
+  })
+
+  it('offers the chip instead during the cold start', async () => {
+    backend = createFakeLensBackend({
+      settings: AUTO,
+      profile: { ...FAKE_PROFILE_SNAPSHOT, askFirstRemaining: 10 }
+    })
+    const rewrite = vi.spyOn(backend, 'rewrite')
+    await start()
+    reselect('OLS')
+    expect(chip().hidden).toBe(false)
+    await dwell()
+    expect(rewrite).not.toHaveBeenCalled()
+    chip().click()
+    await vi.advanceTimersByTimeAsync(5)
+    expect(LensEventSchema.parse(backend.events[0]).mode).toBe('ask')
+  })
+
+  it('switches the page to asking after two reverted changes in a row', async () => {
+    backend = createFakeLensBackend({ settings: AUTO })
+    await start()
+    reselect('OLS')
+    await dwell()
+    lens!.undoLast()
+    reselect('HC3')
+    await dwell()
+    lens!.undoLast()
+    expect(kinds()).toEqual(['shown', 'reverted', 'shown', 'reverted'])
+    reselect('OLS')
+    expect(chip().hidden).toBe(false)
+    await dwell()
+    expect(lens!.marks()).toHaveLength(0)
+  })
+
+  it('does nothing when the reader copies or deselects first', async () => {
+    backend = createFakeLensBackend({ settings: AUTO, delayMs: 1000 })
+    const rewrite = vi.spyOn(backend, 'rewrite')
+    await start()
+    reselect('OLS')
+    document.dispatchEvent(new Event('copy'))
+    await dwell()
+    expect(rewrite).not.toHaveBeenCalled()
+
+    reselect('HC3')
+    await dwell()
+    expect(rewrite).toHaveBeenCalledOnce()
+    document.getSelection()!.removeAllRanges()
+    document.dispatchEvent(new Event('selectionchange'))
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(lens!.marks()).toHaveLength(0)
+    expect(kinds()).toEqual([])
+  })
+
+  it('glosses in Gloss-only mode', async () => {
+    backend = createFakeLensBackend({ settings: { ...AUTO, mode: 'gloss' } })
+    await start()
+    reselect('OLS')
+    await dwell()
+    expect(lens!.marks()[0]?.spec.action).toBe('gloss')
+    expect(LensEventSchema.parse(backend.events[0]).mode).toBe('gloss')
   })
 })
 
