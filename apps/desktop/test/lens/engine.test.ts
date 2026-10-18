@@ -133,6 +133,39 @@ describe('LensEngine.rewrite', () => {
     expect(calls).toHaveLength(2)
   })
 
+  it('falls back to the fast model when the strong one is rate-limited', async () => {
+    const long = `${'The variance of the residuals grows with the fitted values '.repeat(3)}.`
+    const simplify = {
+      ...goodDefine,
+      action: 'replace',
+      transform: 'simplify',
+      text: long,
+      term: null
+    }
+    const { engine, calls } = await setup({
+      json: (req) => {
+        if (req.model === LENS_MODELS.rewriteStrong) throw new AiError('rate_limited', '429')
+        return simplify
+      }
+    })
+    const out = await engine.rewrite(
+      'r1',
+      request({ ctx: ctx({ span: long, paragraph: long }), allowedTransforms: ['simplify'] })
+    )
+    expect(out.kind).toBe('rewritten')
+    expect(calls.map((c) => c.model)).toEqual([LENS_MODELS.rewriteStrong, LENS_MODELS.rewriteFast])
+
+    const fastLimited = await setup({
+      json: () => {
+        throw new AiError('rate_limited', '429')
+      }
+    })
+    await expect(fastLimited.engine.rewrite('r2', request())).rejects.toMatchObject({
+      code: 'rate_limited'
+    })
+    expect(fastLimited.calls).toHaveLength(1)
+  })
+
   it('applies guardrails: high-stakes becomes a gloss, low confidence is skipped', async () => {
     const { engine } = await setup()
     const high = await engine.rewrite('r1', request({ risk: 'high' }))
