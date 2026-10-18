@@ -49,6 +49,9 @@ the `.ps1` shims.
 | `npm.cmd run e2e:desktop` | e2e build + Playwright `_electron` specs |
 | `npm.cmd run e2e:extension` | Extension build + Playwright Chromium specs |
 | `npm.cmd run build:win` | NSIS installer |
+| `npm.cmd run build:e2e -w @hoot/extension` | Extension with the fake backend, open shadow roots and Lens on (what the e2e suite loads) |
+| `npm.cmd run serve:fixtures -w @hoot/extension` | Build and serve the Lens fixture pages on http://localhost:4510 |
+| `npm.cmd run demo -w @hoot/lens-dom` | lens-dom demo page |
 | `npm.cmd run check:ownership -- --branch d2/x --base origin/main` | Local ownership check |
 
 One workspace: `npm.cmd run <script> -w @hoot/desktop` (or `@hoot/extension`,
@@ -94,6 +97,8 @@ One workspace: `npm.cmd run <script> -w @hoot/desktop` (or `@hoot/extension`,
   **upscaled**. Compute the crop ratio from `image.width / display.bounds.width`.
   The first `getSources` takes about 3 s cold, so pre-warm it once at idle.
   Multi-monitor and mixed DPI are not verified yet.
+- Double-click on Windows selects the word **and its trailing space**. lens-dom trims
+  selections before anything else sees them.
 - `nativeTheme.themeSource` may or may not flip `prefers-color-scheme` in a
   sandboxed renderer. The `system.darkMode` slice is the source of truth.
 
@@ -153,6 +158,8 @@ One workspace: `npm.cmd run <script> -w @hoot/desktop` (or `@hoot/extension`,
 
 ## Workflow
 
+- **Never push to `main`.** Every change goes through a PR so CI and the ownership check
+  run on it.
 - Branch `<you>/<TASK-ID>-<slug>` (e.g. `d2/D2-10-inline-renderer`). PR title
   `<TASK-ID>: <summary>`. Keep PRs small (aim for under 400 changed lines).
 - CI must be green: ownership, typecheck, lint, unit (Ubuntu + Windows), e2e (Windows).

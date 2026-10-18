@@ -41,7 +41,14 @@ Only C edits this file. Update it with every PR.
 | d3 | Reader CSP `worker-src` for PDF.js | AGENTS.md Windows facts (CSP); d1 implements the headers in D1-12 |
 | d3 | 7-day package age | Adopted repo-wide. `@google/genai` → 2.28.0, `zod` → 4.6.5 |
 
+| d2 | Content script `match_about_blank` + `match_origin_as_fallback` | `apps/extension/static/manifest.json` |
+| d2 | `**/fixtures/**` in `.prettierignore` | done |
+| d2 | Extension and lens-dom scripts; the double-click trailing-space note | AGENTS.md |
+| d2 | Pin React (19.3.1 is under 7 days old) | `apps/desktop` pins `react`, `react-dom` and types to 19.3.0; one copy in the lockfile |
+
 ## Notes
+
+- d2's D2-00 to D2-15 landed on `main` by direct push, without a PR. I checked them afterwards: every path is d2's, and `main` is green (typecheck, lint, 302 tests, build). AGENTS.md now says never push to `main`; branch protection would enforce it (repo owner only).
 
 - `legacy-v0` tag: the legacy app on Gemini, plus the plan.
 - Dev extension ID `angnmpllmankipgoikeahfhidpcjninj`, from the manifest `key`.

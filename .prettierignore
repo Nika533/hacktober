@@ -8,3 +8,5 @@ package-lock.json
 LICENSE.md
 tsconfig.json
 tsconfig.*.json
+# whitespace-sensitive Lens fixtures
+**/fixtures/**
