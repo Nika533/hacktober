@@ -96,7 +96,7 @@ export {
 // Lens (D3-13, D3-20)
 export { ExtensionStatus, type ExtensionStatusProps } from './lens/ExtensionStatus'
 export { ReadingPane, type ReadingPaneProps } from './lens/ReadingPane'
-export { languageName, siteFromInput, siteLabel } from './lens/sites'
+export { GEMINI_TERMS_URL, languageName, siteFromInput, siteLabel } from './lens/sites'
 export { ProfilePane, type ProfilePaneProps } from './lens/ProfilePane'
 export { GlossaryPane, type GlossaryPaneProps } from './lens/GlossaryPane'
 export {
