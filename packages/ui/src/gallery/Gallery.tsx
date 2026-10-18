@@ -24,6 +24,7 @@ import { useConfirm } from '../components/confirmContext'
 import { useToast } from '../components/toastContext'
 import { ExtensionStatus } from '../lens/ExtensionStatus'
 import { applyAccent, applyTheme, type ThemePreference } from '../theme'
+import { BuddyDemo } from './BuddyDemo'
 import { ChatDemo } from './ChatDemo'
 import { OnboardingDemo } from './OnboardingDemo'
 import { SettingsDemo } from './SettingsDemo'
@@ -142,6 +143,10 @@ export function Gallery({
               </figure>
             ))}
           </div>
+        </Section>
+
+        <Section title="Buddy" wide>
+          <BuddyDemo />
         </Section>
 
         <Section title="Studio" wide>

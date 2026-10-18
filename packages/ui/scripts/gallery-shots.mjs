@@ -60,6 +60,31 @@ try {
     if (v.axe) await axe(page, v.name)
 
     if (v.axe) {
+      // Buddy on the fake desktop: dot, pill with a greeting, card, card mid-chat.
+      const buddy = gallerySection(page, 'Buddy')
+      const desk = buddy.locator('.gallery__desktop')
+      const buddyMode = (m) =>
+        buddy.getByRole('radiogroup', { name: 'Mode' }).getByText(m, { exact: true }).click()
+      const buddyShot = async (name, settled) => {
+        await settled.waitFor()
+        await page.waitForTimeout(300)
+        await desk.screenshot({ path: resolve(out, `buddy-${name}-${v.name}.png`) })
+      }
+      await desk.scrollIntoViewIfNeeded()
+      await buddyShot('dot', buddy.locator('.gallery__buddy-window[data-mode="dot"]'))
+      await buddy.getByRole('button', { name: 'Greet' }).click()
+      await buddyShot('greeting', buddy.locator('.hoot-buddy-greeting'))
+      await axe(page, `${v.name} + buddy greeting`)
+      await buddyMode('Card')
+      await buddyShot('card', buddy.locator('.hoot-buddy-card'))
+      await axe(page, `${v.name} + buddy card`)
+      await buddy.getByRole('button', { name: 'Copy some text' }).click()
+      await buddy.getByRole('textbox', { name: 'Message Hoot' }).fill('What does this clause mean?')
+      await buddy.getByRole('textbox', { name: 'Message Hoot' }).press('Enter')
+      await buddyShot('chat', buddy.getByRole('button', { name: 'Regenerate' }))
+      await axe(page, `${v.name} + buddy chat`)
+      await buddyMode('Dot')
+
       // Studio frame: sidebar + chat pane.
       const studio = gallerySection(page, 'Studio')
       await studio

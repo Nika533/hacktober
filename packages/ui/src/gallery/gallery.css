@@ -242,3 +242,49 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- Buddy on a fake desktop ---- */
+.gallery__buddy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.gallery__buddy-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-4);
+}
+/* Wallpaper is fixture content, like the fake captures. */
+.gallery__desktop {
+  position: relative;
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(
+      circle at 20% 15%,
+      color-mix(in srgb, var(--accent) 35%, transparent),
+      transparent 55%
+    ),
+    radial-gradient(
+      circle at 85% 90%,
+      color-mix(in srgb, var(--accent) 22%, transparent),
+      transparent 60%
+    ),
+    var(--fill-sunken);
+  box-shadow: inset 0 0 0 1px var(--stroke);
+}
+.gallery__buddy-window {
+  position: absolute;
+  top: 0;
+  left: 0;
+  outline: 1px dashed color-mix(in srgb, var(--text-3) 60%, transparent);
+  outline-offset: -1px;
+}
+.gallery__hit {
+  position: absolute;
+  pointer-events: none;
+  outline: 2px solid var(--danger);
+  outline-offset: -2px;
+}
