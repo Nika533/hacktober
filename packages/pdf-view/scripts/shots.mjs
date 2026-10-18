@@ -124,6 +124,81 @@ try {
       await page.getByRole('button', { name: 'Fit width' }).click()
     }
 
+    // Lens marks in pages mode (PdfOverlayRenderer).
+    await page.getByRole('button', { name: 'Show Lens marks' }).click()
+    await page.locator('body[data-marks="3"]').waitFor()
+    await page.waitForTimeout(300)
+    const geo2 = await page.evaluate(() => {
+      const pageEl = document.querySelector('.hoot-pdf-page[data-page="1"]')
+      const runRect = (needle) => {
+        const walker = document.createTreeWalker(
+          pageEl.querySelector('.hoot-pdf-text'),
+          NodeFilter.SHOW_TEXT
+        )
+        for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+          const i = n.textContent.indexOf(needle)
+          if (i < 0) continue
+          const r = document.createRange()
+          r.setStart(n, i)
+          r.setEnd(n, i + needle.length)
+          return r.getBoundingClientRect()
+        }
+        return null
+      }
+      const boxes = [...pageEl.querySelectorAll('.hoot-pdf-mark')]
+      const rect = (el) => el.getBoundingClientRect()
+      const term = boxes.find((b) => b.textContent.startsWith('uneven error'))
+      const long = boxes.find((b) => b.textContent.startsWith('Standard errors that'))
+      const note = boxes.find((b) => b.dataset.action === 'gloss')
+      const t = runRect('heteroscedasticity')
+      const p = runRect('A residual plot is the quickest check.')
+      return {
+        termDx: Math.abs(rect(term).left - t.left),
+        termDy: Math.abs(rect(term).top - t.top),
+        termFits: rect(term).height <= t.height + 2,
+        longIsCard: long.classList.contains('hoot-pdf-mark--card'),
+        noteInMargin: note.classList.contains('hoot-pdf-mark--margin') && rect(note).left > p.right,
+        ratio: rect(term).width / rect(pageEl).width,
+        focusable: [...pageEl.querySelectorAll('.hoot-pdf-mark mark')].every(
+          (m) => m.tabIndex === 0
+        )
+      }
+    })
+    check(
+      geo2.termDx < 2 && geo2.termDy < 2,
+      `${theme}: replace box off its run by ${geo2.termDx},${geo2.termDy}`
+    )
+    check(geo2.termFits, `${theme}: short rewrite should fit the run after shrinking`)
+    check(geo2.longIsCard, `${theme}: long rewrite should grow into a card`)
+    check(geo2.noteInMargin, `${theme}: gloss should sit in the right margin`)
+    check(geo2.focusable, `${theme}: marks must be focusable`)
+    await page.screenshot({
+      path: resolve(out, `marks-${theme}.png`),
+      clip: { x: 0, y: 45, width: 1100, height: 640 }
+    })
+    await axe(page, `${theme} marks`)
+    // Marks scale with the page on zoom (geometry lives in PDF points).
+    await page.getByRole('button', { name: 'Zoom in' }).click()
+    await page.waitForTimeout(400)
+    const ratio = await page.evaluate(() => {
+      const pageEl = document.querySelector('.hoot-pdf-page[data-page="1"]')
+      const term = [...pageEl.querySelectorAll('.hoot-pdf-mark')].find((b) =>
+        b.textContent.startsWith('uneven error')
+      )
+      return term.getBoundingClientRect().width / pageEl.getBoundingClientRect().width
+    })
+    check(
+      Math.abs(ratio - geo2.ratio) < 0.01,
+      `${theme}: mark didn't scale with zoom (${geo2.ratio} → ${ratio})`
+    )
+    await page.getByRole('button', { name: 'Fit width' }).click()
+    await page.getByRole('button', { name: 'Restore all' }).click()
+    await page.waitForTimeout(400)
+    check(
+      (await page.locator('.hoot-pdf-mark, .hoot-pdf-mark__run').count()) === 0,
+      `${theme}: Restore all left marks behind`
+    )
+
     await page.getByRole('button', { name: 'Text only' }).click()
     await page.locator('.hoot-pdf-reflow h2').waitFor()
     const headings = await page.locator('.hoot-pdf-reflow :is(h2, h3)').allTextContents()
