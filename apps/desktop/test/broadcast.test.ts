@@ -31,7 +31,7 @@ class FakeSink implements PatchSink {
   }
 }
 
-const setup = (): { store: Store; broadcaster: Broadcaster } => {
+const setup = (): { store: Store; broadcaster: Broadcaster; pump: () => void } => {
   const store = createStore(
     initialSlices({
       settings: DEFAULT_SETTINGS,
@@ -40,8 +40,9 @@ const setup = (): { store: Store; broadcaster: Broadcaster } => {
       system
     })
   )
-  const broadcaster = createBroadcaster(store)
-  return { store, broadcaster }
+  const pending: (() => void)[] = []
+  const broadcaster = createBroadcaster(store, (fn) => pending.push(fn))
+  return { store, broadcaster, pump: () => pending.splice(0).forEach((f) => f()) }
 }
 
 const flush = async (): Promise<void> => {
@@ -157,6 +158,53 @@ describe('broadcaster', () => {
     broadcaster.unsubscribe(1)
     store.update('buddy', { mood: 'error' })
     await flush()
+    expect(sink.messages).toEqual([])
+  })
+
+  it('re-syncs the sink once on the next tick after subscribe', () => {
+    const { store, broadcaster, pump } = setup()
+    const sink = new FakeSink(1)
+    const patch = broadcaster.subscribe(sink, ['buddy', 'system'])
+    expect(patch.buddy).toBeDefined()
+    pump()
+    const syncs = sink.messages.filter(([c]) => c === 'state:patch')
+    expect(syncs.length).toBe(1)
+    const sync = syncs[0]![1] as Record<string, unknown>
+    expect(sync['buddy']).toEqual(store.get('buddy'))
+    expect(sync['system']).toEqual(store.get('system'))
+    pump()
+    expect(sink.messages.length).toBe(1)
+  })
+
+  it('the re-sync includes changes that landed between subscribe and the tick', () => {
+    const { store, broadcaster, pump } = setup()
+    const sink = new FakeSink(1)
+    broadcaster.subscribe(sink, ['buddy'])
+    store.update('buddy', { mood: 'thinking' })
+    pump()
+    const patch = sink.messages.at(-1)![1] as Record<string, unknown>
+    expect((patch['buddy'] as { mood: string }).mood).toBe('thinking')
+  })
+
+  it('a re-subscribe supersedes the pending re-sync', () => {
+    const { broadcaster, pump } = setup()
+    const sink = new FakeSink(1)
+    broadcaster.subscribe(sink, ['buddy'])
+    broadcaster.subscribe(sink, ['pins'])
+    pump()
+    expect(sink.messages.length).toBe(1)
+    const [channel, patch] = sink.messages[0] as [string, Record<string, unknown>]
+    expect(channel).toBe('state:patch')
+    expect(patch['pins']).toBeDefined()
+    expect(patch['buddy']).toBeUndefined()
+  })
+
+  it('a destroyed sink gets no re-sync', () => {
+    const { broadcaster, pump } = setup()
+    const sink = new FakeSink(1)
+    broadcaster.subscribe(sink, ['buddy'])
+    sink.destroy()
+    pump()
     expect(sink.messages).toEqual([])
   })
 

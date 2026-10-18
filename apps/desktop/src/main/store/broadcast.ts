@@ -43,8 +43,13 @@ interface Subscription {
  * `state:patch` with only the intersection of changed slices and its
  * subscription. `chat:delta` is sent synchronously, before the patch that
  * contains the appended text, so renderers never double-count.
+ *
+ * `schedule` (tests inject a queue) drives the post-subscribe re-sync.
  */
-export function createBroadcaster(store: Store): Broadcaster {
+export function createBroadcaster(
+  store: Store,
+  schedule: (fn: () => void) => void = setImmediate
+): Broadcaster {
   const subs = new Map<number, Subscription>()
 
   const unsubscribe = (id: number): void => {
@@ -62,8 +67,17 @@ export function createBroadcaster(store: Store): Broadcaster {
     subscribe(sink, slices) {
       // One destroy hook per window, however often it re-subscribes.
       if (!subs.has(sink.id)) sink.onDestroyed(() => unsubscribe(sink.id))
-      subs.set(sink.id, { sink, slices: new Set(slices) })
-      return store.snapshot(slices)
+      const sub: Subscription = { sink, slices: new Set(slices) }
+      subs.set(sink.id, sub)
+      const snapshot = store.snapshot(slices)
+      // The invoke reply can land after a newer patch on a slow renderer;
+      // one re-sync per subscription converges the mirror regardless.
+      schedule(() => {
+        // The chat slice we send already contains every delta broadcast so
+        // far and later deltas apply on top, so this can't double-append.
+        if (subs.get(sink.id) === sub) sink.send(PATCH_CHANNEL, store.snapshot(slices))
+      })
+      return snapshot
     },
     unsubscribe,
     delta(d) {
