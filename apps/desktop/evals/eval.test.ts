@@ -8,6 +8,8 @@ import { compare, loadCases, reportMarkdown, runEval, type EvalMetrics } from '.
  * `npm run eval` (repo root): real Gemini with GEMINI_API_KEY, or a dry run of
  * the harness with EVAL_FAKE=1. Writes evals/reports/<time>.{json,md}.
  * `EVAL_UPDATE_BASELINE=1` saves this run's metrics as evals/baseline.json.
+ * `EVAL_GRADER_MODEL=<id>` grades with another model (default: the strong Lens
+ * model); the report names the grader, and ungraded rewrites fail the run.
  */
 const key = process.env['GEMINI_API_KEY'] ?? ''
 const fake = process.env['EVAL_FAKE'] === '1'
@@ -16,7 +18,12 @@ const dir = import.meta.dirname
 describe.skipIf(!key && !fake)('Lens rewrite quality', () => {
   it('meets every gate and does not regress the baseline', async () => {
     const cases = loadCases()
-    const run = await runEval({ cases, provider: key ? createGeminiProvider(key) : null, fake })
+    const run = await runEval({
+      cases,
+      provider: key ? createGeminiProvider(key) : null,
+      fake,
+      graderModel: process.env['EVAL_GRADER_MODEL'] || undefined
+    })
     const baselineFile = join(dir, fake ? 'baseline.fake.json' : 'baseline.json')
     const baseline = existsSync(baselineFile)
       ? (JSON.parse(readFileSync(baselineFile, 'utf8')) as EvalMetrics)

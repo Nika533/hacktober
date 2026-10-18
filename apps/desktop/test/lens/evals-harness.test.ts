@@ -58,4 +58,34 @@ describe('eval harness', () => {
     const worse = { ...good, meanEasier: good.meanEasier - 1 }
     expect(compare(worse, good).some((f) => f.startsWith('meanEasier regressed'))).toBe(true)
   })
+
+  it('fails ungraded rewrites by name, without a made-up score', () => {
+    const ungraded = summarize([
+      {
+        id: 'x',
+        category: 'c',
+        expect: 'rewrite',
+        outcome: {
+          kind: 'rewritten',
+          result: {
+            action: 'replace',
+            transform: 'define',
+            text: 't',
+            term: null,
+            confidence: 0.9,
+            cacheKey: 'k',
+            latencyMs: 1,
+            cached: false
+          }
+        },
+        latencyMs: 1,
+        checks: { invariants: true, mustKeep: true, expectation: true, lengthRatio: 1 },
+        grade: null,
+        gradeError: 'rate_limited'
+      }
+    ])
+    const failures = compare(ungraded, null)
+    expect(failures).toContain('graded only 0/1 rewrites (see the grader errors)')
+    expect(failures.some((f) => f.startsWith('meanEasier'))).toBe(false)
+  })
 })

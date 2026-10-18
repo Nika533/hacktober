@@ -106,11 +106,15 @@ export interface CaseResult {
     lengthRatio: number | null
   }
   grade: Grade | null
+  /** Why the grader gave no grade (e.g. `rate_limited`), when a rewrite existed. */
+  gradeError?: string
 }
 
 export interface EvalRun {
   results: CaseResult[]
   metrics: EvalMetrics
+  /** The model that graded the rewrites (null for the fake grader). */
+  graderModel?: string | null
 }
 
 export interface EvalMetrics {
@@ -125,6 +129,8 @@ export interface EvalMetrics {
   meaningPreservedRate: number
   addsFactsRate: number
   meanEasier: number
+  /** Rewrites the grader graded; the graded metrics mean nothing when this is 0. */
+  graded?: number
   latencyP50: number
   latencyP95: number
 }
@@ -170,6 +176,7 @@ export function summarize(results: CaseResult[]): EvalMetrics {
     meanEasier: graded.length
       ? graded.reduce((s, r) => s + (r.grade?.easier ?? 0), 0) / graded.length
       : 0,
+    graded: graded.length,
     latencyP50: percentile(
       rewritten.map((r) => r.latencyMs),
       0.5
@@ -196,19 +203,33 @@ export const GATES: Partial<Record<keyof EvalMetrics, { min?: number; max?: numb
 /** Gated metrics may not get worse than the baseline by more than this. */
 export const REGRESSION_TOLERANCE = 0.05
 
+const GRADED_KEYS = new Set<keyof EvalMetrics>([
+  'meaningPreservedRate',
+  'addsFactsRate',
+  'meanEasier'
+])
+
 export function compare(metrics: EvalMetrics, baseline: EvalMetrics | null): string[] {
   const failures: string[] = []
+  const rewritten = Math.round(metrics.rewriteRate * metrics.cases)
+  // Older baselines have no `graded`; treat them as fully graded.
+  const graded = metrics.graded ?? rewritten
+  if (rewritten > 0 && graded < rewritten) {
+    failures.push(`graded only ${graded}/${rewritten} rewrites (see the grader errors)`)
+  }
   for (const [key, gate] of Object.entries(GATES) as [
     keyof EvalMetrics,
     { min?: number; max?: number }
   ][]) {
-    const v = metrics[key]
+    // With nothing graded, the graded metrics are defaults, not results.
+    if (graded === 0 && GRADED_KEYS.has(key)) continue
+    const v = metrics[key] ?? 0
     if (gate.min !== undefined && v < gate.min)
       failures.push(`${key} ${v.toFixed(3)} < ${gate.min}`)
     if (gate.max !== undefined && v > gate.max)
       failures.push(`${key} ${v.toFixed(3)} > ${gate.max}`)
     if (baseline) {
-      const b = baseline[key]
+      const b = baseline[key] ?? 0
       const worse = gate.max !== undefined ? v - b : b - v
       if (worse > REGRESSION_TOLERANCE * (key === 'meanEasier' ? 5 : 1)) {
         failures.push(`${key} regressed: ${b.toFixed(3)} → ${v.toFixed(3)}`)
@@ -231,6 +252,7 @@ export async function runEval(opts: {
     getProvider: async () => opts.provider,
     fake: opts.fake
   })
+  const graderModel = opts.graderModel ?? LENS_MODELS.rewriteStrong
   const results: CaseResult[] = []
   for (const c of opts.cases) {
     const started = Date.now()
@@ -255,12 +277,13 @@ export async function runEval(opts: {
       lengthRatio: rewritten ? countWords(rewritten.text) / Math.max(1, countWords(c.span)) : null
     }
     let grade: Grade | null = null
+    let gradeError: string | undefined
     if (rewritten) {
       grade = opts.fake
         ? { meaning_preserved: true, adds_facts: false, easier: 4, fluent: true }
         : ((await opts.provider
             ?.generateJson({
-              model: opts.graderModel ?? LENS_MODELS.rewriteStrong,
+              model: graderModel,
               system: GRADER_SYSTEM,
               prompt: `<paragraph>${c.paragraph}</paragraph>\n<passage>${c.span}</passage>\n<rewrite action="${rewritten.action}" transform="${rewritten.transform}">${rewritten.text}</rewrite>`,
               schema: GradeSchema,
@@ -268,7 +291,10 @@ export async function runEval(opts: {
               maxTokens: 2048,
               timeoutMs: 20_000
             })
-            .catch(() => null)) ?? null)
+            .catch((e: unknown) => {
+              gradeError = (e as { code?: string }).code ?? 'unknown'
+              return null
+            })) ?? null)
     }
     results.push({
       id: c.id,
@@ -277,19 +303,23 @@ export async function runEval(opts: {
       outcome,
       latencyMs,
       checks,
-      grade
+      grade,
+      ...(gradeError ? { gradeError } : {})
     })
   }
-  return { results, metrics: summarize(results) }
+  return { results, metrics: summarize(results), graderModel: opts.fake ? null : graderModel }
 }
 
 export function reportMarkdown(run: EvalRun, failures: string[]): string {
   const m = run.metrics
   const pct = (v: number): string => `${(v * 100).toFixed(1)}%`
+  const ungraded = (m.graded ?? 1) === 0
   const lines = [
     `# Lens eval: ${new Date().toISOString()}`,
     '',
     failures.length ? `**FAILED**: ${failures.join('; ')}` : '**Passed** every gate.',
+    '',
+    `Grader: ${run.graderModel === null ? 'fake' : `\`${run.graderModel ?? LENS_MODELS.rewriteStrong}\``}`,
     '',
     '| Metric | Value |',
     '|---|---|',
@@ -300,9 +330,10 @@ export function reportMarkdown(run: EvalRun, failures: string[]): string {
     `| Invariants kept (replacements) | ${pct(m.invariantPassRate)} |`,
     `| Must-keep tokens kept | ${pct(m.mustKeepPassRate)} |`,
     `| High-stakes rendered as gloss | ${pct(m.highStakesGlossRate)} |`,
-    `| Meaning preserved (graded) | ${pct(m.meaningPreservedRate)} |`,
-    `| Adds facts (graded) | ${pct(m.addsFactsRate)} |`,
-    `| Easier (1–5, graded) | ${m.meanEasier.toFixed(2)} |`,
+    `| Graded | ${gradedLine(run)} |`,
+    `| Meaning preserved (graded) | ${ungraded ? 'not graded' : pct(m.meaningPreservedRate)} |`,
+    `| Adds facts (graded) | ${ungraded ? 'not graded' : pct(m.addsFactsRate)} |`,
+    `| Easier (1–5, graded) | ${ungraded ? 'not graded' : m.meanEasier.toFixed(2)} |`,
     `| Latency p50 / p95 | ${m.latencyP50} / ${m.latencyP95} ms |`,
     '',
     '| Case | Outcome | Checks | Grade |',
@@ -328,4 +359,16 @@ export function reportMarkdown(run: EvalRun, failures: string[]): string {
     lines.push(`| ${r.id} | ${o} | ${checks || 'ok'} | ${g} |`)
   }
   return lines.join('\n') + '\n'
+}
+
+/** "38/40" plus the grader's errors, e.g. "0/40 (rate_limited ×40)". */
+function gradedLine(run: EvalRun): string {
+  const rewritten = run.results.filter((r) => r.outcome.kind === 'rewritten').length
+  const errors: Record<string, number> = {}
+  for (const r of run.results)
+    if (r.gradeError) errors[r.gradeError] = (errors[r.gradeError] ?? 0) + 1
+  const why = Object.entries(errors)
+    .map(([code, n]) => `${code} ×${n}`)
+    .join(', ')
+  return `${run.metrics.graded ?? rewritten}/${rewritten}${why ? ` (${why})` : ''}`
 }
