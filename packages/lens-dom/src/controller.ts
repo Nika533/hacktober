@@ -51,7 +51,8 @@ export interface CreateLensOptions {
   urlHash?: string
   surface?: LensSurface
   shadowMode?: ShadowRootMode
-  renderer?: RendererChoice
+  /** A built-in renderer, or the host's own (e.g. pdf-view's `PdfOverlayRenderer`). */
+  renderer?: RendererChoice | Renderer
   classify?: (context: PageContext) => PageClassification
   ids?: () => string
   now?: () => number
@@ -209,7 +210,11 @@ export function createLens(options: CreateLensOptions): Lens {
     return renderers.overlay
   }
 
+  const host = typeof choice === 'object' ? choice : null
+  if (host) cleanup.push(host.subscribe(onRendererEvent(host)))
+
   const rendererFor = (): Renderer => {
+    if (host) return host
     if (choice === 'inline') return inline()
     if (choice === 'overlay') return overlay()
     return detector.dynamic ? overlay() : inline()

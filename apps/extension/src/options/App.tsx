@@ -27,9 +27,36 @@ import {
   type FormEvent,
   type ReactNode
 } from 'react'
+import type { BridgeState, BridgeStatus } from '../messages'
 import { normalizeSite, siteLabel, sortedSites } from './sites'
 
 export type SettingsSource = Pick<LensBackend, 'getSettings' | 'patchSettings' | 'onSettings'>
+
+export interface ConnectionSource {
+  status(): Promise<BridgeStatus>
+  onStatus(cb: (status: BridgeStatus) => void): () => void
+}
+
+const CONNECTION: Record<BridgeState, { text: string; help?: string; tone: string }> = {
+  idle: { text: 'Connecting to Hoot…', tone: 'pending' },
+  connecting: { text: 'Connecting to Hoot…', tone: 'pending' },
+  connected: { text: 'Connected to Hoot', tone: 'ok' },
+  not_running: {
+    text: 'Hoot isn’t running.',
+    help: 'Open Hoot on this computer. Lens connects as soon as it starts.',
+    tone: 'warn'
+  },
+  not_installed: {
+    text: 'Hoot isn’t installed.',
+    help: 'Lens rewrites text with the Hoot desktop app. Install Hoot, then try again.',
+    tone: 'warn'
+  },
+  version_mismatch: {
+    text: 'Hoot needs an update.',
+    help: 'This extension and the Hoot app are different versions. Update both, then try again.',
+    tone: 'warn'
+  }
+}
 
 const MODES: SegmentedOption<LensMode>[] = [
   { value: 'auto', label: 'Auto' },
@@ -50,7 +77,13 @@ const RULES: SegmentedOption<SiteRule>[] = [
 ]
 
 /** The extension's options page: Lens on/off, mode and the per-site rules (spec §5.6). */
-export function OptionsApp({ source }: { source: SettingsSource }): React.JSX.Element {
+export function OptionsApp({
+  source,
+  connection
+}: {
+  source: SettingsSource
+  connection?: ConnectionSource
+}): React.JSX.Element {
   const toast = useToast()
   const [settings, setSettings] = useState<LensSettings | null>(null)
   const [failed, setFailed] = useState(false)
@@ -102,6 +135,7 @@ export function OptionsApp({ source }: { source: SettingsSource }): React.JSX.El
           </p>
         </div>
       </header>
+      {connection && <Connection source={connection} />}
       {failed ? (
         <div role="alert" className="hoot-options__error">
           <p className="hoot-t-body">Couldn’t load your Lens settings.</p>
@@ -150,6 +184,47 @@ export function OptionsApp({ source }: { source: SettingsSource }): React.JSX.El
         )
       )}
     </main>
+  )
+}
+
+function Connection({ source }: { source: ConnectionSource }): React.JSX.Element {
+  const [status, setStatus] = useState<BridgeStatus>({ state: 'connecting', appVersion: null })
+  const [checking, setChecking] = useState(false)
+
+  const query = useCallback(
+    (): Promise<void> =>
+      source.status().then(setStatus, () => setStatus({ state: 'not_running', appVersion: null })),
+    [source]
+  )
+
+  const check = (): void => {
+    setChecking(true)
+    void query().finally(() => setChecking(false))
+  }
+
+  useEffect(() => {
+    void query()
+    return source.onStatus(setStatus)
+  }, [source, query])
+
+  const copy = CONNECTION[status.state]
+  return (
+    <Group title="Hoot app">
+      <p role="status" className="hoot-options__status" data-tone={copy.tone}>
+        <span className="hoot-options__dot" aria-hidden />
+        {status.state === 'connected' && status.appVersion
+          ? `${copy.text} ${status.appVersion}`
+          : copy.text}
+      </p>
+      {copy.help && (
+        <div className="hoot-options__help">
+          <p className="hoot-options__note">{copy.help}</p>
+          <Button size="sm" busy={checking} onClick={check}>
+            Try again
+          </Button>
+        </div>
+      )}
+    </Group>
   )
 }
 

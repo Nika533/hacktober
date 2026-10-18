@@ -224,6 +224,11 @@ pages. M3 and M4 items marked *stretch* below are the first to drop.
 
 ## 6. Workstreams
 
+> **Remaining work is scheduled in [`docs/finish-plan.md`](finish-plan.md).** It moves the
+> chat service, pins and installer to C, capture to d2 and the Buddy renderer to d3, and it
+> replaces the owners and order below for every task not yet merged. The task
+> descriptions below still define what each task must do.
+
 Task IDs are referenced in PR titles (`D1-13: per-stream abort controller`).
 "Needs" lists inputs from other builders. Until an input lands, use the fake.
 
