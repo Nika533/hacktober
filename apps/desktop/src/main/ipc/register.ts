@@ -3,6 +3,7 @@ import type { InvokeArgs } from '@hoot/core/schemas'
 import type { AppContext } from '../context'
 import { createLensHandlers } from '../lens'
 import { registerAppIpc } from './app'
+import { registerBuddyIpc } from './buddy'
 import { registerClipboardIpc } from './clipboard'
 import { handleInvoke } from './handle'
 import { registerOnboardingIpc } from './onboarding'
@@ -42,8 +43,8 @@ export function registerHandlerMap(map: HandlerMap): void {
 }
 
 /**
- * Domain handlers. capture:*, pins:*, chat:* and buddy:* land when their
- * feature folders do — an unregistered invoke rejects naturally.
+ * Domain handlers. capture:*, pins:* and chat:* land when their feature
+ * folders do — an unregistered invoke rejects naturally.
  */
 export function registerDomains(ctx: AppContext): void {
   registerSettingsIpc(ctx)
@@ -51,5 +52,6 @@ export function registerDomains(ctx: AppContext): void {
   registerOnboardingIpc(ctx)
   registerClipboardIpc(ctx)
   registerAppIpc()
+  registerBuddyIpc(ctx)
   registerHandlerMap(createLensHandlers(ctx.lens))
 }
