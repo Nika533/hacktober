@@ -64,6 +64,7 @@ export interface Persistence {
   loadSession(id: string): Promise<Session | null>
   saveSession(s: Session): Promise<void>
   deleteSession(id: string): Promise<void>
+  /** "Clear all chats": every session, the index, and every saved capture. */
   clearSessions(): Promise<void>
   loadPins(): Promise<Pin[]>
   savePins(p: Pin[]): Promise<void>
@@ -259,6 +260,14 @@ export function createPersistence(deps: PersistenceDeps): Persistence & UiStateS
         const entries = await fs.readdir(sessionsDir).catch(() => [] as string[])
         await Promise.all(
           entries.filter((f) => f.endsWith('.json')).map((f) => fs.rm(join(sessionsDir, f)))
+        )
+        // Captures belong to chats (pins never reference them); clearing the
+        // chats must not leave screenshots of the user's screen behind.
+        const captures = await fs.readdir(attachmentsDir).catch(() => [] as string[])
+        await Promise.all(
+          captures
+            .filter((f) => f.endsWith('.png'))
+            .map((f) => fs.rm(join(attachmentsDir, f), { force: true }))
         )
         // The empty index is written even when history is off.
         await writeJsonAtomic(indexFile, EMPTY_INDEX)

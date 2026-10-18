@@ -188,7 +188,9 @@ export function createChatService(deps: ChatDeps): ChatService {
         active = null
         store.update('chat', { stream: null })
       }
-      if (stream.discarded) return
+      // A deleted session writes nothing back, but the owl still has to
+      // leave its thinking/talking mood.
+      if (stream.discarded) return deps.onActivity?.('stopped')
       const session = withMessage(latest(), stream.messageId, (m) => ({
         ...m,
         text,
@@ -311,8 +313,11 @@ export function createChatService(deps: ChatDeps): ChatService {
   }
 
   async function hardDelete(id: string, session: Session | null): Promise<void> {
+    // A chat deleted from the list without being opened this run isn't
+    // cached; read it first, or its captures stay on disk.
+    const attachments = (session ?? (await persistence.loadSession(id)))?.attachments ?? {}
     await persistence.deleteSession(id)
-    for (const attachmentId of Object.keys(session?.attachments ?? {})) {
+    for (const attachmentId of Object.keys(attachments)) {
       await persistence.deleteAttachment(attachmentId)
     }
     loaded.delete(id)
@@ -330,7 +335,8 @@ export function createChatService(deps: ChatDeps): ChatService {
   return {
     async send(payload, opts = {}) {
       // One stream at a time, and one send being prepared: a double click must
-      // not grab a second frame that would be left pending.
+      // not grab a second frame that would be left pending. Returning here is
+      // also before taking the armed clipboard text, so it's never lost.
       if (active || preparing) return
       preparing = true
       let found: string | null = null

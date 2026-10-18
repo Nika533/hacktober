@@ -23,12 +23,17 @@ import { HOOT_API_ROUTES } from '@hoot/core'
 const noop = (): void => undefined
 const silent: Logger = { info: noop, warn: noop, error: noop }
 
-function memoryPersistence(): Persistence & { sessions: Map<string, Session>; deleted: string[] } {
+function memoryPersistence(): Persistence & {
+  sessions: Map<string, Session>
+  attachments: Map<string, Uint8Array>
+  deleted: string[]
+} {
   const sessions = new Map<string, Session>()
   const attachments = new Map<string, Uint8Array>()
   const deleted: string[] = []
   return {
     sessions,
+    attachments,
     deleted,
     async ensureDirs() {
       return undefined
@@ -57,6 +62,7 @@ function memoryPersistence(): Persistence & { sessions: Map<string, Session>; de
     },
     async clearSessions() {
       sessions.clear()
+      attachments.clear()
     },
     async loadPins(): Promise<Pin[]> {
       return []
@@ -155,7 +161,10 @@ function setup(opts: { provider?: AiProvider | null; clipboard?: string | null }
     deleteUndoMs: 50,
     checkpointMs: 0
   })
-  return { store, chat, persistence, writer, sent, activity }
+  const setClipboard = (text: string | null): void => {
+    clipboard = text
+  }
+  return { store, chat, persistence, writer, sent, activity, setClipboard }
 }
 
 async function settled(store: ReturnType<typeof setup>['store']): Promise<void> {
@@ -274,6 +283,23 @@ describe('chat service: sending', () => {
     await chat.send({ text: 'two' })
     expect(store.get('chat').session?.messages).toHaveLength(2)
     provider.release()
+    await settled(store)
+  })
+
+  it('a send ignored while streaming leaves the armed clipboard for the next one', async () => {
+    const provider = gatedProvider(['x'])
+    const { store, chat, setClipboard } = setup({ provider })
+    await chat.send({ text: 'one' })
+    setClipboard('armed words')
+    await chat.send({ text: 'two' })
+    expect(store.get('chat').session?.messages).toHaveLength(2)
+    await tick()
+    provider.release()
+    await settled(store)
+
+    await chat.send({ text: 'three' })
+    expect(store.get('chat').session?.messages[2]?.sentText).toContain('armed words')
+    await chat.stop()
     await settled(store)
   })
 
@@ -436,6 +462,61 @@ describe('chat service: sessions', () => {
     expect(store.get('chat').session).toBeNull()
     expect(persistence.sessions.has(id)).toBe(false)
     expect(persistence.deleted).toContain(id)
+  })
+
+  it('deleting or clearing mid-stream settles the owl instead of leaving it thinking', async () => {
+    const deleting = setup({ provider: gatedProvider(['a', 'b']) })
+    await deleting.chat.send({ text: 'doomed' })
+    await tick()
+    await deleting.chat.deleteSession(deleting.store.get('chat').session?.id ?? '')
+    await settled(deleting.store)
+    expect(deleting.activity.at(-1)).toBe('stopped')
+
+    const clearing = setup({ provider: gatedProvider(['a', 'b']) })
+    await clearing.chat.send({ text: 'doomed' })
+    await tick()
+    await clearing.chat.clearAll()
+    await settled(clearing.store)
+    expect(clearing.activity.at(-1)).toBe('stopped')
+  })
+
+  it("deleting a chat that wasn't opened this run still deletes its captures", async () => {
+    const { store, chat, persistence } = setup()
+    const onDisk: Session = {
+      id: 'old',
+      title: 'Old chat',
+      createdAt: 1,
+      updatedAt: 1,
+      messages: [
+        {
+          id: 'm1',
+          role: 'user',
+          text: 'what is this',
+          attachmentIds: ['cap1'],
+          createdAt: 1,
+          status: 'done'
+        }
+      ],
+      attachments: {
+        cap1: {
+          id: 'cap1',
+          kind: 'capture',
+          thumbDataUrl: 'data:image/png;base64,',
+          width: 1,
+          height: 1,
+          createdAt: 1
+        }
+      }
+    }
+    persistence.sessions.set('old', onDisk)
+    persistence.attachments.set('cap1', new Uint8Array([1]))
+    store.update('sessions', {
+      list: [{ id: 'old', title: 'Old chat', createdAt: 1, updatedAt: 1, messageCount: 1 }]
+    })
+    await chat.deleteSession('old')
+    await new Promise((r) => setTimeout(r, 80))
+    expect(persistence.deleted).toContain('old')
+    expect(persistence.attachments.has('cap1')).toBe(false)
   })
 
   it('undo restores a deleted session within the window', async () => {

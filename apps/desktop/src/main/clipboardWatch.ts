@@ -16,6 +16,12 @@ export interface ClipboardWatcherDeps {
   probe?: () => Promise<ClipboardProbe | null>
   /** Current clipboard text, snapshotted when the hint is armed. */
   readText?: () => Promise<string>
+  /**
+   * Arming an image chip attaches the copied image to the next message (a
+   * pending `clipboard-image` attachment). Resolves false when nothing was
+   * attached (no image anymore, or the composer is full).
+   */
+  attachImage?: () => Promise<boolean>
 }
 
 export interface ClipboardWatcher {
@@ -23,7 +29,10 @@ export interface ClipboardWatcher {
   init(): Promise<void>
   /** Run before the buddy leaves `hidden`: maybe show the clipboard chip. */
   onSummon(): Promise<void>
-  /** Mark the hint armed and snapshot the text for the next send. */
+  /**
+   * Toggle the chip: arming text snapshots it for the next send, arming an
+   * image attaches it; arming an armed chip disarms it.
+   */
   arm(): Promise<void>
   /** The armed text, once; also clears the hint. */
   take(): string | null
@@ -31,7 +40,7 @@ export interface ClipboardWatcher {
 }
 
 /** Electron 44 clipboard is W3C-style: `read()` → `ClipboardItem.getType(mime)`. */
-async function readImage(): Promise<Electron.NativeImage | null> {
+export async function readClipboardImage(): Promise<Electron.NativeImage | null> {
   try {
     if (!(await clipboard.has('image/png'))) return null
     for (const item of await clipboard.read()) {
@@ -49,7 +58,7 @@ async function readImage(): Promise<Electron.NativeImage | null> {
 /** One read → fingerprint + the hint it would show (image beats text). */
 export async function probeClipboard(): Promise<ClipboardProbe | null> {
   try {
-    const img = await readImage()
+    const img = await readClipboardImage()
     if (img) {
       const { width, height } = img.getSize()
       const small = img.resize({ width: 16, height: 16 })
@@ -97,16 +106,30 @@ export function createClipboardWatcher(deps: ClipboardWatcherDeps): ClipboardWat
     async arm() {
       const hint = store.get('chat').clipboardHint
       if (!hint) return
+      // The chip is a toggle (ClipboardChip): a second press takes it back.
+      if (hint.selected === true) {
+        selection = null
+        store.update('chat', { clipboardHint: { ...hint, selected: false } })
+        return
+      }
       if (hint.kind === 'image') {
-        // Arming an image means capturing it — that pipeline lands with d2.
-        log.info('image clipboard arming lands with capture; marking selected only')
-      } else {
+        // The image becomes a pending attachment with its own removable chip,
+        // so the suggestion is done; nothing is marked armed that won't send.
+        let attached = false
         try {
-          selection = await readText()
+          attached = (await deps.attachImage?.()) ?? false
         } catch (e) {
-          log.warn(`clipboard read for arm failed: ${String(e)}`)
-          selection = null
+          log.warn(`clipboard image attach failed: ${String(e)}`)
         }
+        if (attached) clearHint()
+        else log.warn('clipboard image could not be attached')
+        return
+      }
+      try {
+        selection = await readText()
+      } catch (e) {
+        log.warn(`clipboard read for arm failed: ${String(e)}`)
+        selection = null
       }
       store.update('chat', { clipboardHint: { ...hint, selected: true } })
     },

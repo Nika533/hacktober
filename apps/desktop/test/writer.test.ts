@@ -70,6 +70,55 @@ describe('DebouncedWriter', () => {
     expect(writer.pending()).toBe(0)
   })
 
+  it('flush also waits for a write whose timer already fired', async () => {
+    const { writer } = make()
+    let finish: (() => void) | null = null
+    writer.schedule(
+      'k',
+      () =>
+        new Promise<void>((r) => {
+          finish = r
+        })
+    )
+    await vi.advanceTimersByTimeAsync(300)
+    expect(finish).not.toBeNull()
+    let flushed = false
+    const flushing = writer.flush().then(() => {
+      flushed = true
+    })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(flushed).toBe(false)
+    finish!()
+    await flushing
+    expect(flushed).toBe(true)
+  })
+
+  it('writes to one key never overlap, so an older write cannot land last', async () => {
+    const { writer } = make()
+    const order: string[] = []
+    let finishFirst: (() => void) | null = null
+    writer.schedule(
+      'k',
+      () =>
+        new Promise<void>((r) => {
+          order.push('first started')
+          finishFirst = () => {
+            order.push('first done')
+            r()
+          }
+        })
+    )
+    await vi.advanceTimersByTimeAsync(300)
+    writer.schedule('k', async () => {
+      order.push('second ran')
+    })
+    await vi.advanceTimersByTimeAsync(300)
+    expect(order).toEqual(['first started'])
+    finishFirst!()
+    await writer.flush()
+    expect(order).toEqual(['first started', 'first done', 'second ran'])
+  })
+
   it('a rejected fn goes to onError, never out of the timer', async () => {
     const { writer, errors } = make()
     const boom = new Error('boom')
