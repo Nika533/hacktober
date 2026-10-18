@@ -56,7 +56,11 @@ the `.ps1` shims.
 | `npm.cmd run demo -w @hoot/lens-dom` | lens-dom demo page |
 | `npm.cmd run e2e:desktop` | e2e build + Playwright `_electron` specs |
 | `npm.cmd run e2e:extension` | Extension build + Playwright Chromium specs |
-| `npm.cmd run build:win` | NSIS installer |
+| `npm.cmd run build:unpack -w @hoot/desktop` | Unpacked packaged app in `apps/desktop/dist/win-unpacked` |
+| `npm.cmd run build:win` | Unsigned per-user NSIS installer, `apps/desktop/dist/Hoot-<version>-setup.exe`; it registers the native host (CI keeps it as the `hoot-installer` artifact) |
+| `npm.cmd run smoke:packaged` | Packaged smoke test after `build:unpack` (Windows; `-- --register` also writes and removes the real HKCU keys) |
+| `node scripts/gate-g1.mjs` | Gate G1 on the e2e build with the fakes, from a fresh profile |
+| `node scripts/gate-g2.mjs [--live --runs 2]` | Gate G2, desktop half (demo steps 1–2); `--live` uses real Gemini through onboarding |
 | `npm.cmd run register-host -w @hoot/bridge` | Build hoot-bridge and register it for Chrome, Edge, Chromium and Brave (current user); `unregister-host` undoes it |
 | `npm.cmd run fake-server -w @hoot/bridge -- --port 7341 --code dev` | Fake Lens bridge on `ws://127.0.0.1:7341/?code=dev`, for using the extension without the app |
 | `npm.cmd run check:ownership -- --branch d2/x --base origin/main` | Local ownership check |
@@ -118,7 +122,10 @@ One workspace: `npm.cmd run <script> -w @hoot/desktop` (or `@hoot/extension`,
 | `HOOT_FAKE_LENS=1` | Lens engine answers with `@hoot/core/testing` fakes |
 | `HOOT_TEST=1` | e2e build only: test hooks, no global hotkeys |
 | `HOOT_USER_DATA=<dir>` | Redirects `app.getPath('userData')` |
-| `HOOT_DEV_BRIDGE=1` | Dev-only WebSocket bridge transport (pairing code required) |
+| `HOOT_DEV_BRIDGE=1` | Dev-only WebSocket bridge transport (pairing code required); `HOOT_DEV_BRIDGE_PORT` (default 7341) and `HOOT_DEV_BRIDGE_CODE` pin the port and code |
+| `HOOT_FAKE_CAPTURE=<png>` | Capture uses this image instead of grabbing the screen (e2e, offline demos) |
+| `HOOT_BRIDGE_DIR=<dir>` | Where the bridge token and the host manifest go (default `%LOCALAPPDATA%\Hoot\bridge`) |
+| `HOOT_BRIDGE_PIPE`, `HOOT_APP_PATH` | hoot-bridge only: override the pipe path and the app it starts |
 
 ## Contracts
 
@@ -143,6 +150,9 @@ One workspace: `npm.cmd run <script> -w @hoot/desktop` (or `@hoot/extension`,
 - All network and model calls happen in main. Renderers are sandboxed
   (`sandbox: true`, `contextIsolation`, CSP header) and reach main only via
   `window.hoot`.
+- Features plug into main the same way: a folder exporting
+  `create<Feature>Service` + `create<Feature>Handlers`, wired once by d1
+  (`packages/core/CONTRACTS.md`, "Feature plug-ins" and "Feature hand-offs").
 - State: main owns slices (`StateSlices`). Windows subscribe to the slices
   they render and get `state:patch` with only the changed slices. Streaming
   text goes over `chat:delta`. Invariant: a patch never contains a delta that
@@ -174,6 +184,8 @@ One workspace: `npm.cmd run <script> -w @hoot/desktop` (or `@hoot/extension`,
   run on it.
 - Branch `<you>/<TASK-ID>-<slug>` (e.g. `d2/D2-10-inline-renderer`) from
   `main`. PR title `<TASK-ID>: <summary>`.
+- Commit as your GitHub noreply address (`git config user.email
+  <id>+<login>@users.noreply.github.com`), never a personal email.
 - Open the PR and turn on auto-merge (`gh pr merge --auto --squash`). It
   merges as soon as the required checks pass: `ownership`, `checks`
   (Ubuntu + Windows: typecheck, lint errors, unit, build), `e2e` (Windows;
