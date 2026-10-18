@@ -36,7 +36,12 @@ import { createSecretStore, type SecretStore } from './secrets'
 import { createBroadcaster, sinkFor, type Broadcaster } from './store/broadcast'
 import { watchLensSettings } from './store/lensWatch'
 import { watchPersistence } from './store/persist'
-import { createPersistence, PersistenceError, type Persistence } from './store/persistence'
+import {
+  createPersistence,
+  PersistenceError,
+  type Persistence,
+  type UiStateStore
+} from './store/persistence'
 import { createStore, initialSlices, type Store } from './store/store'
 import { createDebouncedWriter, type DebouncedWriter } from './store/writer'
 import { readSystem, watchSystem } from './system'
@@ -53,7 +58,7 @@ export interface AppContext {
   broadcaster: Broadcaster
   flush: FlushRegistry
   windows: WindowRegistry
-  persistence: Persistence
+  persistence: Persistence & UiStateStore
   writer: DebouncedWriter
   secrets: SecretStore
   studio: StudioWindow
@@ -140,6 +145,9 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
       ? await persistence.loadSession(index.activeId)
       : null
   const savedPins = await persistence.loadPins()
+  // #70: the onboarding step survives restarts, but only matters when
+  // onboarding isn't done yet.
+  const uiState = settings.onboardingDone ? null : await persistence.loadUiState()
 
   // Pins load into the slice even when restorePins is off — that setting only
   // decides whether note windows open.
@@ -154,6 +162,7 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
   store.set('sessions', { list: index.sessions, pendingDelete: null })
   store.update('chat', { session: activeSession })
   store.set('pins', { pins: savedPins })
+  if (uiState !== null) store.update('studio', { onboardingStep: uiState.onboardingStep })
 
   const broadcaster = createBroadcaster(store)
   const windows = createWindowRegistry()
