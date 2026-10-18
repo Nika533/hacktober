@@ -1,5 +1,5 @@
 import { app, dialog, powerMonitor, safeStorage, screen, shell } from 'electron'
-import { randomBytes } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, stat } from 'node:fs/promises'
 import os from 'node:os'
@@ -19,9 +19,15 @@ import { createFakeProvider, createGeminiProvider } from './ai'
 import { AnotherInstanceError, createBridgeServer, type BridgeServer } from './bridge'
 import { applyChatActivity } from './buddy/activity'
 import { createBuddyWindow, type BuddyWindow } from './buddy/window'
-import { createCaptureService, type CaptureService } from './capture'
+import {
+  addImageAttachment,
+  createCaptureService,
+  fromNativeImage,
+  MAX_PENDING,
+  type CaptureService
+} from './capture'
 import { createChatService, type ChatService } from './chat'
-import { createClipboardWatcher, type ClipboardWatcher } from './clipboardWatch'
+import { createClipboardWatcher, readClipboardImage, type ClipboardWatcher } from './clipboardWatch'
 import type { AppEnv } from './env'
 import { createHotkeys, type Hotkeys } from './hotkeys'
 import { handleInvoke } from './ipc/handle'
@@ -176,7 +182,22 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
   const broadcaster = createBroadcaster(store)
   const windows = createWindowRegistry()
 
-  const clipboardWatcher = createClipboardWatcher({ store, log })
+  const clipboardWatcher = createClipboardWatcher({
+    store,
+    log,
+    // "Use copied image" attaches it like a capture, within the same cap.
+    attachImage: async () => {
+      if (store.get('chat').pendingAttachments.length >= MAX_PENDING) return false
+      const image = await readClipboardImage()
+      if (!image) return false
+      await addImageAttachment(
+        { store, persistence, newId: randomUUID, now: Date.now },
+        fromNativeImage(image),
+        'clipboard-image'
+      )
+      return true
+    }
+  })
 
   // A file dropped on any Hoot surface opens in the Reader (F-D1-6). ctx is
   // assigned below; the guard can't fire before a page loads anyway.

@@ -231,6 +231,13 @@ describe('sessions', () => {
     expect(await readdir(join(root, 'sessions'))).toEqual(['index.json'])
     expect(await p.loadSessionIndex()).toEqual({ activeId: null, sessions: [] })
   })
+
+  it('clearSessions also deletes every saved capture', async () => {
+    await p.saveAttachment('att1', new Uint8Array([1]))
+    await p.saveAttachment('att2', new Uint8Array([2]))
+    await p.clearSessions()
+    expect(await readdir(join(root, 'attachments'))).toEqual([])
+  })
 })
 
 describe('migrateSession (pure)', () => {
