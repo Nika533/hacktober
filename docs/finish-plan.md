@@ -209,12 +209,12 @@ pass + demo screenshots.
 - [ ] **Nika533:** merge this PR; branch protection (required checks `ownership`,
       `checks (ubuntu-latest)`, `checks (windows-latest)`, `e2e`, `ui-shots`; code-owner
       review; no bypass); secret scanning + push protection.
-- [ ] Open and pin the "Finish plan" tracking issue.
+- [x] Open and pin the "Finish plan" tracking issue (#49).
 - [ ] A Gemini API key (environment variable only) on C's machine and the demo machine.
       Flash is enough; Argon needs a paid tier.
 - [ ] Demo machine: Windows 11, Chrome, one 1080p+ monitor. Run the dev or unpacked build
       (Smart App Control can block an unsigned installer).
-- [ ] Saba (C): set `git config user.email` to the GitHub noreply address.
+- [x] C: set `git config user.email` to the GitHub noreply address.
 - [ ] After G4: three rehearsals, a 2-minute video, pitch notes.
 
 ## 7. Kickoff prompts (paste one into each agent)
