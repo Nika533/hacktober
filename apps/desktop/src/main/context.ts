@@ -1,5 +1,6 @@
 import { app, dialog, safeStorage, shell } from 'electron'
 import { randomBytes } from 'node:crypto'
+import { existsSync } from 'node:fs'
 import { mkdir, readFile, stat } from 'node:fs/promises'
 import os from 'node:os'
 import { join } from 'node:path'
@@ -49,6 +50,7 @@ import { readSystem, watchSystem } from './system'
 import { installTestHooks } from './testHooks'
 import { createTray, type TrayHandle } from './tray'
 import { createWindowRegistry, rendererUrlFor, type WindowRegistry } from './windows/base'
+import { fileArgFromArgv } from './windows/drop'
 import { createReaderWindow } from './windows/reader'
 import { createStudioWindow, type StudioWindow } from './windows/studio'
 
@@ -174,10 +176,14 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
 
   const clipboardWatcher = createClipboardWatcher({ store, log })
 
+  // A file dropped on any Hoot surface opens in the Reader (F-D1-6). ctx is
+  // assigned below; the guard can't fire before a page loads anyway.
+  const onFileDrop = (p: string): void => ctx.hooks.openInReader(p)
+
   // One Studio window, created hidden and reused. (Constructed here rather
   // than in start() so ctx.studio is always populated; nothing is visible
   // until start() decides what to open.)
-  const studio = createStudioWindow({ store, windows, log })
+  const studio = createStudioWindow({ store, windows, log, onFileDrop })
   // Shared with the note windows: closing on quit must not delete the pin.
   let quitting = false
   app.on('before-quit', () => {
@@ -192,7 +198,8 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     store,
     windows,
     log,
-    beforeSummon: () => clipboardWatcher.onSummon()
+    beforeSummon: () => clipboardWatcher.onSummon(),
+    onFileDrop
   })
   // Locking Studio always returns to the card; the onboarding flow overrides
   // with request('pill') afterwards.
@@ -320,7 +327,12 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
   // The Reader window is lazy: it exists once a document or an explicit
   // open asks for it, centred on the owl's display.
   const reader = createReaderService({
-    window: createReaderWindow({ windows, log, anchor: () => ctx.hooks.buddyAnchor() }),
+    window: createReaderWindow({
+      windows,
+      log,
+      anchor: () => ctx.hooks.buddyAnchor(),
+      onFileDrop
+    }),
     dialog,
     readFile: async (p) => readFile(p),
     stat: (p) => stat(p),
@@ -412,8 +424,11 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     keepAliveWithoutWindows: true,
 
     onSecondInstance(argv) {
+      const file = fileArgFromArgv(argv, existsSync)
       log.info(`second instance invoked: ${argv.join(' ')}`)
-      onSummonHotkey()
+      // `hoot doc.pdf` on a running app opens it instead of summoning.
+      if (file !== null) ctx.hooks.openInReader(file)
+      else onSummonHotkey()
     },
 
     async start() {
@@ -453,9 +468,12 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
       // The first desktopCapturer grab takes ~3 s cold — warm it once idle.
       capture.prewarm()
       // --hidden opens nothing (launch-at-login must never pop a window);
-      // first run goes to onboarding, returning users get the owl.
+      // first run goes to onboarding, returning users get the owl — or the
+      // document they launched us with ("Open with Hoot" / `hoot doc.pdf`).
       if (env.hidden) return
+      const file = fileArgFromArgv(process.argv, existsSync)
       if (!settings.onboardingDone) studio.open('onboarding')
+      else if (file !== null) ctx.hooks.openInReader(file)
       else buddy.summon()
     },
 
