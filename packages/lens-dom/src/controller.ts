@@ -18,6 +18,7 @@ import { InlineRenderer } from './render/inline'
 import { OverlayRenderer } from './render/overlay'
 import type { Mark, MarkSpec, Renderer, RendererEvent } from './render/types'
 import { SelectionWatcher, type SelectionCandidate } from './selection'
+import { normalizeWhitespace } from './text'
 import { LensUi } from './ui/lens-ui'
 import { viewportOf } from './ui/position'
 import { createUiRoot, type UiRoot } from './ui/root'
@@ -222,11 +223,32 @@ export function createLens(options: CreateLensOptions): Lens {
     if (entry) restore(entry.mark, 'reverted')
   }
 
+  const copiedOriginal = new Set<string>()
   const copy = new CopyController({
     document: doc,
     mode: () => settings?.copyBehavior ?? 'original',
-    visibleText: (host) => renderers.inline?.visibleText(host) ?? null
+    visibleText: (host) => renderers.inline?.visibleText(host) ?? null,
+    copiedOriginal: (hosts) => {
+      for (const host of hosts) {
+        const id = (host as HTMLElement).dataset.hootLens ?? ''
+        const entry = applied.get(id)
+        if (!entry || copiedOriginal.has(id)) continue
+        copiedOriginal.add(id)
+        feedback(entry, 'copied_original')
+      }
+    }
   })
+
+  const shown = new Map<string, Applied>()
+  const reselected = new WeakSet<Applied>()
+  const termKey = (text: string): string => normalizeWhitespace(text).toLowerCase()
+
+  const noteReselection = (text: string): void => {
+    const entry = shown.get(termKey(text))
+    if (!entry || reselected.has(entry)) return
+    reselected.add(entry)
+    feedback(entry, 'reselected')
+  }
 
   const setPaused = async (next: boolean): Promise<void> => {
     if (!settings || paused() === next) return
@@ -280,7 +302,9 @@ export function createLens(options: CreateLensOptions): Lens {
         candidate = null
         ui.hideChip()
         if (!active() || next.signals.sizeClass === 'multi-paragraph') return
-        if (!rendererFor().check(next.range).ok) return
+        const check = rendererFor().check(next.range)
+        if (check.ok || check.reason !== 'marked') noteReselection(next.text)
+        if (!check.ok) return
         candidate = next
         const rects = Array.from(next.range.getClientRects())
         ui.showChip(rects[rects.length - 1] ?? next.range.getBoundingClientRect())
@@ -374,6 +398,7 @@ export function createLens(options: CreateLensOptions): Lens {
       ui.announce(announceChange(spec))
       feedback(entry, 'shown', now() - started)
       kept.track(mark)
+      for (const text of [result.term, ctx.span]) if (text) shown.set(termKey(text), entry)
       sync()
       return mark
     } catch (error) {

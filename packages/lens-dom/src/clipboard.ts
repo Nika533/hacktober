@@ -105,6 +105,8 @@ export interface CopyControllerOptions {
   document: Document
   mode: () => CopyMode
   visibleText: (host: Element) => string | null
+  /** A copy touched these mark hosts and gave the reader the original text. */
+  copiedOriginal?: (hosts: Element[]) => void
 }
 
 export class CopyController {
@@ -156,15 +158,18 @@ export class CopyController {
     if (host && (!selection || selection.isCollapsed)) {
       event.clipboardData.setData('text/plain', textOf(host))
       event.preventDefault()
+      if (!visible) this.#options.copiedOriginal?.([host])
       return
     }
     if (!selection || selection.isCollapsed || !selection.rangeCount) return
     const range = selection.getRangeAt(0)
-    if (!marksIn(range).length) return
+    const hosts = marksIn(range)
+    if (!hosts.length) return
     const text = serializeRange(range, (element) =>
       visible && element.localName === MARK_TAG ? this.#options.visibleText(element) : null
     )
     event.clipboardData.setData('text/plain', text)
     event.preventDefault()
+    if (!visible) this.#options.copiedOriginal?.(hosts)
   }
 }

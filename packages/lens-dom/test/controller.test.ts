@@ -254,6 +254,61 @@ describe('createLens with @hoot/core fakes', () => {
     })
   })
 
+  it('reports "copied_original" once when a copy gives the reader the original', async () => {
+    await start()
+    select('heteroscedasticity')
+    await ask()
+    const copy = (): void => {
+      const range = document.createRange()
+      range.selectNodeContents(document.querySelector('hoot-lens-mark')!.parentElement!)
+      const selection = document.getSelection()!
+      selection.removeAllRanges()
+      selection.addRange(range)
+      document.body.dispatchEvent(
+        new ClipboardEvent('copy', {
+          bubbles: true,
+          cancelable: true,
+          clipboardData: new DataTransfer()
+        })
+      )
+    }
+    copy()
+    copy()
+    expect(backend.events.map((event) => event.kind)).toEqual(['shown', 'copied_original'])
+    expect(LensEventSchema.parse(backend.events[1]).term).toBe('heteroscedasticity')
+  })
+
+  it('does not report "copied_original" when copies give what the reader sees', async () => {
+    backend = createFakeLensBackend({ settings: { ...ENABLED, copyBehavior: 'visible' } })
+    await start()
+    select('heteroscedasticity')
+    const mark = await ask()
+    const data = new DataTransfer()
+    document.getSelection()!.removeAllRanges()
+    mark!.anchor.dispatchEvent(
+      new ClipboardEvent('copy', {
+        bubbles: true,
+        composed: true,
+        cancelable: true,
+        clipboardData: data
+      })
+    )
+    expect(data.getData('text/plain')).toBe('heteroscedasticity (a fake definition)')
+    expect(backend.events.map((event) => event.kind)).toEqual(['shown'])
+  })
+
+  it('reports "reselected" when the reader selects a changed term again', async () => {
+    await start()
+    select('heteroscedasticity')
+    await ask()
+    lens!.undoLast()
+    select('heteroscedasticity')
+    select('standard errors')
+    select('heteroscedasticity')
+    expect(backend.events.map((event) => event.kind)).toEqual(['shown', 'reverted', 'reselected'])
+    expect(LensEventSchema.parse(backend.events[2]).term).toBe('heteroscedasticity')
+  })
+
   it('never reports "kept" for a change restored within 30 s', async () => {
     await start()
     select('heteroscedasticity')

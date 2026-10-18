@@ -46,7 +46,7 @@ test('Ask-first rewrites a term in place and restores it exactly', async () => {
 })
 
 test('copying a changed sentence copies the original', async () => {
-  const { context, fixtures } = harness
+  const { context, worker, fixtures } = harness
   await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: fixtures.url })
   const page = await context.newPage()
   await open(page, `${fixtures.url}/article.html`)
@@ -57,6 +57,9 @@ test('copying a changed sentence copies the original', async () => {
   const copied = await page.evaluate(() => navigator.clipboard.readText())
   expect(copied).toContain('The OLS estimator')
   expect(copied).not.toContain('Fake Expanded Form')
+  await expect
+    .poll(async () => (await devLog(worker)).map((entry) => entry.payload.kind))
+    .toEqual(['shown', 'copied_original'])
 })
 
 test('never offers Lens on code, quotes, inputs or password pages', async () => {
