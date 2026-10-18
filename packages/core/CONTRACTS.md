@@ -25,12 +25,6 @@ that isn't, open a `contract: …` PR (additive; C reviews it first).
 | Bridge protocol | `src/protocol/bridge.ts`, `framing.ts`, `constants.ts`                  | 4-byte LE length + UTF-8 JSON, 1 MB cap. Exactly one reply per `reqId`. `cancel` names the request to cancel. The first pipe frame from hoot-bridge is `bridge.auth`. Dev extension id `DEV_EXTENSION_ID`; pipe path `bridgePipePath()` |
 | Models          | `src/models.ts`                                                         | Chat: Flash-Lite, Flash (default), Argon (paid). Lens: assess and rewriteFast on Flash-Lite, rewriteStrong on Flash for long simplify/unpack                                                                                            |
 
-## State subscription ordering (d1 implements, renderers rely on it)
-
-- Main answers `state:subscribe` with a snapshot of the requested slices and **registers the window for those slices in the same tick, after taking the snapshot**. The invoke reply is then sent before any `state:patch` for those slices. Electron delivers a window's IPC in send order, so the renderer never sees a patch older than its snapshot.
-- A delta is broadcast before any snapshot or patch that contains it (`mutate → chat:delta → patch`). Renderers ignore deltas until they hold a snapshot, because the snapshot already includes earlier ones.
-- Each patch replaces whole slices. Renderers keep only the slices they subscribed to.
-
 ## Fake Lens rules (for tests)
 
 `createFakeLensBackend()` / `HOOT_FAKE_LENS=1`:
@@ -39,3 +33,9 @@ that isn't, open a `contract: …` PR (additive; C reviews it first).
 - An all-caps 2–6 letter span is expanded; one word is defined; a foreign-language span (`signals.foreignLanguage`) is translated; anything else is simplified.
 - High risk, or a span over 40 words, renders as a gloss.
 - `createFakeLensBackend({ delayMs })` honours `AbortSignal` (rewrite resolves `skipped: cancelled`). `.events` and `.explained` record calls.
+
+## State subscription ordering (d1 implements, renderers rely on it)
+
+- Main answers `state:subscribe` with a snapshot of the requested slices and **registers the window for those slices in the same tick, after taking the snapshot**. The invoke reply is then sent before any `state:patch` for those slices. Electron delivers a window's IPC in send order, so the renderer never sees a patch older than its snapshot.
+- A delta is broadcast before any snapshot or patch that contains it (`mutate → chat:delta → patch`). Renderers ignore deltas until they hold a snapshot, because the snapshot already includes earlier ones.
+- Each patch replaces whole slices. Renderers keep only the slices they subscribed to.

@@ -10,3 +10,5 @@ tsconfig.json
 tsconfig.*.json
 # whitespace-sensitive Lens fixtures
 **/fixtures/**
+# Docs are hand-formatted: table padding from prettier causes merge conflicts.
+*.md
