@@ -10,6 +10,13 @@ import type {
 } from './app'
 import type { Attachment, Session, SessionMeta } from './chat'
 import type { BridgeStatus } from './lens'
+
+/** A global shortcut that couldn't be registered (Settings shows it on that row). */
+export interface HotkeyError {
+  which: 'summonHotkey' | 'captureHotkey'
+  accelerator: string
+  message: string
+}
 import type { Settings } from './settings'
 
 /**
@@ -25,7 +32,7 @@ export interface StateSlices {
     hasApiKey: boolean
     /** 'memory' when OS encryption is unavailable and the key isn't saved. */
     keyStorage: 'os-encrypted' | 'memory'
-    hotkeyErrors: string[]
+    hotkeyErrors: HotkeyError[]
   }
   system: {
     platform: Platform
