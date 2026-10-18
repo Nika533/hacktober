@@ -1,6 +1,6 @@
 import '@hoot/ui/styles.css'
 import './studio.css'
-import { DEFAULT_SUBSCRIPTIONS, type HootApi, type StudioView } from '@hoot/core'
+import { DEFAULT_SUBSCRIPTIONS, type ApiKeyResult, type HootApi, type StudioView } from '@hoot/core'
 import {
   applyAccent,
   applyTheme,
@@ -9,6 +9,7 @@ import {
   ClipboardChip,
   formatAccelerator,
   HootUIProvider,
+  OnboardingPane,
   Owl,
   QUICK_ACTION_CHIPS,
   QuickChips,
@@ -94,6 +95,29 @@ function Studio({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
   const view: StudioView = state.studio.view
   const hint = state.chat.clipboardHint
   const settings = state.settings.settings
+  const hotkeyErrors = hotkeyErrorsByShortcut(state.settings.hotkeyErrors)
+  const saveKey = (key: string): Promise<ApiKeyResult> =>
+    hoot ? hoot.settings.setApiKey(key) : Promise.resolve({ ok: false, reason: 'unreachable' })
+
+  // First run fills the window: no sidebar until there's something to put in it.
+  if (view === 'onboarding') {
+    return (
+      <OnboardingPane
+        step={state.studio.onboardingStep}
+        summonHotkey={settings.summonHotkey}
+        captureHotkey={settings.captureHotkey}
+        hasApiKey={state.settings.hasApiKey}
+        keyStorage={state.settings.keyStorage}
+        hotkeyErrors={hotkeyErrors}
+        onStep={(step) => run((h) => h.onboarding.setStep(step))}
+        onFinish={() => run((h) => h.onboarding.finish())}
+        onUpdate={(patch) => run((h) => h.settings.update(patch))}
+        onSaveKey={saveKey}
+        onOpenLink={(url) => run((h) => h.app.openExternal(url))}
+        onRecordingChange={(on) => suspendHotkeys(hoot, on)}
+      />
+    )
+  }
 
   return (
     <StudioLayout
@@ -166,14 +190,10 @@ function Studio({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
           settings={settings}
           hasApiKey={state.settings.hasApiKey}
           keyStorage={state.settings.keyStorage}
-          hotkeyErrors={hotkeyErrorsByShortcut(state.settings.hotkeyErrors)}
+          hotkeyErrors={hotkeyErrors}
           version={state.system?.version}
           onUpdate={(patch) => run((h) => h.settings.update(patch))}
-          onSaveKey={(key) =>
-            hoot
-              ? hoot.settings.setApiKey(key)
-              : Promise.resolve({ ok: false, reason: 'unreachable' })
-          }
+          onSaveKey={saveKey}
           onClearKey={() => (hoot ? hoot.settings.clearApiKey() : Promise.resolve())}
           onClearChats={() => (hoot ? hoot.sessions.clearAll() : Promise.resolve())}
           onResetAnchor={() => (hoot ? hoot.settings.resetAnchor() : Promise.resolve())}
@@ -233,22 +253,16 @@ function suspendHotkeys(hoot: HootApi | undefined, on: boolean): void {
   void settings?.suspendHotkeys?.(on).catch(() => undefined)
 }
 
-const VIEW_NAMES: Record<Exclude<StudioView, 'chat'>, string> = {
-  settings: 'Settings',
-  onboarding: 'Welcome',
+type LaterView = Exclude<StudioView, 'chat' | 'settings' | 'onboarding'>
+
+const VIEW_NAMES: Record<LaterView, string> = {
   reading: 'Reading',
   profile: 'What Hoot knows about you',
   glossary: 'My glossary'
 }
 
-/** Views that land in later tasks (D3-12, D3-13, D3-20, D3-21). */
-function NotYet({
-  view,
-  onBack
-}: {
-  view: Exclude<StudioView, 'chat'>
-  onBack: () => void
-}): React.JSX.Element {
+/** Views that land in later tasks (D3-20, D3-21). */
+function NotYet({ view, onBack }: { view: LaterView; onBack: () => void }): React.JSX.Element {
   return (
     <section className="studio-status" aria-labelledby="studio-notyet">
       <h1 id="studio-notyet">{VIEW_NAMES[view]}</h1>

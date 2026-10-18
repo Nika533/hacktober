@@ -24,6 +24,7 @@ import { useConfirm } from '../components/confirmContext'
 import { useToast } from '../components/toastContext'
 import { applyAccent, applyTheme, type ThemePreference } from '../theme'
 import { ChatDemo } from './ChatDemo'
+import { OnboardingDemo } from './OnboardingDemo'
 import { SettingsDemo } from './SettingsDemo'
 import { ShortcutsDemo } from './ShortcutsDemo'
 import { StudioDemo } from './StudioDemo'
@@ -148,6 +149,10 @@ export function Gallery({
 
         <Section title="Studio settings" wide>
           <SettingsDemo />
+        </Section>
+
+        <Section title="Onboarding" wide>
+          <OnboardingDemo />
         </Section>
 
         <Section title="Chat" wide>
