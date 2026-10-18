@@ -150,7 +150,9 @@ try {
       await axe(page, `${v.name} + streaming`)
       // The fake stream may already have finished during the axe pass.
       const stop = chat.getByRole('button', { name: 'Stop answering' })
-      if (await stop.isVisible()) await stop.click()
+      // If it ends between the check and the click, React reuses the button as a
+      // disabled Send, so never wait long on it.
+      if (await stop.isVisible()) await stop.click({ timeout: 1000 }).catch(() => undefined)
 
       // Shortcuts: at rest (one with a host error), then mid-recording.
       const shortcuts = gallerySection(page, 'Shortcuts')
