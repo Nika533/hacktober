@@ -49,6 +49,7 @@ the `.ps1` shims.
 | `npm.cmd run e2e:desktop` | e2e build + Playwright `_electron` specs |
 | `npm.cmd run e2e:extension` | Extension build + Playwright Chromium specs |
 | `npm.cmd run build:win` | NSIS installer |
+| `npm.cmd run register-host -w @hoot/bridge` | Build hoot-bridge and register it for Chrome, Edge, Chromium and Brave (current user); `unregister-host` undoes it |
 | `npm.cmd run fake-server -w @hoot/bridge -- --port 7341 --code dev` | Fake Lens bridge on `ws://127.0.0.1:7341/?code=dev`, for using the extension without the app |
 | `npm.cmd run check:ownership -- --branch d2/x --base origin/main` | Local ownership check |
 
