@@ -313,6 +313,114 @@ describe('chat service: sending', () => {
   })
 })
 
+describe('chat service: live screen (beforeSend)', () => {
+  it('attaches what beforeSend adds and sends its note, hidden from the transcript', async () => {
+    const t = setup()
+    const chat = createChatService({
+      store: t.store,
+      broadcaster: createBroadcaster(t.store),
+      persistence: t.persistence,
+      writer: t.writer,
+      getProvider: async () => createFakeProvider({ chunkMs: 0 }),
+      log: silent,
+      newId: (() => {
+        let n = 100
+        return () => `b-${++n}`
+      })(),
+      beforeSend: async () => {
+        t.store.update('chat', {
+          pendingAttachments: [
+            {
+              id: 'frame',
+              kind: 'capture',
+              thumbDataUrl: 'data:,',
+              width: 1,
+              height: 1,
+              createdAt: 0
+            }
+          ]
+        })
+        return '[Live screen attached]'
+      }
+    })
+    await chat.send({ text: 'where is save?' })
+    const user = t.store.get('chat').session?.messages[0]
+    expect(user).toMatchObject({ text: 'where is save?', attachmentIds: ['frame'] })
+    expect(user?.sentText).toBe('where is save?\n\n[Live screen attached]')
+    await settled(t.store)
+  })
+
+  it('a double send grabs one frame: the second is refused while the first prepares', async () => {
+    const t = setup()
+    let calls = 0
+    let release = (): void => undefined
+    const chat2 = createChatService({
+      store: t.store,
+      broadcaster: createBroadcaster(t.store),
+      persistence: t.persistence,
+      writer: t.writer,
+      getProvider: async () => createFakeProvider({ chunkMs: 0 }),
+      log: silent,
+      beforeSend: () => {
+        calls++
+        return new Promise<null>((r) => {
+          release = () => r(null)
+        })
+      }
+    })
+    const first = chat2.send({ text: 'explain' })
+    await chat2.send({ text: 'explain' })
+    release()
+    await first
+    expect(calls).toBe(1)
+    await settled(t.store)
+  })
+
+  it('a new chat deletes the files of captures it drops unsent', async () => {
+    const t = setup()
+    await t.persistence.saveAttachment('drop-me', new Uint8Array([1]))
+    t.store.update('chat', {
+      pendingAttachments: [
+        {
+          id: 'drop-me',
+          kind: 'capture',
+          thumbDataUrl: 'data:,',
+          width: 1,
+          height: 1,
+          createdAt: 0
+        }
+      ]
+    })
+    await t.chat.newChat()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(await t.persistence.readAttachment('drop-me')).toBeNull()
+  })
+
+  it('skips beforeSend (no stray frame) while an answer is streaming', async () => {
+    const provider = gatedProvider(['a'])
+    const t = setup({ provider })
+    await t.chat.send({ text: 'one' })
+    let calls = 0
+    const chat2 = createChatService({
+      store: t.store,
+      broadcaster: createBroadcaster(t.store),
+      persistence: t.persistence,
+      writer: t.writer,
+      getProvider: async () => provider,
+      log: silent,
+      beforeSend: async () => {
+        calls++
+        return null
+      }
+    })
+    await chat2.send({ text: 'first' })
+    await chat2.send({ text: 'while streaming' })
+    expect(calls).toBe(1)
+    provider.release()
+    await settled(t.store)
+  })
+})
+
 describe('chat service: sessions', () => {
   it('deleting a session mid-stream aborts it and never brings it back', async () => {
     const provider = gatedProvider(['a', 'b'])

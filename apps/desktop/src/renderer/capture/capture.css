@@ -4,7 +4,7 @@ body,
   height: 100%;
   margin: 0;
   overflow: hidden;
-  background: #000;
+  background: transparent;
 }
 
 .capture {
@@ -14,6 +14,23 @@ body,
   cursor: crosshair;
   touch-action: none;
   user-select: none;
+  --glow: #38bdf8;
+  --glow-soft: #5cc8ff;
+}
+
+/*
+ * Live, drawing: a 1% veil, invisible, but it keeps the pointer on this
+ * window (fully transparent pixels pass clicks through on Windows).
+ * Live, chatting: fully transparent, so the desktop takes every click
+ * outside the chat and the toolbar.
+ */
+.capture[data-live] {
+  background: rgba(0, 0, 0, 0.01);
+}
+
+.capture[data-live][data-phase='chat'] {
+  background: transparent;
+  cursor: default;
 }
 
 .capture__shot,
@@ -23,6 +40,17 @@ body,
   width: 100%;
   height: 100%;
   pointer-events: none;
+}
+
+/* A soft light-blue glow around the display: Hoot is looking. */
+.capture__edge-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 2px rgba(92, 200, 255, 0.55),
+    inset 0 0 18px 4px rgba(56, 189, 248, 0.38),
+    inset 0 0 72px 10px rgba(56, 189, 248, 0.14);
 }
 
 .capture__toolbar {
@@ -44,6 +72,14 @@ body,
   transition: opacity var(--dur-fast) var(--ease-out);
 }
 
+.capture[data-live] .capture__toolbar {
+  border-color: rgba(92, 200, 255, 0.6);
+  box-shadow:
+    0 0 0 1px rgba(56, 189, 248, 0.2),
+    0 0 18px rgba(56, 189, 248, 0.35),
+    var(--shadow-2);
+}
+
 /* Out of the way while drawing, so it never covers what's being circled. */
 .capture[data-drawing] .capture__toolbar {
   opacity: 0;
@@ -55,8 +91,220 @@ body,
   color: var(--text-2);
 }
 
+/* The glass chat beside the shape. Fixed dark glass: it sits over any screen. */
+.capture__chat {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  box-sizing: border-box;
+  border-radius: 18px;
+  border: 1px solid rgba(92, 200, 255, 0.6);
+  background: rgba(10, 20, 36, 0.82);
+  backdrop-filter: blur(18px) saturate(140%);
+  box-shadow:
+    0 0 0 1px rgba(56, 189, 248, 0.22),
+    0 0 26px rgba(56, 189, 248, 0.38),
+    0 16px 44px rgba(0, 0, 0, 0.38);
+  color: #f0f9ff;
+  cursor: default;
+  user-select: text;
+  /* The shared Markdown styles read these. */
+  --text-1: #f0f9ff;
+  --text-2: #bae6fd;
+  --text-3: #93c5fd;
+  --stroke: rgba(148, 197, 255, 0.28);
+  --surface-2: rgba(255, 255, 255, 0.06);
+  animation: capture-chat-in 180ms var(--ease-out, ease-out);
+}
+
+@keyframes capture-chat-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+
+.capture__chat-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.capture__chat-title {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  color: #e0f2fe;
+}
+
+.capture__live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--glow);
+  box-shadow: 0 0 10px var(--glow);
+}
+
+.capture__icon {
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #e0f2fe;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.capture__icon:hover,
+.capture__icon:focus-visible {
+  border-color: rgba(92, 200, 255, 0.5);
+  background: rgba(56, 189, 248, 0.14);
+  outline: none;
+}
+
+.capture__transcript {
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.capture__question {
+  margin: 0;
+  align-self: flex-end;
+  max-width: 85%;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: rgba(56, 189, 248, 0.18);
+  color: #f0f9ff;
+}
+
+.capture__answer :where(p, ul, ol) {
+  margin-block: 0 6px;
+}
+
+.capture__thinking,
+.capture__error {
+  margin: 0;
+  color: #bae6fd;
+}
+
+.capture__error {
+  color: #fecaca;
+}
+
+.capture__permission {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(92, 200, 255, 0.55);
+  background: rgba(56, 189, 248, 0.12);
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.3);
+}
+
+.capture__permission-text {
+  flex: 1 1 auto;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.capture__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.capture__pill {
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(92, 200, 255, 0.5);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e0f2fe;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.capture__pill:hover:not(:disabled),
+.capture__pill:focus-visible {
+  border-color: var(--glow-soft);
+  background: rgba(56, 189, 248, 0.2);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+  outline: none;
+}
+
+.capture__pill:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.capture__pill--primary {
+  border-color: var(--glow);
+  background: rgba(56, 189, 248, 0.3);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.capture__composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.capture__input {
+  flex: 1;
+  resize: none;
+  max-height: 96px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(92, 200, 255, 0.45);
+  background: rgba(255, 255, 255, 0.07);
+  color: #f0f9ff;
+  font: inherit;
+  font-size: 14px;
+}
+
+.capture__input::placeholder {
+  color: #93c5fd;
+}
+
+.capture__input:focus-visible {
+  outline: none;
+  border-color: var(--glow-soft);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .capture__chat {
+    animation: none;
+  }
+}
+
 @media (forced-colors: active) {
-  .capture__toolbar {
+  .capture__toolbar,
+  .capture__chat,
+  .capture__permission,
+  .capture__pill,
+  .capture__input {
     border-color: CanvasText;
+  }
+
+  .capture__chat {
+    background: Canvas;
+    color: CanvasText;
   }
 }

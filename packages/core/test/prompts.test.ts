@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { QUICK_ACTIONS, clipboardTextBlock, greetingFor } from '../src/chat/prompts'
+import {
+  stripAnnotationTags,
+  QUICK_ACTIONS,
+  clipboardTextBlock,
+  greetingFor
+} from '../src/chat/prompts'
 
 const at = (h: number): Date => new Date(2026, 9, 17, h, 0, 0)
 
@@ -60,5 +65,21 @@ describe('clipboardTextBlock', () => {
     expect(t).toContain('"""')
     expect(t).toContain('hello')
     expect(clipboardTextBlock('x'.repeat(9000)).length).toBeLessThan(9000)
+  })
+})
+
+describe('stripAnnotationTags', () => {
+  it('takes the live overlay tags out of an answer shown elsewhere', () => {
+    expect(
+      stripAnnotationTags(
+        'Click **Save**.\n[[point: 120, 40, "Save"]]\nThen `[[box: 1, 2, 3, 4, "Chart"]]` check it. [[action: 5, 6, "Go"]]'
+      )
+    ).toBe('Click **Save**.\nThen  check it.')
+  })
+
+  it('leaves answers without tags alone', () => {
+    expect(stripAnnotationTags('Arrays look like [[1, 2], [3]].')).toBe(
+      'Arrays look like [[1, 2], [3]].'
+    )
   })
 })
