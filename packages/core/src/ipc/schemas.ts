@@ -55,6 +55,7 @@ export const INVOKE_ARGS = {
   'settings:validateApiKey': z.tuple([z.string().trim().min(1).max(256)]),
   'settings:clearApiKey': none,
   'settings:resetAnchor': none,
+  'settings:suspendHotkeys': z.tuple([z.boolean()]),
   'windows:openStudio': z.tuple([StudioViewSchema.optional()]),
   'windows:lockStudio': none,
   'windows:openReader': none,
