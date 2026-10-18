@@ -157,3 +157,46 @@
 .hoot-reading__terms a {
   color: var(--accent-text);
 }
+
+/* ---- cold start (30-second setup) ---- */
+.hoot-coldstart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+}
+.hoot-coldstart--closed {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+.hoot-coldstart--closed > svg {
+  flex: 0 0 auto;
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--accent-text);
+}
+.hoot-coldstart__text {
+  flex: 1;
+  min-width: 0;
+}
+.hoot-coldstart__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+}
+.hoot-coldstart__part {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.hoot-coldstart__actions {
+  display: flex;
+  gap: var(--space-2);
+}
