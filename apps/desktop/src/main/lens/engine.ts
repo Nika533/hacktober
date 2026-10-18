@@ -14,6 +14,7 @@ import {
   type BridgeErrorCode,
   type LensContext,
   type LensSettings,
+  type RewriteModelOutput,
   type RewriteOutcome,
   type RewriteRequest,
   type Transform
@@ -252,18 +253,30 @@ export class LensEngine {
       outcome = fakeRewrite(req, profile.version)
     } else {
       const provider = await this.requireProvider()
-      let output
-      try {
-        output = await provider.generateJson({
-          model: pickRewriteModel(req.allowedTransforms, ctx.span),
+      const prompt = buildRewritePrompt(req, buildProfileSummary(profile, lens.languages, ctx))
+      const ask = (model: string): Promise<RewriteModelOutput> =>
+        provider.generateJson({
+          model,
           system: REWRITE_SYSTEM_PROMPT,
-          prompt: buildRewritePrompt(req, buildProfileSummary(profile, lens.languages, ctx)),
+          prompt,
           schema: RewriteModelOutputSchema,
           thinking: 'minimal',
           timeoutMs: REWRITE_TIMEOUT_MS,
           retries: 1,
           signal
         })
+      const model = pickRewriteModel(req.allowedTransforms, ctx.span)
+      let output
+      try {
+        try {
+          output = await ask(model)
+        } catch (e) {
+          // The strong model has the smaller quota (a free key gets few Flash
+          // requests a day); a fast-model rewrite beats none.
+          const limited = e instanceof AiError && e.code === 'rate_limited'
+          if (!limited || model === LENS_MODELS.rewriteFast) throw e
+          output = await ask(LENS_MODELS.rewriteFast)
+        }
       } catch (e) {
         if (signal.aborted || isAbortError(e)) return CANCELLED
         if (e instanceof AiOutputError) return { kind: 'skipped', reason: 'invalid_output' }
