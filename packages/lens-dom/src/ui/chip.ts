@@ -24,7 +24,7 @@ export const CHIP_CSS = `
 }
 .chip:hover {
   background: var(--hl-surface);
-  color: var(--hl-accent);
+  color: var(--hl-accent-text);
 }
 @media (forced-colors: active) {
   .chip {
