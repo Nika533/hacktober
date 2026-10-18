@@ -11,7 +11,8 @@
     "typecheck": "tsc -p tsconfig.json",
     "fixtures": "node scripts/build-fixtures.mjs",
     "serve:fixtures": "node scripts/build-fixtures.mjs && node scripts/serve.ts",
-    "e2e": "node scripts/build.mjs --mode e2e && node scripts/build-fixtures.mjs && playwright test"
+    "e2e": "node scripts/build.mjs --mode e2e && node scripts/build-fixtures.mjs && playwright test",
+    "zip": "node scripts/build.mjs && node scripts/zip.ts"
   },
   "dependencies": {
     "zod": "4.6.5"
