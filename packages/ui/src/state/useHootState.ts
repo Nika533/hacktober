@@ -1,4 +1,4 @@
-import type { HootApi, SliceName } from '@hoot/core'
+import type { HootApi, SliceName, StatePatch } from '@hoot/core'
 import { useEffect, useReducer } from 'react'
 import { applyDelta, applyPatch, type Mirror } from './slices'
 
@@ -41,13 +41,27 @@ export function useHootState<K extends SliceName>(
       return
     }
     let live = true
-    const offPatch = api.state.onPatch((patch) => dispatch({ type: 'patch', patch, slices }))
+    // Hold what arrives before the subscribe reply, then replay it on top of
+    // the snapshot (CONTRACTS: state subscription ordering). Otherwise a late
+    // reply overwrites newer patches (#94). Early deltas are dropped: the
+    // snapshot already contains every delta broadcast before it.
+    let ready = false
+    const early: StatePatch[] = []
+    const offPatch = api.state.onPatch((patch) => {
+      if (ready) dispatch({ type: 'patch', patch, slices })
+      else early.push(patch)
+    })
     const offDelta = slices.includes('chat' as K)
-      ? api.chat.onDelta((delta) => dispatch({ type: 'delta', delta }))
+      ? api.chat.onDelta((delta) => {
+          if (ready) dispatch({ type: 'delta', delta })
+        })
       : undefined
     api.state.subscribe([...slices]).then(
-      (patch) => {
-        if (live) dispatch({ type: 'patch', patch, slices })
+      (snapshot) => {
+        if (!live) return
+        dispatch({ type: 'patch', patch: snapshot, slices })
+        for (const patch of early.splice(0)) dispatch({ type: 'patch', patch, slices })
+        ready = true
       },
       (error: unknown) => {
         if (live) dispatch({ type: 'error', error })
