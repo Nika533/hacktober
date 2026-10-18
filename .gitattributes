@@ -1,0 +1,15 @@
+# LF everywhere, including Windows checkouts with core.autocrlf=true:
+# lint, prettier and whitespace-sensitive fixtures depend on it.
+* text=auto eol=lf
+
+# Windows batch launchers need CRLF.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Binary assets.
+*.png binary
+*.jpg binary
+*.ico binary
+*.icns binary
+*.pdf binary
+*.woff2 binary

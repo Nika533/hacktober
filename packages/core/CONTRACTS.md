@@ -53,3 +53,10 @@ that isn't, open a `contract: …` PR (additive; C reviews it first).
 - An all-caps 2–6 letter span is expanded; one word is defined; a foreign-language span (`signals.foreignLanguage`) is translated; anything else is simplified.
 - High risk, or a span over 40 words, renders as a gloss.
 - `createFakeLensBackend({ delayMs })` honours `AbortSignal` (rewrite resolves `skipped: cancelled`). `.events` and `.explained` record calls.
+
+## State subscription ordering (d1 implements, renderers rely on it)
+
+- Main registers the window and takes the snapshot of the requested slices **in the same synchronous call** to `state:subscribe`. Every `state:patch` sent to that window afterwards is therefore never older than the snapshot.
+- The invoke reply can arrive **after** such patches: a store flush can run before Electron sends the reply. **Renderers must hold any patches that arrive before the snapshot, apply the snapshot, then replay the held patches.** Applying the snapshot last would roll the state back.
+- A delta is broadcast before any snapshot or patch that contains it (`mutate → chat:delta → patch`). Renderers ignore deltas until they hold a snapshot, because the snapshot already includes earlier ones.
+- Each patch replaces whole slices. Renderers keep only the slices they subscribed to.
