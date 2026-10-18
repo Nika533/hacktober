@@ -10,6 +10,8 @@ export interface HootTestHooks {
   requestMode(mode: RequestedMode): void
   transitionDone(id: number): void
   setAnchor(p: Point): void
+  /** Collapse-timer gate inputs — for diagnosing mode-transition flakes. */
+  buddyDebug(): ReturnType<AppContext['buddy']['debug']>
   updateSettings(patch: SettingsPatch): void
   openStudio(): void
   lockStudio(): void
@@ -34,6 +36,7 @@ export function installTestHooks(ctx: AppContext): void {
     requestMode: (mode) => ctx.buddy.request(mode),
     transitionDone: (id) => ctx.buddy.transitionDone(id),
     setAnchor: (p) => ctx.buddy.setAnchor(p),
+    buddyDebug: () => ctx.buddy.debug(),
     updateSettings: (patch) => applySettingsUpdate({ store: ctx.store }, patch),
     // Mirrors windows:openStudio — opening Studio hides the buddy.
     openStudio: () => {

@@ -63,14 +63,71 @@ test('collapse to dot, card/hidden requests, Studio interplay', async () => {
   await waitMode(app, 'pill')
   const buddyPage = await pageFor(app, 'buddy.html')
 
-  // Idle + unfocused → dot. The window holds focus from summon, so blur it.
-  await hook(app, 'updateSettings', { collapseToDotAfterMs: 1500 })
-  await app.evaluate(({ BrowserWindow }) => {
-    BrowserWindow.getAllWindows()
-      .find((w) => w.webContents.getURL().includes('buddy.html'))
-      ?.blur()
+  // Idle + unfocused → dot. The timer is suppressed while the OS cursor sits
+  // inside a hit region or the window is focused; Playwright can't move the
+  // physical cursor, so park the whole padded canvas in the corner furthest
+  // from it, clear the regions + hover hint, and blur the window. 300 DIP
+  // from the anchor is not enough — the canvas extends ~390 right / ~590 up.
+  const l0 = (await state(app)).buddy.layout
+  expect(l0).not.toBeNull()
+  const { anchor, gap } = await app.evaluate(({ screen }, layout) => {
+    const cursor = screen.getCursorScreenPoint()
+    const wa = screen.getPrimaryDisplay().workArea
+    const inset = 40
+    const corners = [
+      { x: wa.x + inset, y: wa.y + inset },
+      { x: wa.x + wa.width - inset, y: wa.y + inset },
+      { x: wa.x + inset, y: wa.y + wa.height - inset },
+      { x: wa.x + wa.width - inset, y: wa.y + wa.height - inset }
+    ]
+    // Distance from the cursor to the whole canvas rect (0 = inside).
+    const gap = (a: { x: number; y: number }): number => {
+      const dx = Math.max(
+        a.x - layout.owl.x - cursor.x,
+        cursor.x - (a.x - layout.owl.x + layout.bounds.width),
+        0
+      )
+      const dy = Math.max(
+        a.y - layout.owl.y - cursor.y,
+        cursor.y - (a.y - layout.owl.y + layout.bounds.height),
+        0
+      )
+      return Math.hypot(dx, dy)
+    }
+    corners.sort((a, b) => gap(b) - gap(a))
+    return { anchor: corners[0]!, gap: gap(corners[0]!) }
+  }, l0!)
+  expect(gap, 'no corner keeps the whole canvas off the physical cursor').toBeGreaterThan(0)
+  await hook(app, 'setAnchor', anchor)
+  await expect
+    .poll(async () => {
+      const l = (await state(app)).buddy.layout
+      return l && [l.bounds.x + l.owl.x, l.bounds.y + l.owl.y]
+    })
+    .toEqual([anchor.x, anchor.y])
+  await buddyPage.evaluate(() => {
+    const h = (window as unknown as HootWindow).hoot
+    h.buddy.setHitRegions([])
+    h.buddy.setIgnoreMouse(true)
   })
-  await expect.poll(async () => (await state(app)).buddy.mode, { timeout: 4_000 }).toBe('dot')
+  await hook(app, 'updateSettings', { collapseToDotAfterMs: 1500 })
+  // Blur for real, then pin it: under parallel workers Windows can hand
+  // focus back to the always-on-top owl, which re-suppresses the timer.
+  await app.evaluate(({ BrowserWindow }) => {
+    const w = BrowserWindow.getAllWindows().find((x) =>
+      x.webContents.getURL().includes('buddy.html')
+    )
+    if (w === undefined) return
+    w.setFocusable(false)
+    w.blur()
+    w.emit('blur')
+  })
+  try {
+    await expect.poll(async () => (await state(app)).buddy.mode, { timeout: 4_000 }).toBe('dot')
+  } catch (e) {
+    console.log('buddyDebug at collapse timeout:', await hook(app, 'buddyDebug'))
+    throw e
+  }
 
   // Renderer-driven request (window.hoot → IPC), not the test hook.
   await buddyPage.evaluate(() => (window as unknown as HootWindow).hoot.buddy.requestMode('card'))

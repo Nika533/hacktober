@@ -95,6 +95,15 @@ export interface BuddyWindow {
   mode(): BuddyMode
   isFocused(): boolean
   onModeChange(cb: (mode: BuddyMode) => void): Unsubscribe
+  /** Collapse-timer gate inputs — e2e diagnostics (`__hoot.buddyDebug`). */
+  debug(): {
+    mode: BuddyMode
+    pending: unknown
+    focused: boolean
+    inside: boolean
+    dragging: boolean
+    streaming: boolean
+  }
   dispose(): void
 }
 
@@ -171,10 +180,20 @@ export function createBuddyWindow(deps: BuddyDeps): BuddyWindow {
   const anchor = (): Point => liveAnchor ?? resolvedAnchor()
 
   const isInside = (): boolean => dragging || rendererInside || regionsInside
+  let wasInside = false
 
   const applyIgnore = (): void => {
     if (!win || win.isDestroyed()) return
-    const ignore = !isInside()
+    const inside = isInside()
+    if (inside !== wasInside) {
+      wasInside = inside
+      // The collapse timer only (re)arms on transitions: entering the owl
+      // cancels it, and leaving must restart it — a hovered-then-left pill
+      // would otherwise never collapse.
+      if (inside) clearCollapse()
+      else scheduleCollapse()
+    }
+    const ignore = !inside
     if (ignore === ignoreMouse) return
     ignoreMouse = ignore
     win.setIgnoreMouseEvents(ignore, { forward: true })
@@ -556,6 +575,16 @@ export function createBuddyWindow(deps: BuddyDeps): BuddyWindow {
     anchor,
     mode: () => machine.mode,
     isFocused: () => focused || (win?.isFocused() ?? false),
+    debug: () => ({
+      mode: machine.mode,
+      pending: machine.pending,
+      focused,
+      inside: isInside(),
+      regionsInside,
+      rendererInside,
+      dragging,
+      streaming: store.get('chat').stream !== null
+    }),
     onModeChange(cb) {
       modeCbs.add(cb)
       return () => modeCbs.delete(cb)
