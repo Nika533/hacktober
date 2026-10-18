@@ -5,3 +5,4 @@ export {
   type BridgeServer,
   type BridgeServerDeps
 } from './server'
+export { ensureNativeHost, type NativeHostDeps, type NativeHostResult } from './nativeHost'

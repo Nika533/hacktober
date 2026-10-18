@@ -2,22 +2,35 @@ appId: com.hoot.buddy
 productName: Hoot
 directories:
   buildResources: build
+# An allowlist: the build output and runtime resources. electron-builder adds
+# package.json and the production node_modules itself.
 files:
-  - '!**/.vscode/*'
-  - '!src/*'
-  - '!electron.vite.config.{js,ts,mjs,cjs}'
-  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
-  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
-  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - out/**
+  - resources/**
 asarUnpack:
   - resources/**
+# hoot-bridge, the browser extension's native messaging host (packages/bridge).
+# It sits in resources/ so its launcher finds ..\Hoot.exe and runs it in Node
+# mode; the installer and the app's first run register it (build/installer.nsh,
+# main/bridge/nativeHost.ts).
+extraResources:
+  - from: ../../packages/bridge/dist/hoot-bridge.cjs
+    to: hoot-bridge.cjs
+  - from: ../../packages/bridge/dist/register-native-host.cjs
+    to: register-native-host.cjs
+  - from: ../../packages/bridge/launchers/hoot-bridge.cmd
+    to: hoot-bridge.cmd
 win:
   executableName: hoot
   icon: resources/icon.ico
   target:
     - nsis
 nsis:
-  artifactName: ${name}-${version}-setup.${ext}
+  # Per-user, so the native host goes under HKCU and no UAC prompt appears.
+  oneClick: true
+  perMachine: false
+  include: build/installer.nsh
+  artifactName: ${productName}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
