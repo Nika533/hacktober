@@ -8,6 +8,7 @@ import { Owl } from '../components/Owl'
 import { ExtensionStatus } from '../lens/ExtensionStatus'
 import { springs } from '../motion/springs'
 import { acceleratorKeys } from '../settings/accelerator'
+import { GEMINI_TERMS_URL } from '../lens/sites'
 import { ApiKeyField } from '../settings/ApiKeyField'
 import { ShortcutFields } from '../settings/ShortcutFields'
 import { ONBOARDING_STEPS } from './steps'
@@ -151,6 +152,20 @@ function StepBody(p: OnboardingPaneProps): React.JSX.Element {
             onOpenLink={p.onOpenLink}
             autoFocus={!p.hasApiKey}
           />
+          <p className="hoot-onb__note">
+            Gemini API keys are for people 18 and over. With a free key, Google may use what you
+            send, screenshots included, to improve its products, and people at Google may read it.
+            With billing turned on, it doesn’t.{' '}
+            <a
+              href={GEMINI_TERMS_URL}
+              onClick={(e) => {
+                e.preventDefault()
+                p.onOpenLink(GEMINI_TERMS_URL)
+              }}
+            >
+              Gemini API terms
+            </a>
+          </p>
         </Step>
       )
     case 2:

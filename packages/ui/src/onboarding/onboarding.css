@@ -157,3 +157,6 @@
     background: Highlight;
   }
 }
+.hoot-onb__note a {
+  color: var(--accent-text);
+}

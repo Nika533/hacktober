@@ -2,6 +2,7 @@ import { DEFAULT_SETTINGS } from '@hoot/core'
 import { describe, expect, it, vi, type Mock } from 'vitest'
 import { HootUIProvider } from '../src/components/HootUIProvider'
 import { OnboardingPane } from '../src/onboarding/OnboardingPane'
+import { GEMINI_TERMS_URL } from '../src/lens/sites'
 import { byName, click, render } from './render'
 
 type Handlers = {
@@ -71,6 +72,31 @@ describe('OnboardingPane', () => {
     expect(step.textContent).not.toContain('Skip for now')
     click(byName(step, 'button', 'Continue'))
     expect(onStep).toHaveBeenLastCalledWith(2)
+  })
+
+  it('says keys are 18+ and how a free key differs, linking the Gemini terms', () => {
+    const onOpenLink = vi.fn()
+    const { container } = render(
+      <HootUIProvider>
+        <OnboardingPane
+          step={1}
+          summonHotkey={DEFAULT_SETTINGS.summonHotkey}
+          captureHotkey={DEFAULT_SETTINGS.captureHotkey}
+          hasApiKey={false}
+          keyStorage="os-encrypted"
+          onUpdate={() => undefined}
+          onSaveKey={async () => ({ ok: true })}
+          onOpenLink={onOpenLink}
+          onStep={() => undefined}
+          onFinish={() => undefined}
+        />
+      </HootUIProvider>
+    )
+    const note = current(container).querySelector('.hoot-onb__note')!
+    expect(note.textContent).toContain('for people 18 and over')
+    expect(note.textContent).toContain('With a free key')
+    click(note.querySelector('a'))
+    expect(onOpenLink).toHaveBeenCalledWith(GEMINI_TERMS_URL)
   })
 
   it('moves focus to the new step’s heading', () => {
