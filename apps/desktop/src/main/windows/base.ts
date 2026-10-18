@@ -51,10 +51,14 @@ export function createSecureWindow(
   return win
 }
 
-export function loadRenderer(win: BrowserWindow, kind: WindowKind): void {
+/** Renderer URL for a page file — dev server in dev, `hoot://` otherwise. */
+export function rendererUrlFor(page: string): string {
   const devUrl = process.env['ELECTRON_RENDERER_URL']
-  if (devUrl) void win.loadURL(`${devUrl}/${kind}.html`)
-  else void win.loadURL(`${HOOT_ORIGIN}/${kind}.html`)
+  return devUrl ? `${devUrl}/${page}` : `${HOOT_ORIGIN}/${page}`
+}
+
+export function loadRenderer(win: BrowserWindow, kind: WindowKind): void {
+  void win.loadURL(rendererUrlFor(`${kind}.html`))
 }
 
 export interface WindowRegistry {

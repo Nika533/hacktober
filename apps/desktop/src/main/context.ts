@@ -1,4 +1,4 @@
-import { app, dialog, safeStorage } from 'electron'
+import { app, dialog, safeStorage, shell } from 'electron'
 import { randomBytes } from 'node:crypto'
 import { mkdir } from 'node:fs/promises'
 import os from 'node:os'
@@ -10,12 +10,15 @@ import {
   type ExplainMoreMessage,
   type LensContext,
   type Platform,
+  type Point,
   type Unsubscribe
 } from '@hoot/core'
 import type { AiProvider } from './ai'
 import { createFakeProvider, createGeminiProvider } from './ai'
 import { AnotherInstanceError, createBridgeServer, type BridgeServer } from './bridge'
+import { applyChatActivity } from './buddy/activity'
 import { createBuddyWindow, type BuddyWindow } from './buddy/window'
+import { createChatService, type ChatService } from './chat'
 import type { AppEnv } from './env'
 import { handleInvoke } from './ipc/handle'
 import { registerDomains } from './ipc/register'
@@ -23,6 +26,7 @@ import { applySettingsUpdate } from './ipc/settings'
 import { createFsLensStorage, createLensService, type LensService } from './lens'
 import { createFlushRegistry, type FlushRegistry } from './lifecycle'
 import { createLogger, type Logger } from './log'
+import { createNoteWindows, createPinsService, type NoteWindows, type PinsService } from './pins'
 import { createSecretStore, type SecretStore } from './secrets'
 import { createBroadcaster, sinkFor, type Broadcaster } from './store/broadcast'
 import { watchLensSettings } from './store/lensWatch'
@@ -32,7 +36,7 @@ import { createStore, initialSlices, type Store } from './store/store'
 import { createDebouncedWriter, type DebouncedWriter } from './store/writer'
 import { readSystem, watchSystem } from './system'
 import { installTestHooks } from './testHooks'
-import { createWindowRegistry, type WindowRegistry } from './windows/base'
+import { createWindowRegistry, rendererUrlFor, type WindowRegistry } from './windows/base'
 import { createStudioWindow, type StudioWindow } from './windows/studio'
 
 export interface AppContext {
@@ -52,10 +56,23 @@ export interface AppContext {
   ai: { createProvider(): AiProvider | null }
   lens: LensService
   bridge: BridgeServer
-  /** Feature seams filled in later (finish-plan §2). */
+  chat: ChatService
+  pins: PinsService
+  notes: NoteWindows
+  /**
+   * Feature seams later PRs reassign (finish-plan §2): the buddy card owns
+   * showChatSurface/buddyAnchor once it exists, the clipboard watcher fills
+   * takeClipboardSelection. Kept mutable on purpose.
+   */
   hooks: {
-    /** Lens "Explain more" → opens the card and sends; chat wires this in D1-23. */
+    /** Lens "Explain more" → surfaces chat and starts the explanation. */
     explain(message: ExplainMoreMessage, ctx: LensContext): void
+    /** Focus whatever surface shows the chat (Studio until the buddy card lands). */
+    showChatSurface(): void
+    /** The owl's anchor in screen DIP; notes cascade near it. */
+    buddyAnchor(): Point
+    /** Armed clipboard text for the next send; null until D1-2x's watcher. */
+    takeClipboardSelection(): string | null
   }
   /** False until the tray lands (D1-21); index.ts quits on window-all-closed. */
   keepAliveWithoutWindows: boolean
@@ -109,10 +126,10 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     settings.saveHistory && index.activeId !== null
       ? await persistence.loadSession(index.activeId)
       : null
-  const pins = await persistence.loadPins()
+  const savedPins = await persistence.loadPins()
 
   // Pins load into the slice even when restorePins is off — that setting only
-  // decides whether note windows open (D1-22).
+  // decides whether note windows open.
   const store = createStore(
     initialSlices({
       settings,
@@ -123,7 +140,7 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
   )
   store.set('sessions', { list: index.sessions, pendingDelete: null })
   store.update('chat', { session: activeSession })
-  store.set('pins', { pins })
+  store.set('pins', { pins: savedPins })
 
   const broadcaster = createBroadcaster(store)
   const windows = createWindowRegistry()
@@ -132,7 +149,12 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
   // than in start() so ctx.studio is always populated; nothing is visible
   // until start() decides what to open.)
   const studio = createStudioWindow({ store, windows, log })
-  app.on('before-quit', () => studio.markQuitting())
+  // Shared with the note windows: closing on quit must not delete the pin.
+  let quitting = false
+  app.on('before-quit', () => {
+    quitting = true
+    studio.markQuitting()
+  })
 
   // The fixed-size Buddy window; created hidden, summoned (or not) in start().
   const buddy = createBuddyWindow({ store, windows, log })
@@ -163,6 +185,37 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     onError: (e) => log.error(`lens: ${String(e)}`)
   })
   flush.add('lens', () => lens.flush())
+
+  const chat = createChatService({
+    store,
+    broadcaster,
+    persistence,
+    writer,
+    log,
+    getProvider: async () => ai.createProvider(),
+    takeClipboardSelection: () => ctx.hooks.takeClipboardSelection(),
+    onActivity: (a) => applyChatActivity(store, a),
+    openPath: (p) => shell.openPath(p).then(() => undefined)
+  })
+  flush.add('chat', () => chat.flush())
+
+  // notes before pins (pins needs the windows), pins inside the callbacks
+  // (notes need the service) — the reference resolves at call time.
+  const notes = createNoteWindows({
+    rendererUrl: rendererUrlFor,
+    anchor: () => ctx.hooks.buddyAnchor(),
+    isQuitting: () => quitting,
+    onCloseRequest: (id) => pins.remove(id),
+    onBounds: (id, b) => pins.setBounds(id, b)
+  })
+  const pins = createPinsService({
+    store,
+    windows: notes,
+    openSession: async (id) => {
+      await chat.openSession(id)
+      ctx.hooks.showChatSurface()
+    }
+  })
 
   const devPairingCode = process.env['HOOT_DEV_BRIDGE_CODE'] ?? randomBytes(4).toString('hex')
   const bridge = createBridgeServer({
@@ -215,10 +268,24 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     ai,
     lens,
     bridge,
+    chat,
+    pins,
+    notes,
     hooks: {
-      explain() {
-        log.info('explain requested before chat was wired')
-      }
+      explain(message) {
+        ctx.hooks.showChatSurface()
+        void chat
+          .startExplain(message)
+          .catch((e: unknown) => log.warn(`explain failed: ${String(e)}`))
+      },
+      showChatSurface() {
+        if (studio.isVisible()) studio.focus()
+        else buddy.request('card')
+      },
+      buddyAnchor() {
+        return buddy.anchor()
+      },
+      takeClipboardSelection: () => null
     },
     keepAliveWithoutWindows: false,
 
@@ -250,6 +317,9 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
         store.set('lens', { bridge: 'stopped', clients: 0, lastError })
       }
       installTestHooks(ctx)
+      // Sticky notes are the user's pins, not the app's windows — they
+      // come back even on a hidden (launch-at-login) start.
+      if (settings.restorePins) pins.restore()
       // --hidden opens nothing (launch-at-login must never pop a window);
       // first run goes to onboarding, returning users get the owl.
       if (env.hidden) return
