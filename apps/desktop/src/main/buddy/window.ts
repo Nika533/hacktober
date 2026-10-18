@@ -70,6 +70,8 @@ export interface BuddyDeps {
    * greeting is computed. Skipped when already visible.
    */
   beforeSummon?: () => Promise<void> | void
+  /** A file dropped on the page → Reader (F-D1-6). */
+  onFileDrop?(path: string): void
   timers?: BuddyTimers
   now?: () => number
 }
@@ -406,22 +408,26 @@ export function createBuddyWindow(deps: BuddyDeps): BuddyWindow {
   const createWindow =
     deps.createWindow ??
     ((bounds: Rect): BuddyWindowLike => {
-      const real = createSecureWindow('buddy', {
-        x: bounds.x,
-        y: bounds.y,
-        width: bounds.width,
-        height: bounds.height,
-        show: false,
-        transparent: true,
-        frame: false,
-        alwaysOnTop: true,
-        skipTaskbar: true,
-        resizable: false,
-        hasShadow: false,
-        focusable: true,
-        backgroundColor: '#00000000',
-        webPreferences: { backgroundThrottling: false }
-      })
+      const real = createSecureWindow(
+        'buddy',
+        {
+          x: bounds.x,
+          y: bounds.y,
+          width: bounds.width,
+          height: bounds.height,
+          show: false,
+          transparent: true,
+          frame: false,
+          alwaysOnTop: true,
+          skipTaskbar: true,
+          resizable: false,
+          hasShadow: false,
+          focusable: true,
+          backgroundColor: '#00000000',
+          webPreferences: { backgroundThrottling: false }
+        },
+        { onFileDrop: deps.onFileDrop }
+      )
       real.setAlwaysOnTop(true, 'floating')
       real.setIgnoreMouseEvents(true, { forward: true })
       deps.windows.set('buddy', real)

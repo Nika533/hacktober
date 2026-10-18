@@ -30,25 +30,31 @@ export function createStudioWindow(deps: {
   store: Store
   windows: WindowRegistry
   log: Logger
+  /** A file dropped on the page → Reader (F-D1-6). */
+  onFileDrop?(path: string): void
 }): StudioWindow {
   const { store, windows, log } = deps
   const saved = store.get('settings').settings.studioBounds
   const dark = store.get('system').darkMode
 
-  const win = createSecureWindow('studio', {
-    x: saved?.x,
-    y: saved?.y,
-    width: saved?.width ?? undefined,
-    height: saved?.height ?? undefined,
-    minWidth: MIN_W,
-    minHeight: MIN_H,
-    show: false,
-    title: 'Hoot',
-    titleBarStyle: 'hidden',
-    titleBarOverlay: { color: '#00000000', symbolColor: symbolColor(dark), height: TITLEBAR_H },
-    backgroundMaterial: 'mica',
-    roundedCorners: true
-  })
+  const win = createSecureWindow(
+    'studio',
+    {
+      x: saved?.x,
+      y: saved?.y,
+      width: saved?.width ?? undefined,
+      height: saved?.height ?? undefined,
+      minWidth: MIN_W,
+      minHeight: MIN_H,
+      show: false,
+      title: 'Hoot',
+      titleBarStyle: 'hidden',
+      titleBarOverlay: { color: '#00000000', symbolColor: symbolColor(dark), height: TITLEBAR_H },
+      backgroundMaterial: 'mica',
+      roundedCorners: true
+    },
+    { onFileDrop: deps.onFileDrop }
+  )
   windows.set('studio', win)
 
   let quitting = false

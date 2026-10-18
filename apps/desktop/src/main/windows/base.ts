@@ -2,6 +2,7 @@ import { BrowserWindow } from 'electron'
 import type { BrowserWindowConstructorOptions } from 'electron'
 import { join } from 'node:path'
 import type { WindowKind } from '@hoot/core'
+import { readerPathFromNavigation } from './drop'
 import { HOOT_ORIGIN } from './protocol'
 
 /** Origins a window may navigate to: hoot://app, or the dev server in dev. */
@@ -17,11 +18,27 @@ export function isAllowedNavigation(url: string): boolean {
  */
 const guarded = new WeakSet<Electron.WebContents>()
 
-export function guardContents(wc: Electron.WebContents): void {
-  // Both the factory and the global web-contents-created hook call this.
+export interface GuardOptions {
+  /** A file dropped on the page (a file: navigation to a Reader document). */
+  onFileDrop?(path: string): void
+}
+
+// Registered separately from `guarded` so the callback still lands when the
+// web-contents-created hook guarded the contents before the factory did.
+const dropHandlers = new WeakMap<Electron.WebContents, (path: string) => void>()
+
+export function guardContents(wc: Electron.WebContents, opts?: GuardOptions): void {
+  if (opts?.onFileDrop !== undefined) dropHandlers.set(wc, opts.onFileDrop)
   if (guarded.has(wc)) return
   guarded.add(wc)
   wc.on('will-navigate', (e) => {
+    const onDrop = dropHandlers.get(wc)
+    const path = onDrop !== undefined ? readerPathFromNavigation(e.url) : null
+    if (path !== null && onDrop !== undefined) {
+      e.preventDefault()
+      onDrop(path)
+      return
+    }
     if (!isAllowedNavigation(e.url)) e.preventDefault()
   })
   wc.on('will-redirect', (e) => e.preventDefault())
@@ -35,7 +52,8 @@ export function guardContents(wc: Electron.WebContents): void {
  */
 export function createSecureWindow(
   kind: WindowKind,
-  opts: BrowserWindowConstructorOptions
+  opts: BrowserWindowConstructorOptions,
+  guard?: GuardOptions
 ): BrowserWindow {
   const win = new BrowserWindow({
     ...opts,
@@ -47,7 +65,7 @@ export function createSecureWindow(
       preload: join(__dirname, '../preload/index.js')
     }
   })
-  guardContents(win.webContents)
+  guardContents(win.webContents, guard)
   return win
 }
 
