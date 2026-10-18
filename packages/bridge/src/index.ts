@@ -5,3 +5,4 @@
  * - hoot-bridge, the native messaging host binary, arrives in C-21.
  */
 export * from './connection'
+export { runHost, type HostIO } from './host/relay'
