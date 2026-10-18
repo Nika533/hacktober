@@ -48,7 +48,7 @@
 .hoot-onb__step {
   display: flex;
   min-height: 100%;
-  padding: var(--space-6) var(--space-6) var(--space-8);
+  padding: var(--space-4) var(--space-6) var(--space-6);
 }
 
 .hoot-onb__body {
@@ -79,6 +79,9 @@
 .hoot-onb__lead .hoot-kbd {
   vertical-align: 0.1em;
 }
+.hoot-onb__wide {
+  align-self: stretch;
+}
 .hoot-onb__note {
   margin: 0;
   padding: var(--space-3) var(--space-4);
@@ -105,8 +108,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  min-height: 3rem;
-  padding: var(--space-2) var(--space-4);
+  min-height: 2.75rem;
+  padding: var(--space-1-5) var(--space-4);
 }
 .hoot-onb__feature + .hoot-onb__feature {
   border-top: 1px solid var(--stroke);

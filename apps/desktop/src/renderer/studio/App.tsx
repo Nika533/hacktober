@@ -115,6 +115,7 @@ function Studio({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
         onSaveKey={saveKey}
         onOpenLink={(url) => run((h) => h.app.openExternal(url))}
         onRecordingChange={(on) => suspendHotkeys(hoot, on)}
+        lens={state.lens}
       />
     )
   }
