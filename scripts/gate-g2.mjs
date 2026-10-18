@@ -6,6 +6,7 @@
  *   npm run build:e2e -w @hoot/desktop
  *   node scripts/gate-g2.mjs                 # fakes, no key, no network
  *   node scripts/gate-g2.mjs --live --runs 2 # real Gemini (GEMINI_API_KEY)
+ *   … --model gemini-3.5-flash-lite          # chat on another model
  *
  * 1. Onboarding takes a Gemini key (validated through settings.setApiKey),
  *    then the owl is summoned.
@@ -26,6 +27,9 @@ import { _electron as electron } from '@playwright/test'
 const live = process.argv.includes('--live')
 const runsArg = process.argv.indexOf('--runs')
 const runs = runsArg >= 0 ? Number(process.argv[runsArg + 1]) : 1
+const modelArg = process.argv.indexOf('--model')
+/** Chat model for the run, e.g. gemini-3.5-flash-lite when Flash is out of free quota. */
+const model = modelArg >= 0 ? process.argv[modelArg + 1] : null
 const key = live ? (process.env.GEMINI_API_KEY ?? '') : 'fake-g2-key'
 if (live && !key) {
   console.error('--live needs GEMINI_API_KEY in the environment.')
@@ -56,7 +60,7 @@ for (let run = 1; run <= runs; run++) await gate(run)
 
 const failed = results.filter((r) => !r.ok).length
 console.log(
-  `G2 desktop (${live ? 'live Gemini' : 'fakes'}, ${runs} run(s)): ${failed ? `${failed} check(s) failed` : 'passed'}`
+  `G2 desktop (${live ? 'live Gemini' : 'fakes'}${model ? `, chat on ${model}` : ''}, ${runs} run(s)): ${failed ? `${failed} check(s) failed` : 'passed'}`
 )
 process.exit(failed ? 1 : 0)
 
@@ -98,6 +102,7 @@ async function gate(run) {
       `the Gemini key is accepted${saved?.ok ? '' : ` (${saved?.reason ?? 'no reply'})`}`
     )
     await app.evaluate(() => globalThis.__hoot.finishOnboarding())
+    if (model) await app.evaluate((_e, m) => globalThis.__hoot.updateSettings({ model: m }), model)
     await app.evaluate(() => globalThis.__hoot.summon())
     const summoned = await until(async () => ['pill', 'card'].includes((await state()).buddy.mode))
     check(run, 1, Boolean(summoned), 'summon shows the owl (via the hotkey path)')
@@ -107,9 +112,11 @@ async function gate(run) {
     await buddy.evaluate(() => window.hoot.capture.start('rect'))
     const overlay = await page('capture')
     await until(() => overlay.locator('.capture[data-state="open"]').isVisible())
-    await overlay.mouse.move(100, 100)
+    // Most of the screen, so the chart's bars are in the capture.
+    const view = await overlay.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }))
+    await overlay.mouse.move(view.w * 0.05, view.h * 0.08)
     await overlay.mouse.down()
-    await overlay.mouse.move(700, 500, { steps: 8 })
+    await overlay.mouse.move(view.w * 0.95, view.h * 0.92, { steps: 8 })
     await overlay.mouse.up()
     const attached = await until(async () => (await state()).chat.pendingAttachments.length === 1)
     check(run, 2, Boolean(attached), 'the circled region is attached to the chat')
