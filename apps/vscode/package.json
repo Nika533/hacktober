@@ -1,0 +1,109 @@
+{
+  "name": "hoot-lens",
+  "displayName": "Hoot Lens",
+  "description": "Select text you don't understand and Hoot shows a clearer version in place, or explains it in the Hoot chat. Powered by the Hoot desktop app.",
+  "version": "0.1.0",
+  "publisher": "hoot",
+  "private": true,
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "extensionKind": [
+    "ui"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "install-local": "node scripts/build.mjs && node scripts/install-local.mjs"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "hoot.lens.rewrite",
+        "title": "Make this clearer",
+        "category": "Hoot"
+      },
+      {
+        "command": "hoot.explain",
+        "title": "Explain in Hoot chat",
+        "category": "Hoot"
+      },
+      {
+        "command": "hoot.lens.restoreAll",
+        "title": "Restore all",
+        "category": "Hoot"
+      },
+      {
+        "command": "hoot.reconnect",
+        "title": "Reconnect to the Hoot app",
+        "category": "Hoot"
+      },
+      {
+        "command": "hoot.menu",
+        "title": "Show menu",
+        "category": "Hoot"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "hoot.lens.rewrite",
+        "key": "ctrl+alt+h",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "hoot.explain",
+        "key": "ctrl+alt+j",
+        "when": "editorTextFocus"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "hoot.lens.rewrite",
+          "group": "hoot@1"
+        },
+        {
+          "command": "hoot.explain",
+          "group": "hoot@2"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Hoot Lens",
+      "properties": {
+        "hoot.lens.auto": {
+          "type": "boolean",
+          "default": true,
+          "description": "Offer a clearer version automatically when you keep a short selection (1 to 40 words) still for a moment. Follows Lens on/off and Ask first in the Hoot app."
+        },
+        "hoot.lens.autoLanguages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "markdown",
+            "plaintext",
+            "latex",
+            "restructuredtext",
+            "asciidoc"
+          ],
+          "description": "Language ids where automatic Lens runs. Make this clearer works in every file."
+        }
+      }
+    }
+  },
+  "devDependencies": {
+    "@hoot/bridge": "*",
+    "@hoot/core": "*",
+    "@types/vscode": "1.100.0",
+    "esbuild": "0.28.2"
+  }
+}

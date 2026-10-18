@@ -1,4 +1,13 @@
-import { DEFAULT_SETTINGS, LIVE_SCREEN_NOTE, type Rect } from '@hoot/core'
+import {
+  DEFAULT_SETTINGS,
+  LIVE_SCREEN_NOTE,
+  liveScreenNote,
+  screenTextBlock,
+  type OverlayRestore,
+  type Point,
+  type Rect
+} from '@hoot/core'
+import type { CodeWindowInfo } from '@hoot/core/code'
 import { describe, expect, it, vi } from 'vitest'
 import { createCaptureService, type CaptureImage } from '../../src/main/capture'
 import type { ScreenGrabber } from '../../src/main/capture/grab'
@@ -45,7 +54,16 @@ class FakeImage implements CaptureImage {
 }
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- test fixture bag
-function setup(opts: { live?: boolean; studioVisible?: boolean } = {}) {
+function setup(
+  opts: {
+    live?: boolean
+    studioVisible?: boolean
+    readScreenText?: (rect: Rect) => Promise<string | null>
+    owlAnchor?: Point
+    codeWindow?: () => CodeWindowInfo | null
+    codeNote?: (windowId: string) => Promise<string | null>
+  } = {}
+) {
   const store = createStore(
     initialSlices({
       settings: DEFAULT_SETTINGS,
@@ -76,18 +94,37 @@ function setup(opts: { live?: boolean; studioVisible?: boolean } = {}) {
     },
     prewarm: noop
   }
-  const overlay: OverlayHost & { hidden: number } = {
+  const overlay: OverlayHost & {
+    hidden: number
+    userClicks: Point[]
+    restores: OverlayRestore[]
+  } = {
     hidden: 0,
+    userClicks: [],
+    restores: [],
     prepare: noop,
     show: () => void events.push('show'),
     hide: () => {
       overlay.hidden += 1
       events.push('hide')
     },
-    setCaptureExcluded: (on) => void events.push(`excluded ${on}`)
+    setCaptureExcluded: (on) => void events.push(`excluded ${on}`),
+    userClicked: (at) => void overlay.userClicks.push(at),
+    minimize: () => void events.push('minimize'),
+    restore: (r) => {
+      events.push('restore')
+      overlay.restores.push(r)
+    }
   }
-  const studioOpen = vi.fn<(view?: string) => void>()
+  const clicked: Point[] = []
+  let onClickListener: ((at: Point) => void) | null = null
+  let studioVisible = opts.studioVisible ?? false
+  const studioOpen = vi.fn<(view?: string) => void>(() => {
+    studioVisible = true
+  })
   const restore = vi.fn<(added: boolean) => void>()
+  const toOwl = vi.fn(() => void events.push('owl shown'))
+  const fromOwl = vi.fn(() => void events.push('owl hidden'))
   const newChat = vi.fn(() => {
     events.push('newChat')
     store.update('chat', { session: null, pendingAttachments: [] })
@@ -96,17 +133,21 @@ function setup(opts: { live?: boolean; studioVisible?: boolean } = {}) {
   const capture = createCaptureService({
     store,
     windows: {
-      get: () => ({ hide: noop }),
+      get: () => ({
+        hide: () => {
+          studioVisible = false
+        }
+      }),
       set: noop,
       all: () => []
     } as unknown as WindowRegistry,
-    studio: { open: studioOpen, isVisible: () => opts.studioVisible ?? false },
+    studio: { open: studioOpen, isVisible: () => studioVisible },
     persistence: {
       saveAttachment: async () => undefined,
       deleteAttachment: async (id: string) => void deleted.push(id)
     } as unknown as Persistence,
     log: silent,
-    surfaces: { hide: noop, restore },
+    surfaces: { hide: noop, restore, minimize: toOwl, unminimize: fromOwl },
     grabber,
     overlay,
     live: opts.live ?? true,
@@ -114,10 +155,40 @@ function setup(opts: { live?: boolean; studioVisible?: boolean } = {}) {
     notify: noop,
     wait: async () => undefined,
     newId: () => `a${++ids}`,
-    now: () => 42
+    now: () => 42,
+    clickScreen: async (at) => {
+      clicked.push(at)
+      return true
+    },
+    onScreenClick: (l) => {
+      onClickListener = l
+      return () => {
+        if (onClickListener === l) onClickListener = null
+      }
+    },
+    ...(opts.readScreenText ? { readScreenText: opts.readScreenText } : {}),
+    ...(opts.owlAnchor ? { owlAnchor: () => opts.owlAnchor! } : {}),
+    ...(opts.codeWindow ? { codeWindow: opts.codeWindow } : {}),
+    ...(opts.codeNote ? { codeNote: opts.codeNote } : {})
   })
   const pending = (): string[] => store.get('chat').pendingAttachments.map((a) => a.thumbDataUrl)
-  return { store, capture, overlay, events, ops, pending, studioOpen, restore, newChat, deleted }
+  return {
+    store,
+    capture,
+    overlay,
+    events,
+    ops,
+    pending,
+    studioOpen,
+    restore,
+    toOwl,
+    fromOwl,
+    newChat,
+    deleted,
+    clicked,
+    emitScreenClick: (at: Point) => onClickListener?.(at),
+    watchingClicks: () => onClickListener !== null
+  }
 }
 
 describe('live capture overlay', () => {
@@ -148,15 +219,59 @@ describe('live capture overlay', () => {
     expect(t.pending()).toHaveLength(1)
   })
 
-  it('attaches the current full screen before each message and returns the note', async () => {
+  it('attaches the current full screen before each message, with a note that keeps the model on the circled part', async () => {
     const t = setup()
     await t.capture.start()
     await t.capture.commit({ kind: 'rect', rect: { x: 10, y: 10, width: 40, height: 40 } })
     t.events.length = 0
-    expect(await t.capture.attachLiveScreen()).toBe(LIVE_SCREEN_NOTE)
+    // 0–1000 of the 1500×1000 display.
+    const note = liveScreenNote({ x1: 7, y1: 10, x2: 33, y2: 50 })
+    expect(await t.capture.attachLiveScreen()).toBe(note)
+    expect(note).toContain('x 7–33, y 10–50')
     expect(t.events).toEqual(['excluded true', 'grab 7', 'excluded false'])
     // The circled region first, then the live screen: the model is told the last image is the screen.
     expect(t.pending()).toEqual(['data:image/png;base64,g1', 'data:image/png;base64,g2'])
+    // Follow-ups stay on the same part.
+    expect(await t.capture.attachLiveScreen()).toBe(note)
+  })
+
+  it('the whole screen needs no crop of its own: only the live frame goes, with the plain note', async () => {
+    const t = setup()
+    await t.capture.start()
+    await t.capture.commit({ kind: 'full' })
+    expect(t.pending()).toEqual([])
+    expect(t.ops).toEqual([])
+    expect(await t.capture.attachLiveScreen()).toBe(LIVE_SCREEN_NOTE)
+    expect(t.pending()).toEqual(['data:image/png;base64,g2'])
+  })
+
+  it('drawing after the whole screen makes that part the subject again', async () => {
+    const t = setup()
+    await t.capture.start()
+    await t.capture.commit({ kind: 'full' })
+    expect(await t.capture.attachLiveScreen()).toBe(LIVE_SCREEN_NOTE)
+    await t.capture.commit({ kind: 'rect', rect: { x: 300, y: 200, width: 300, height: 100 } })
+    // A fresh chat with only the new crop (from a new grab), then the live frame.
+    expect(t.newChat).toHaveBeenCalledTimes(2)
+    expect(t.ops.at(-1)).toBe('crop g3 600,400 600x200')
+    expect(await t.capture.attachLiveScreen()).toBe(
+      liveScreenNote({ x1: 200, y1: 200, x2: 400, y2: 300 })
+    )
+    expect(t.pending()).toEqual(['data:image/png;base64,g3', 'data:image/png;base64,g4'])
+  })
+
+  it('a shape drawn while the last one is still saving wins (never dropped)', async () => {
+    const t = setup()
+    await t.capture.start()
+    await Promise.all([
+      t.capture.commit({ kind: 'full' }),
+      t.capture.commit({ kind: 'rect', rect: { x: 10, y: 10, width: 40, height: 40 } })
+    ])
+    expect(t.newChat).toHaveBeenCalledTimes(1)
+    expect(t.pending()).toHaveLength(1)
+    expect(await t.capture.attachLiveScreen()).toBe(
+      liveScreenNote({ x1: 7, y1: 10, x2: 33, y2: 50 })
+    )
   })
 
   it('attaches nothing when no live overlay is open, or outside live mode', async () => {
@@ -198,6 +313,188 @@ describe('live capture overlay', () => {
     await t.capture.cancel()
     expect(t.pending()).toEqual([])
     expect(t.deleted).toHaveLength(2)
+  })
+
+  it('sends the text under the shape (screen DIP) with the first message about it only', async () => {
+    const reads: Rect[] = []
+    const t = setup({
+      readScreenText: async (rect) => {
+        reads.push(rect)
+        return '  const total = price * qty  '
+      }
+    })
+    await t.capture.start()
+    await t.capture.commit({ kind: 'rect', rect: { x: 100, y: 50, width: 200, height: 80 } })
+    expect(reads).toEqual([{ x: 100, y: 50, width: 200, height: 80 }])
+
+    const region = liveScreenNote({ x1: 67, y1: 50, x2: 200, y2: 130 })
+    const first = await t.capture.attachLiveScreen()
+    expect(first).toBe(`${region}\n\n${screenTextBlock('  const total = price * qty  ')}`)
+    // Later messages carry the live screen only; the first one already holds the text.
+    expect(await t.capture.attachLiveScreen()).toBe(region)
+
+    // A new shape reads its own text.
+    await t.capture.commit({ kind: 'full' })
+    expect(reads.at(-1)).toEqual(DISPLAY)
+  })
+
+  it('a failed or empty read leaves only the live screen note', async () => {
+    const failing = setup({ readScreenText: () => Promise.reject(new Error('uia down')) })
+    await failing.capture.start()
+    await failing.capture.commit({ kind: 'full' })
+    expect(await failing.capture.attachLiveScreen()).toBe(LIVE_SCREEN_NOTE)
+
+    const empty = setup({ readScreenText: async () => '   ' })
+    await empty.capture.start()
+    await empty.capture.commit({ kind: 'full' })
+    expect(await empty.capture.attachLiveScreen()).toBe(LIVE_SCREEN_NOTE)
+  })
+
+  it('closing after "Open in chat" leaves Studio on the chat (no owl, no old view)', async () => {
+    const t = setup()
+    await t.capture.start()
+    await t.capture.commit({ kind: 'full' })
+    // The overlay's Open in chat shows Studio first, then closes the overlay.
+    t.studioOpen('chat')
+    await t.capture.cancel()
+    expect(t.restore).not.toHaveBeenCalled()
+    expect(t.studioOpen).toHaveBeenCalledTimes(1)
+
+    const fromStudio = setup({ studioVisible: true })
+    fromStudio.store.update('studio', { view: 'settings' })
+    await fromStudio.capture.start()
+    fromStudio.studioOpen('chat')
+    await fromStudio.capture.cancel()
+    expect(fromStudio.studioOpen.mock.calls).toEqual([['chat']])
+  })
+
+  it('clicks a spot on the display and forwards user clicks while the overlay is open', async () => {
+    const t = setup()
+    expect(await t.capture.click({ x: 100, y: 200 })).toBe(false)
+    await t.capture.start()
+    expect(t.watchingClicks()).toBe(true)
+
+    expect(await t.capture.click({ x: 300, y: 400 })).toBe(true)
+    expect(t.clicked).toEqual([{ x: 300, y: 400 }])
+
+    t.emitScreenClick({ x: 310, y: 410 })
+    // Outside the display: ignored.
+    t.emitScreenClick({ x: 9000, y: 10 })
+    expect(t.overlay.userClicks).toEqual([{ x: 310, y: 410 }])
+
+    await t.capture.cancel()
+    expect(t.watchingClicks()).toBe(false)
+  })
+
+  it('tells the overlay where the owl is on its display (for minimizing into it)', async () => {
+    const here = setup({ owlAnchor: { x: 1460, y: 960 } })
+    await here.capture.start()
+    expect(here.capture.getInit()?.owlAt).toEqual({ x: 1460, y: 960 })
+
+    const elsewhere = setup({ owlAnchor: { x: 3000, y: 960 } })
+    await elsewhere.capture.start()
+    expect(elsewhere.capture.getInit()?.owlAt).toBeNull()
+  })
+
+  it('minimizes into the owl and comes back out with the chat as it was', async () => {
+    const t = setup({ owlAnchor: { x: 1460, y: 960 } })
+    await t.capture.start()
+    await t.capture.commit({ kind: 'rect', rect: { x: 10, y: 10, width: 40, height: 40 } })
+    t.events.length = 0
+
+    await t.capture.minimize()
+    expect(t.capture.isMinimized()).toBe(true)
+    expect(t.events).toEqual(['minimize', 'owl shown'])
+    // Still capturing; nothing was closed or dropped.
+    expect(t.capture.isCapturing()).toBe(true)
+    expect(t.overlay.hidden).toBe(0)
+    expect(t.pending()).toHaveLength(1)
+    // From the owl's card, a message is a plain one; clicks are just the user working.
+    expect(await t.capture.attachLiveScreen()).toBeNull()
+    t.emitScreenClick({ x: 30, y: 30 })
+    expect(t.overlay.userClicks).toEqual([])
+
+    expect(t.capture.restore()).toBe(true)
+    expect(t.capture.isMinimized()).toBe(false)
+    expect(t.events.slice(2)).toEqual(['owl hidden', 'restore'])
+    expect(t.overlay.restores).toEqual([{ owlAt: { x: 1460, y: 960 }, draw: false }])
+    // Nothing minimized: the caller (the owl's chat button) does what it meant to.
+    expect(t.capture.restore()).toBe(false)
+    expect(await t.capture.attachLiveScreen()).toBe(
+      liveScreenNote({ x1: 7, y1: 10, x2: 33, y2: 50 })
+    )
+  })
+
+  it('circling again while minimized brings the overlay back, ready to draw (no new grab)', async () => {
+    const t = setup()
+    await t.capture.start()
+    await t.capture.commit({ kind: 'full' })
+    await t.capture.minimize()
+    t.events.length = 0
+    await t.capture.start('lasso')
+    expect(t.events).toEqual(['owl hidden', 'restore'])
+    expect(t.overlay.restores).toEqual([{ owlAt: null, draw: true }])
+  })
+
+  it('closing a minimized overlay ends it; minimize does nothing when closed', async () => {
+    const t = setup()
+    await t.capture.minimize()
+    expect(t.capture.isMinimized()).toBe(false)
+    await t.capture.start()
+    await t.capture.minimize()
+    await t.capture.cancel()
+    expect(t.capture.isMinimized()).toBe(false)
+    expect(t.capture.isCapturing()).toBe(false)
+    expect(t.capture.restore()).toBe(false)
+  })
+
+  describe('with VS Code in front (the code link)', () => {
+    const vscode: CodeWindowInfo = { id: 'win-1', name: 'hoot' }
+
+    it('pins the window when it opens and sends its code instead of grabbing the screen', async () => {
+      const asked: string[] = []
+      const windows = vi.fn(() => vscode)
+      const t = setup({
+        codeWindow: windows,
+        codeNote: async (id) => {
+          asked.push(id)
+          return `[VS Code: code #${asked.length}]`
+        },
+        readScreenText: async () => 'for (let i = 0; i <= n; i++)'
+      })
+      await t.capture.start()
+      expect(windows).toHaveBeenCalledTimes(1)
+      expect(t.capture.getInit()?.code).toEqual({ name: 'hoot' })
+      await t.capture.commit({ kind: 'rect', rect: { x: 10, y: 10, width: 40, height: 40 } })
+      t.events.length = 0
+
+      // The circled crop stays; the message gets the code (and the text under the shape), no frame.
+      expect(await t.capture.attachLiveScreen()).toBe(
+        `[VS Code: code #1]\n\n${screenTextBlock('for (let i = 0; i <= n; i++)')}`
+      )
+      expect(await t.capture.attachLiveScreen()).toBe('[VS Code: code #2]')
+      expect(t.events.filter((e) => e.startsWith('grab'))).toEqual([])
+      expect(t.pending()).toEqual(['data:image/png;base64,g1'])
+      expect(asked).toEqual(['win-1', 'win-1'])
+    })
+
+    it('falls back to the screen when VS Code doesn’t answer', async () => {
+      const t = setup({ codeWindow: () => vscode, codeNote: async () => null })
+      await t.capture.start()
+      await t.capture.commit({ kind: 'full' })
+      expect(await t.capture.attachLiveScreen()).toBe(LIVE_SCREEN_NOTE)
+      expect(t.pending()).toEqual(['data:image/png;base64,g2'])
+    })
+
+    it('grabs the screen as before when no VS Code window was in front', async () => {
+      const codeNote = vi.fn(async () => 'never')
+      const t = setup({ codeWindow: () => null, codeNote })
+      await t.capture.start()
+      expect(t.capture.getInit()?.code).toBeNull()
+      await t.capture.commit({ kind: 'full' })
+      expect(await t.capture.attachLiveScreen()).toBe(LIVE_SCREEN_NOTE)
+      expect(codeNote).not.toHaveBeenCalled()
+    })
   })
 
   it('keeps the overlay out of the picture until the last of overlapping grabs ends', async () => {

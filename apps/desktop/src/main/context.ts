@@ -1,4 +1,4 @@
-import { app, dialog, powerMonitor, safeStorage, screen, shell } from 'electron'
+import { app, clipboard, dialog, powerMonitor, safeStorage, screen, shell } from 'electron'
 import { randomBytes } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, stat } from 'node:fs/promises'
@@ -14,14 +14,17 @@ import {
   type Point,
   type Unsubscribe
 } from '@hoot/core'
+import { codeLinkPipePath, codeLinkTokenPath } from '@hoot/core/code'
 import type { AiProvider } from './ai'
 import { createAiProvider, createFakeProvider } from './ai'
+import { createAnywhereService, createBubbleWindow, type AnywhereService } from './anywhere'
 import { AnotherInstanceError, createBridgeServer, type BridgeServer } from './bridge'
 import { applyChatActivity } from './buddy/activity'
 import { createBuddyWindow, type BuddyWindow } from './buddy/window'
 import { createCaptureService, type CaptureService } from './capture'
 import { createChatService, type ChatService } from './chat'
 import { createClipboardWatcher, type ClipboardWatcher } from './clipboardWatch'
+import { createCodeLinkServer, createCodeService, type CodeService } from './code'
 import type { AppEnv } from './env'
 import { createHotkeys, type Hotkeys } from './hotkeys'
 import { handleInvoke } from './ipc/handle'
@@ -55,6 +58,7 @@ import { fileArgFromArgv } from './windows/drop'
 import { createReaderWindow } from './windows/reader'
 import { createStudioWindow, type StudioWindow } from './windows/studio'
 import { watchPower } from './powerWatch'
+import { createTextAccess, type TextAccess } from './textAccess'
 
 export interface AppContext {
   env: AppEnv
@@ -81,6 +85,12 @@ export interface AppContext {
   tray: TrayHandle
   clipboard: ClipboardWatcher
   reader: ReaderService
+  /** Text in other desktop apps (UI Automation + clipboard fallback). */
+  textAccess: TextAccess
+  /** Lens anywhere: the Lens hotkey's bubble over any app. */
+  anywhere: AnywhereService
+  /** The code link: VS Code's code as text instead of screenshots, highlights and edits back. */
+  code: CodeService
   /**
    * Feature seams later PRs reassign (finish-plan §2): kept mutable on
    * purpose so late-landing features can re-point them.
@@ -178,6 +188,8 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
   const windows = createWindowRegistry()
 
   const clipboardWatcher = createClipboardWatcher({ store, log })
+  const textAccess = createTextAccess({ log, enabled: !env.test && process.platform === 'win32' })
+  flush.add('textAccess', async () => textAccess.dispose())
 
   // A file dropped on any Hoot surface opens in the Reader (F-D1-6). ctx is
   // assigned below; the guard can't fire before a page loads anyway.
@@ -230,7 +242,11 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     log,
     enabled: !env.test,
     onSummon: onSummonHotkey,
-    onCapture: () => ctx.hooks.startCapture()
+    onCapture: () => ctx.hooks.startCapture(),
+    onLens: () =>
+      void ctx.anywhere
+        .trigger()
+        .catch((e: unknown) => log.warn(`lens anywhere failed: ${String(e)}`))
   })
   flush.add('hotkeys', async () => hotkeys.dispose())
 
@@ -326,6 +342,24 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     }
   })
 
+  // Lens anywhere: the bubble window is created on the first Lens hotkey.
+  const anywhere = createAnywhereService({
+    readSelection: () => textAccess.selection(),
+    lens,
+    bubble: createBubbleWindow({ windows, onDismiss: () => anywhere.dismissed() }),
+    settings: () => store.get('settings').settings,
+    cursor: () => screen.getCursorScreenPoint(),
+    workArea: (rect) => screen.getDisplayMatching(rect).workArea,
+    writeClipboard: (text) => clipboard.writeText(text),
+    pin: (text) => pins.createFromText(text),
+    openStudio: (view) => {
+      studio.open(view)
+      buddy.hide()
+    },
+    log
+  })
+  flush.add('anywhere', async () => anywhere.dispose())
+
   // Capture (d2 skeleton #60, overlay lands in F-D2-3): hides our surfaces
   // before the grab; a composer-bound capture returns to the card. Outside
   // tests the overlay is live: it stays open over the real screen and the
@@ -346,9 +380,23 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     },
     // HOOT_NO_CAPTURE_EXCLUDE=1 for a recorded demo (each grab would blank the overlay).
     excludeFromGrabs: process.env['HOOT_NO_CAPTURE_EXCLUDE'] !== '1',
+    readScreenText: (rect) => textAccess.textInRect(rect),
+    clickScreen: (at) => textAccess.click(at),
+    onScreenClick: (l) => textAccess.onClick(l),
+    owlAnchor: () => buddy.anchor(),
     surfaces: {
       hide: () => buddy.hide(),
-      restore: (added) => buddy.request(added ? 'card' : 'pill')
+      restore: (added) => buddy.request(added ? 'card' : 'pill'),
+      // The chat shrinks into the owl: just the owl (with its badge), no greeting pop.
+      minimize: () => {
+        buddy.request('dot')
+        buddy.dismissGreeting()
+      },
+      // Coming back out: the owl steps aside; the answer is on screen again.
+      unminimize: () => {
+        buddy.hide()
+        store.update('buddy', { answerReady: false })
+      }
     }
   })
 
@@ -426,6 +474,8 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     tray,
     clipboard: clipboardWatcher,
     reader,
+    textAccess,
+    anywhere,
     hooks: {
       explain(message) {
         ctx.hooks.showChatSurface()
@@ -495,6 +545,7 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
       hotkeys.apply()
       // The first desktopCapturer grab takes ~3 s cold — warm it once idle.
       capture.prewarm()
+      textAccess.prewarm()
       // --hidden opens nothing (launch-at-login must never pop a window);
       // first run goes to onboarding, returning users get the owl — or the
       // document they launched us with ("Open with Hoot" / `hoot doc.pdf`).

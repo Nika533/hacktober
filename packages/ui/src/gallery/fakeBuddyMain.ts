@@ -336,8 +336,12 @@ export function createFakeBuddyMain(opts: FakeBuddyMainOptions): FakeBuddyMain {
       getInit: () => Promise.resolve(null),
       commit: () => resolved,
       cancel: () => resolved,
+      click: () => Promise.resolve(true),
+      minimize: () => resolved,
       onOpen: () => () => undefined,
-      onClosed: () => () => undefined
+      onClosed: () => () => undefined,
+      onUserClick: () => () => undefined,
+      onRestore: () => () => undefined
     },
     pins: {
       create: () => resolved,

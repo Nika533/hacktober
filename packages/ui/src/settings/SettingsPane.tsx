@@ -15,7 +15,7 @@ import { Switch } from '../components/Switch'
 import { TextField } from '../components/TextField'
 import { useToast } from '../components/toastContext'
 import { ApiKeyField } from './ApiKeyField'
-import { ShortcutFields } from './ShortcutFields'
+import { ShortcutFields, type ShortcutFieldsProps } from './ShortcutFields'
 import { SettingsGroup as Group } from './SettingsGroup'
 
 export interface SettingsPaneProps {
@@ -23,7 +23,7 @@ export interface SettingsPaneProps {
   hasApiKey: boolean
   keyStorage: 'os-encrypted' | 'memory'
   /** Registration problems per shortcut, already turned into sentences by the host. */
-  hotkeyErrors?: { summonHotkey?: string; captureHotkey?: string }
+  hotkeyErrors?: ShortcutFieldsProps['errors']
   /** App version for the About line. */
   version?: string
   onUpdate: (patch: SettingsPatch) => void
@@ -127,6 +127,7 @@ export function SettingsPane({
           <ShortcutFields
             summonHotkey={s.summonHotkey}
             captureHotkey={s.captureHotkey}
+            lensHotkey={s.lensHotkey}
             errors={hotkeyErrors}
             onUpdate={onUpdate}
             onRecordingChange={onRecordingChange}

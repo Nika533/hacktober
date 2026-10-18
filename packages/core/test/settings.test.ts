@@ -37,6 +37,7 @@ describe('migrateSettings', () => {
     expect(s.translateTo).toBe('German')
     expect(s.pillAnchor).toEqual({ x: 10, y: 20 })
     expect(s.onboardingDone).toBe(true)
+    expect(s.lensHotkey).toBe('CommandOrControl+Alt+L')
     expect(s.lens).toEqual(DEFAULT_SETTINGS.lens)
     expect(SettingsSchema.safeParse(s).success).toBe(true)
   })
@@ -66,6 +67,16 @@ describe('migrateSettings', () => {
     )
   })
 
+  it('gives a v2 file from before Lens anywhere the default Lens hotkey, and keeps a saved one', () => {
+    const before: Record<string, unknown> = { ...DEFAULT_SETTINGS }
+    delete before.lensHotkey
+    expect(migrateSettings(before).lensHotkey).toBe(DEFAULT_SETTINGS.lensHotkey)
+    expect(migrateSettings({ ...before, lensHotkey: '' }).lensHotkey).toBe(
+      DEFAULT_SETTINGS.lensHotkey
+    )
+    expect(migrateSettings({ ...before, lensHotkey: 'Alt+Shift+E' }).lensHotkey).toBe('Alt+Shift+E')
+  })
+
   it('drops unknown keys', () => {
     const s = migrateSettings({ ...DEFAULT_SETTINGS, evil: true }) as unknown as Record<
       string,
@@ -79,6 +90,7 @@ describe('SettingsPatchSchema', () => {
   it('accepts user-editable fields and nested lens changes', () => {
     const r = SettingsPatchSchema.safeParse({
       model: 'claude-opus-5-5',
+      lensHotkey: 'CommandOrControl+Shift+L',
       lens: { mode: 'ask', sites: { 'example.com': 'paused', 'old.org': null } }
     })
     expect(r.success).toBe(true)

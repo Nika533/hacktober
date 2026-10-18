@@ -9,6 +9,7 @@ import {
   DEFAULT_LENS_SETTINGS,
   DEV_EXTENSION_ID,
   FrameDecoder,
+  VSCODE_EXTENSION_ORIGIN,
   bridgePipePath,
   bridgeTokenPath,
   encodeFrame,
@@ -154,9 +155,29 @@ describe('bridge server', () => {
     })
   })
 
+  it('accepts the VS Code extension with the right token', async () => {
+    const c = await client()
+    c.send({ type: 'bridge.auth', token: token(), origin: VSCODE_EXTENSION_ORIGIN })
+    c.send({ ...hello, browser: 'other' })
+    expect(await c.next()).toMatchObject({ type: 'welcome', appVersion: '1.2.3' })
+    expect(server.clients).toBe(1)
+
+    const editorCtx = { ...ctx, site: '', surface: 'editor' }
+    c.send({ type: 'explain', reqId: 'x1', ctx: editorCtx })
+    expect(await c.next()).toMatchObject({ type: 'ack', reqId: 'x1' })
+  })
+
   it.each([
     ['a wrong token', { type: 'bridge.auth', token: 'f'.repeat(64), origin: ORIGIN }],
     ['an unknown extension', { type: 'bridge.auth', token: '', origin: 'chrome-extension://x/' }],
+    [
+      'an unknown editor extension',
+      { type: 'bridge.auth', token: '', origin: 'vscode-extension://evil.hoot-lens/' }
+    ],
+    [
+      'the VS Code origin with a wrong token',
+      { type: 'bridge.auth', token: 'f'.repeat(64), origin: VSCODE_EXTENSION_ORIGIN }
+    ],
     ['no auth frame', hello]
   ])('refuses %s', async (_label, first) => {
     const c = await client()

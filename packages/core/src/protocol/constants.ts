@@ -19,6 +19,14 @@ export function allowedExtensionIds(): readonly string[] {
 
 export const extensionOrigin = (id: string): string => `chrome-extension://${id}/`
 
+/** Origin the Hoot Lens VS Code extension (apps/vscode) sends in `bridge.auth`. */
+export const VSCODE_EXTENSION_ORIGIN = 'vscode-extension://hoot.hoot-lens/'
+
+/** Every origin the app's pipe accepts in `bridge.auth`: the browser extensions and VS Code. */
+export function allowedBridgeOrigins(): readonly string[] {
+  return [...allowedExtensionIds().map(extensionOrigin), VSCODE_EXTENSION_ORIGIN]
+}
+
 /**
  * Where the app listens for hoot-bridge: a named pipe on Windows, a unix
  * socket elsewhere (dev on macOS/Linux). Scoped per OS user.

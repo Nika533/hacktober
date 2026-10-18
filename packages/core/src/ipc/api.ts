@@ -1,9 +1,12 @@
+import type { CodeActionResult, CodeTagState } from '../code/types'
 import type { Unsubscribe } from '../protocol/backend'
+import type { AnywhereAction, AnywhereState } from '../types/anywhere'
 import type {
   BuddyMode,
   CaptureMode,
   OverlayCommit,
   OverlayInit,
+  OverlayRestore,
   Point,
   Rect,
   RequestedMode,
@@ -112,8 +115,19 @@ export interface HootApi {
     getInit(): Promise<OverlayInit | null>
     commit(commit: OverlayCommit): Promise<void>
     cancel(): Promise<void>
+    /** Live overlay: click a spot on this display (overlay-local DIP). */
+    click(at: Point): Promise<boolean>
+    /**
+     * Live overlay: hide it into the owl, keeping the chat. Opening the
+     * owl's chat (or circling again) brings it back (`onRestore`).
+     */
+    minimize(): Promise<void>
     onOpen(cb: () => void): Unsubscribe
     onClosed(cb: () => void): Unsubscribe
+    /** Live overlay: the user clicked at this spot on the display (overlay-local DIP). */
+    onUserClick(cb: (at: Point) => void): Unsubscribe
+    /** Live overlay: shown again after `minimize`. */
+    onRestore(cb: (restore: OverlayRestore) => void): Unsubscribe
   }
   pins: {
     /** Pin an assistant message from the active session. */
@@ -169,6 +183,29 @@ export interface HootApi {
     recentChanges(limit: number): Promise<RecentChange[]>
     glossary(): Promise<GlossaryEntry[]>
     onProfile(cb: (snapshot: ProfileSnapshot) => void): Unsubscribe
+  }
+  /** The Lens anywhere bubble only: main ignores calls from other windows. */
+  anywhere: {
+    current(): Promise<AnywhereState | null>
+    onUpdate(cb: (state: AnywhereState) => void): Unsubscribe
+    /** The bubble's content height (DIP); main resizes the window, capped. */
+    resize(height: number): void
+    act(action: AnywhereAction): Promise<void>
+    close(): Promise<void>
+  }
+  /**
+   * The code link (VS Code): an answer's `[[line]]` / `[[edit]]` tags, by
+   * their index in `parseCodeAnswer(text).tags`.
+   */
+  code: {
+    /** Apply tag `index`'s edit in VS Code (the user clicked Apply). */
+    apply(messageId: string, index: number): Promise<CodeActionResult>
+    /** Open tag `index`'s file in VS Code and scroll to it. */
+    reveal(messageId: string, index: number): Promise<CodeActionResult>
+    /** Each tag's state; null when Hoot didn't read code for this answer. */
+    tagStates(messageId: string): Promise<CodeTagState[] | null>
+    /** Something changed (an edit applied, VS Code came or went): ask again. */
+    onChange(cb: () => void): Unsubscribe
   }
   app: {
     /** Opens http(s) URLs on the allowlist in the default browser. */

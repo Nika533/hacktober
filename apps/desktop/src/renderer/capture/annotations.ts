@@ -1,14 +1,23 @@
 import type { Point, Rect } from '@hoot/core'
 
+/** Edges in normalized 0–1000 coordinates: left, top, right, bottom. */
+export interface Bounds {
+  x1: number
+  y1: number
+  x2: number
+  y2: number
+}
+
 /**
  * On-screen guidance the model asks for with tags in its answer (the chat
  * system prompt): normalized 0–1000 coordinates of the full-screen frame,
- * 0,0 top-left and 1000,1000 bottom-right.
+ * 0,0 top-left and 1000,1000 bottom-right. A point or action given as four
+ * numbers carries the control's edges (`bounds`); x, y is then its centre.
  */
 export type Annotation =
-  | { kind: 'point'; x: number; y: number; label: string }
-  | { kind: 'box'; x1: number; y1: number; x2: number; y2: number; label: string }
-  | { kind: 'action'; x: number; y: number; label: string }
+  | { kind: 'point'; x: number; y: number; label: string; bounds?: Bounds }
+  | ({ kind: 'box'; label: string } & Bounds)
+  | { kind: 'action'; x: number; y: number; label: string; bounds?: Bounds }
 
 /** At most this many marks on screen at once, whatever the model sends. */
 export const MAX_ANNOTATIONS = 8
@@ -22,6 +31,14 @@ const NUMBER = /-?\d+(?:\.\d+)?/g
 const QUOTED = /["“”'‘’](.*)["“”'‘’]\s*$/
 
 const clamp = (n: number): number => Math.min(1000, Math.max(0, n))
+
+/** Two corners in any order → left, top, right, bottom. */
+const boundsOf = ([a, b, c, d]: readonly [number, number, number, number]): Bounds => ({
+  x1: Math.min(a, c),
+  y1: Math.min(b, d),
+  x2: Math.max(a, c),
+  y2: Math.max(b, d)
+})
 
 function parseArgs(raw: string): { numbers: number[]; label: string } {
   const quoted = QUOTED.exec(raw)
@@ -41,18 +58,18 @@ export function parseAnnotations(
     const { numbers, label } = parseArgs(args)
     const k = kind.toLowerCase()
     if (annotations.length >= MAX_ANNOTATIONS) return ''
-    if (k === 'box' && numbers.length >= 4) {
-      const [a, b, c, d] = numbers.map(clamp) as [number, number, number, number]
-      annotations.push({
-        kind: 'box',
-        x1: Math.min(a, c),
-        y1: Math.min(b, d),
-        x2: Math.max(a, c),
-        y2: Math.max(b, d),
-        label
-      })
-    } else if ((k === 'point' || k === 'action') && numbers.length >= 2) {
-      const [x, y] = numbers.map(clamp) as [number, number]
+    const n = numbers.map(clamp)
+    if (k === 'box' && n.length >= 4) {
+      annotations.push({ kind: 'box', ...boundsOf(n as [number, number, number, number]), label })
+    } else if ((k === 'point' || k === 'action') && n.length >= 4) {
+      const bounds = boundsOf(n as [number, number, number, number])
+      const x = (bounds.x1 + bounds.x2) / 2
+      const y = (bounds.y1 + bounds.y2) / 2
+      // A zero-width or zero-height "box" is really just a spot.
+      const flat = bounds.x2 - bounds.x1 < 1 || bounds.y2 - bounds.y1 < 1
+      annotations.push(flat ? { kind: k, x, y, label } : { kind: k, x, y, label, bounds })
+    } else if ((k === 'point' || k === 'action') && n.length >= 2) {
+      const [x, y] = n as [number, number]
       annotations.push({ kind: k, x, y, label })
     }
     return ''
@@ -82,6 +99,38 @@ export function toScreen(
   size: { width: number; height: number }
 ): Point {
   return { x: (p.x * size.width) / 1000, y: (p.y * size.height) / 1000 }
+}
+
+/** Normalized edges → an overlay DIP rect. */
+export function boundsToScreen(b: Bounds, size: { width: number; height: number }): Rect {
+  const from = toScreen({ x: b.x1, y: b.y1 }, size)
+  const to = toScreen({ x: b.x2, y: b.y2 }, size)
+  return { x: from.x, y: from.y, width: to.x - from.x, height: to.y - from.y }
+}
+
+/** A step's target, in overlay DIP: its centre, and its highlight box when the model gave edges. */
+export interface Target {
+  at: Point
+  rect?: Rect
+}
+
+/** Within this distance (DIP) of a target's centre, a click counts as clicking it. */
+export const TARGET_HIT_DIP = 72
+/** Slack around a highlight box for a click that just misses its edge (DIP). */
+export const BOX_HIT_SLACK = 12
+
+/** Did a click at `p` hit the step's target (inside its box, or near its centre)? */
+export function hitsTarget(p: Point, target: Target): boolean {
+  const r = target.rect
+  if (
+    r &&
+    p.x >= r.x - BOX_HIT_SLACK &&
+    p.x <= r.x + r.width + BOX_HIT_SLACK &&
+    p.y >= r.y - BOX_HIT_SLACK &&
+    p.y <= r.y + r.height + BOX_HIT_SLACK
+  )
+    return true
+  return Math.hypot(p.x - target.at.x, p.y - target.at.y) <= TARGET_HIT_DIP
 }
 
 const overlaps = (a: Rect, b: Rect): boolean =>

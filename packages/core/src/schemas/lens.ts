@@ -46,7 +46,7 @@ export const LensContextSchema = z.object({
   lang: LangSchema,
   site: SiteSchema,
   siteCategory: SiteCategorySchema,
-  surface: z.enum(['html', 'pdf', 'reader']),
+  surface: z.enum(['html', 'pdf', 'reader', 'app', 'editor']),
   signals: LensSignalsSchema,
   p: UnitSchema
 })

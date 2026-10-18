@@ -82,4 +82,14 @@ describe('stripAnnotationTags', () => {
       'Arrays look like [[1, 2], [3]].'
     )
   })
+
+  it('turns code tags into readable references', () => {
+    expect(
+      stripAnnotationTags(
+        'Off by one.\n[[line: src/a.ts:5, "Loop bound"]]\n[[edit: src/a.ts:5, "Use <"]]\n```ts\nfor (;;)\n```'
+      )
+    ).toBe(
+      'Off by one.\n`src/a.ts:5` — Loop bound\n**Change** `src/a.ts:5` — Use <\n```ts\nfor (;;)\n```'
+    )
+  })
 })

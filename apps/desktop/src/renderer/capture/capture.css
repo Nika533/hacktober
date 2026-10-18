@@ -28,9 +28,59 @@ body,
   background: rgba(0, 0, 0, 0.01);
 }
 
-.capture[data-live][data-phase='chat'] {
+.capture[data-live][data-phase='chat'],
+.capture[data-live][data-interact] {
   background: transparent;
   cursor: default;
+}
+
+/* Dragging or resizing a panel: keep the pointer on this window wherever it goes. */
+.capture[data-live][data-dragging],
+.capture[data-live][data-resizing] {
+  background: rgba(0, 0, 0, 0.01);
+  cursor: grabbing;
+}
+
+.capture[data-resizing='n'],
+.capture[data-resizing='s'],
+.capture[data-resizing] .capture__resize--n,
+.capture[data-resizing] .capture__resize--s {
+  cursor: ns-resize;
+}
+
+.capture[data-resizing='e'],
+.capture[data-resizing='w'],
+.capture[data-resizing] .capture__resize--e,
+.capture[data-resizing] .capture__resize--w {
+  cursor: ew-resize;
+}
+
+.capture[data-resizing='ne'],
+.capture[data-resizing='sw'] {
+  cursor: nesw-resize;
+}
+
+.capture[data-resizing='nw'],
+.capture[data-resizing='se'] {
+  cursor: nwse-resize;
+}
+
+/* On the way into the owl: everything but the chat steps back with it. */
+.capture__toolbar,
+.capture__veil,
+.capture__edge-glow {
+  transition: opacity 220ms var(--ease-out, ease-out);
+}
+
+.capture[data-minimized] .capture__toolbar,
+.capture[data-minimized] .capture__veil,
+.capture[data-minimized] .capture__edge-glow {
+  opacity: 0;
+}
+
+.capture[data-minimized] .capture__toolbar,
+.capture[data-minimized] .capture__chat {
+  pointer-events: none;
 }
 
 .capture__shot,
@@ -51,6 +101,14 @@ body,
     inset 0 0 0 2px rgba(92, 200, 255, 0.55),
     inset 0 0 18px 4px rgba(56, 189, 248, 0.38),
     inset 0 0 72px 10px rgba(56, 189, 248, 0.14);
+}
+
+/* The whole screen is the subject: the edge glow says so a little louder. */
+.capture[data-full] .capture__edge-glow {
+  box-shadow:
+    inset 0 0 0 2px rgba(92, 200, 255, 0.8),
+    inset 0 0 22px 6px rgba(56, 189, 248, 0.5),
+    inset 0 0 90px 14px rgba(56, 189, 248, 0.2);
 }
 
 .capture__toolbar {
@@ -78,11 +136,38 @@ body,
     0 0 0 1px rgba(56, 189, 248, 0.2),
     0 0 18px rgba(56, 189, 248, 0.35),
     var(--shadow-2);
+  cursor: grab;
+  touch-action: none;
+}
+
+/* Dragged somewhere else: `left`/`top` come from the page, no centring. */
+.capture__toolbar[data-moved] {
+  transform: none;
+}
+
+.capture[data-dragging] .capture__toolbar,
+.capture[data-dragging] .capture__chat-head {
+  cursor: grabbing;
+}
+
+.capture__grip {
+  display: inline-flex;
+  padding-inline: 2px;
+  color: var(--text-3);
+}
+
+.capture__icon--bar {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-2);
 }
 
 /* Out of the way while drawing, so it never covers what's being circled. */
 .capture[data-drawing] .capture__toolbar {
-  opacity: 0;
+  opacity: 0.2;
   pointer-events: none;
 }
 
@@ -91,25 +176,40 @@ body,
   color: var(--text-2);
 }
 
-/* The glass chat beside the shape. Fixed dark glass: it sits over any screen. */
+/*
+ * The glass chat beside the shape: see-through dark glass over any screen.
+ * The window is transparent, so there's nothing behind it to blur; the tint
+ * does the work, a touch denser where the text sits and while it's in use,
+ * and the text gets a soft shadow so it holds up over busy screens.
+ * Place and size are set by the panel springs (left/top/width/height).
+ */
 .capture__chat {
   position: absolute;
+  left: 0;
+  top: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 12px;
   box-sizing: border-box;
+  overflow: hidden;
   border-radius: 18px;
-  border: 1px solid rgba(92, 200, 255, 0.6);
-  background: rgba(10, 20, 36, 0.82);
-  backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgba(92, 200, 255, 0.5);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 64px),
+    rgba(8, 18, 34, 0.58);
   box-shadow:
-    0 0 0 1px rgba(56, 189, 248, 0.22),
-    0 0 26px rgba(56, 189, 248, 0.38),
-    0 16px 44px rgba(0, 0, 0, 0.38);
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 1px rgba(56, 189, 248, 0.16),
+    0 0 22px rgba(56, 189, 248, 0.3),
+    0 14px 40px rgba(0, 0, 0, 0.28);
   color: #f0f9ff;
+  text-shadow: 0 1px 2px rgba(2, 8, 20, 0.55);
   cursor: default;
   user-select: text;
+  transition:
+    background-color 240ms var(--ease-out, ease-out),
+    border-color 240ms var(--ease-out, ease-out);
   /* The shared Markdown styles read these. */
   --text-1: #f0f9ff;
   --text-2: #bae6fd;
@@ -126,10 +226,101 @@ body,
   }
 }
 
+/* Reading or typing in it: a little more glass between the words and the screen. */
+.capture__chat:hover,
+.capture__chat:focus-within,
+.capture[data-resizing] .capture__chat,
+.capture[data-dragging='chat'] .capture__chat {
+  background-color: rgba(8, 18, 34, 0.74);
+  border-color: rgba(92, 200, 255, 0.65);
+}
+
+.capture__chat :where(button, input, textarea, kbd, code, pre) {
+  text-shadow: none;
+}
+
+/* Edges and corners to resize by; invisible, the cursor says what they do. */
+.capture__resize {
+  position: absolute;
+  z-index: 2;
+  touch-action: none;
+  user-select: none;
+}
+
+.capture__resize--n,
+.capture__resize--s {
+  left: 14px;
+  right: 14px;
+  height: 7px;
+  cursor: ns-resize;
+}
+
+.capture__resize--n {
+  top: 0;
+}
+
+.capture__resize--s {
+  bottom: 0;
+}
+
+.capture__resize--e,
+.capture__resize--w {
+  top: 14px;
+  bottom: 14px;
+  width: 7px;
+  cursor: ew-resize;
+}
+
+.capture__resize--e {
+  right: 0;
+}
+
+.capture__resize--w {
+  left: 0;
+}
+
+.capture__resize--ne,
+.capture__resize--nw,
+.capture__resize--se,
+.capture__resize--sw {
+  width: 16px;
+  height: 16px;
+}
+
+.capture__resize--ne {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+
+.capture__resize--sw {
+  bottom: 0;
+  left: 0;
+  cursor: nesw-resize;
+}
+
+.capture__resize--nw {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+
+.capture__resize--se {
+  bottom: 0;
+  right: 0;
+  cursor: nwse-resize;
+}
+
 .capture__chat-head {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  margin: -4px -4px 0;
+  padding: 4px;
+  border-radius: 12px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
 }
 
 .capture__chat-title {
@@ -153,6 +344,11 @@ body,
 .capture__icon {
   width: 28px;
   height: 28px;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   border: 1px solid transparent;
   border-radius: 8px;
   background: transparent;
@@ -162,6 +358,11 @@ body,
   cursor: pointer;
 }
 
+.capture__icon[aria-pressed='true'] {
+  border-color: rgba(92, 200, 255, 0.5);
+  background: rgba(56, 189, 248, 0.18);
+}
+
 .capture__icon:hover,
 .capture__icon:focus-visible {
   border-color: rgba(92, 200, 255, 0.5);
@@ -169,15 +370,19 @@ body,
   outline: none;
 }
 
+/* The part that gives: it scrolls when the chat is held shorter than its words. */
 .capture__transcript {
   overflow-y: auto;
   min-height: 0;
   flex: 1 1 auto;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.capture__transcript-body {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  font-size: 14px;
-  line-height: 1.45;
 }
 
 .capture__question {
@@ -192,6 +397,32 @@ body,
 
 .capture__answer :where(p, ul, ol) {
   margin-block: 0 6px;
+}
+
+.capture__chat[data-wide] .capture__transcript {
+  font-size: 15px;
+}
+
+.capture__answer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.capture__pill--quiet {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-color: rgba(92, 200, 255, 0.3);
+  background: transparent;
+  font-size: 12px;
+}
+
+.capture__pill--quiet svg {
+  width: 13px;
+  height: 13px;
 }
 
 .capture__thinking,
@@ -229,6 +460,9 @@ body,
 }
 
 .capture__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 5px 12px;
   border-radius: 999px;
   border: 1px solid rgba(92, 200, 255, 0.5);
@@ -237,6 +471,12 @@ body,
   font: inherit;
   font-size: 13px;
   cursor: pointer;
+}
+
+.capture__pill[aria-pressed='true'] {
+  border-color: var(--glow);
+  background: rgba(56, 189, 248, 0.28);
+  color: #ffffff;
 }
 
 .capture__pill:hover:not(:disabled),
@@ -291,6 +531,15 @@ body,
 @media (prefers-reduced-motion: reduce) {
   .capture__chat {
     animation: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .capture__chat,
+  .capture__chat:hover,
+  .capture__chat:focus-within {
+    background: rgba(8, 18, 34, 0.96);
+    text-shadow: none;
   }
 }
 

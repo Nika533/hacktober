@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { Pin, Rect } from '@hoot/core'
+import { stripAnnotationTags, type Pin, type Rect } from '@hoot/core'
 import type { Store } from '../store/store'
 
 /** The note windows, behind an interface so the service is testable without Electron. */
@@ -75,7 +75,8 @@ export function createPinsService(deps: PinsDeps): PinsService {
       if (existing) return windows.open(existing)
       add({
         id: newId(),
-        text: message.text,
+        // The live overlay's on-screen marks mean nothing on a note.
+        text: stripAnnotationTags(message.text),
         sessionId: session.id,
         messageId,
         bounds: windows.placement(pins().length),

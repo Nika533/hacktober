@@ -1,4 +1,4 @@
-import type { WindowKind } from '@hoot/core'
+import { DEFAULT_SUBSCRIPTIONS, type WindowKind } from '@hoot/core'
 
 /**
  * CSP is delivered as a response header, never a meta tag (D1-00). prod is
@@ -36,7 +36,8 @@ export interface HeaderSession {
   webRequest: Pick<Electron.WebRequest, 'onHeadersReceived'>
 }
 
-const WINDOW_KINDS: readonly string[] = ['buddy', 'studio', 'capture', 'note', 'reader']
+/** Every window kind has a subscription entry, so this list never drifts. */
+const WINDOW_KINDS: readonly string[] = Object.keys(DEFAULT_SUBSCRIPTIONS)
 
 /** The window kind an html response belongs to (`studio.html` → 'studio'). */
 export function kindFromHtmlPath(pathname: string): WindowKind | null {

@@ -11,6 +11,7 @@
  * helpers (the content script) stay small.
  */
 
+export * from './types/anywhere'
 export * from './types/app'
 export * from './types/chat'
 export * from './types/lens'

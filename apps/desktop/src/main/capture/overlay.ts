@@ -1,5 +1,5 @@
 import { screen, type BrowserWindow } from 'electron'
-import { HOOT_API_ROUTES, type Rect } from '@hoot/core'
+import { HOOT_API_ROUTES, type OverlayRestore, type Point, type Rect } from '@hoot/core'
 import { createSecureWindow, loadRenderer, type WindowRegistry } from '../windows/base'
 
 /** The full-screen overlay the user circles on. */
@@ -13,9 +13,15 @@ export interface OverlayHost {
    * grabbed, so the model sees the screen, not Hoot's glow and chat.
    */
   setCaptureExcluded?(excluded: boolean): void
+  /** Live mode only: tell the overlay where the user just clicked (overlay DIP). */
+  userClicked?(at: Point): void
+  /** Live mode only: hide the window but keep the page (its chat) as it is. */
+  minimize?(): void
+  /** Live mode only: show a minimized overlay again, on the same display. */
+  restore?(restore: OverlayRestore): void
 }
 
-const { onOpen, onClosed } = HOOT_API_ROUTES.capture
+const { onOpen, onClosed, onUserClick, onRestore } = HOOT_API_ROUTES.capture
 
 /** How often live mode checks whether the cursor is over the chat or toolbar. */
 export const HIT_POLL_MS = 50
@@ -46,6 +52,8 @@ export function createOverlayWindow(deps: {
   const live = deps.live ?? false
   let win: BrowserWindow | null = null
   let showing = false
+  /** Showing, but hidden into the owl: the page keeps its state, clicks aren't watched. */
+  let minimized = false
   let poll: ReturnType<typeof setInterval> | null = null
   let ignoring = false
   let probing = false
@@ -127,26 +135,47 @@ export function createOverlayWindow(deps: {
     return created
   }
 
+  /** Above the taskbar and every other topmost window, taking clicks until the first probe. */
+  const raise = (w: BrowserWindow): void => {
+    ignoring = false
+    w.setIgnoreMouseEvents(false)
+    w.setAlwaysOnTop(true, 'screen-saver')
+    w.show()
+    w.moveTop()
+    w.focus()
+  }
+
   return {
     prepare: () => void ensure(),
     show(bounds) {
       const w = ensure()
       showing = true
-      ignoring = false
-      w.setIgnoreMouseEvents(false)
+      minimized = false
       w.setBounds(bounds)
-      // Above the taskbar and every other topmost window.
-      w.setAlwaysOnTop(true, 'screen-saver')
-      w.show()
-      w.moveTop()
-      w.focus()
+      raise(w)
       // Windows per-monitor DPI: the first setBounds on a newly shown window can settle wrong.
       w.setBounds(bounds)
       w.webContents.send(onOpen.channel)
       if (live) startPoll(w)
     },
+    minimize() {
+      if (!live || !showing || minimized || !win || win.isDestroyed()) return
+      minimized = true
+      stopPoll()
+      win.hide()
+    },
+    restore(restore) {
+      if (!showing || !minimized || !win || win.isDestroyed()) return
+      minimized = false
+      raise(win)
+      // Transparent windows can come back with a blank frame without this.
+      win.webContents.invalidate()
+      win.webContents.send(onRestore.channel, restore)
+      startPoll(win)
+    },
     hide() {
       showing = false
+      minimized = false
       stopPoll()
       if (!win || win.isDestroyed()) return
       win.setContentProtection(false)
@@ -160,6 +189,10 @@ export function createOverlayWindow(deps: {
     setCaptureExcluded(excluded) {
       if (!win || win.isDestroyed()) return
       win.setContentProtection(excluded)
+    },
+    userClicked(at) {
+      if (!win || win.isDestroyed() || !showing || minimized) return
+      win.webContents.send(onUserClick.channel, at)
     }
   }
 }

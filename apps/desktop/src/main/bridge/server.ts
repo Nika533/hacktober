@@ -5,10 +5,9 @@ import { dirname } from 'node:path'
 import {
   FrameDecoder,
   FrameError,
-  allowedExtensionIds,
+  allowedBridgeOrigins,
   bridgeTokenPath,
   encodeFrame,
-  extensionOrigin,
   type AppToExt,
   type BridgeEnv,
   type BridgeStatus,
@@ -88,9 +87,10 @@ function isLive(path: string): Promise<boolean> {
 
 /**
  * The app side of the extension bridge (hoot-lens.md §10, C-20). hoot-bridge
- * connects on the named pipe and must open with `bridge.auth` (token +
- * allowed extension origin); after that each connection speaks the protocol
- * through `createBridgeConnection`. Nothing binds until `start()`.
+ * and the VS Code extension connect on the named pipe and must open with
+ * `bridge.auth` (token + an `allowedBridgeOrigins()` origin); after that each
+ * connection speaks the protocol through `createBridgeConnection`. Nothing
+ * binds until `start()`.
  */
 export function createBridgeServer(deps: BridgeServerDeps): BridgeServer {
   const log = deps.log ?? (() => {})
@@ -173,9 +173,7 @@ export function createBridgeServer(deps: BridgeServerDeps): BridgeServer {
           continue
         }
         const auth = BridgeAuthSchema.safeParse(frame)
-        const originOk =
-          auth.success &&
-          allowedExtensionIds().some((id) => extensionOrigin(id) === auth.data.origin)
+        const originOk = auth.success && allowedBridgeOrigins().includes(auth.data.origin)
         if (!auth.success || !sameToken(auth.data.token, token) || !originOk) {
           clearTimeout(authTimer)
           refuse(

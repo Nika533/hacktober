@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  boundsToScreen,
   chatPlacement,
+  hitsTarget,
   MAX_ANNOTATIONS,
   parseAnnotations,
+  TARGET_HIT_DIP,
   toScreen
 } from '../../src/renderer/capture/annotations'
 
@@ -49,6 +52,35 @@ describe('parseAnnotations', () => {
     expect(parseAnnotations('a [[b\nc', true).text).toBe('a [[b\nc')
   })
 
+  it('takes a control’s edges for a step or a point: the box to highlight, its centre to click', () => {
+    const { annotations } = parseAnnotations(
+      [
+        '[[action: 600, 80, 500, 40, "Save"]]',
+        '[[point: 100, 200, 140, 220, "Search"]]',
+        // A "box" with no width is just a spot.
+        '[[action: 300, 300, 300, 340, "Flat"]]'
+      ].join('\n')
+    )
+    expect(annotations).toEqual([
+      {
+        kind: 'action',
+        x: 550,
+        y: 60,
+        label: 'Save',
+        bounds: { x1: 500, y1: 40, x2: 600, y2: 80 }
+      },
+      {
+        kind: 'point',
+        x: 120,
+        y: 210,
+        label: 'Search',
+        bounds: { x1: 100, y1: 200, x2: 140, y2: 220 }
+      },
+      { kind: 'action', x: 300, y: 320, label: 'Flat' }
+    ])
+    expect(annotations[2]).not.toHaveProperty('bounds')
+  })
+
   it('caps how many marks show', () => {
     const many = Array.from({ length: 12 }, (_, i) => `[[point: ${i}, ${i}, "p${i}"]]`).join('\n')
     expect(parseAnnotations(many).annotations).toHaveLength(MAX_ANNOTATIONS)
@@ -58,6 +90,25 @@ describe('parseAnnotations', () => {
 describe('toScreen', () => {
   it('maps 0–1000 onto the display', () => {
     expect(toScreen({ x: 500, y: 250 }, { width: 1920, height: 1080 })).toEqual({ x: 960, y: 270 })
+    expect(
+      boundsToScreen({ x1: 500, y1: 250, x2: 750, y2: 500 }, { width: 1920, height: 1080 })
+    ).toEqual({ x: 960, y: 270, width: 480, height: 270 })
+  })
+})
+
+describe('hitsTarget', () => {
+  it('counts a click inside a highlight box (with a little slack), or near the centre', () => {
+    const target = { at: { x: 500, y: 300 }, rect: { x: 300, y: 280, width: 400, height: 40 } }
+    // Far from the centre, but on the box.
+    expect(hitsTarget({ x: 310, y: 300 }, target)).toBe(true)
+    expect(hitsTarget({ x: 295, y: 325 }, target)).toBe(true)
+    expect(hitsTarget({ x: 200, y: 300 }, target)).toBe(false)
+  })
+
+  it('a spot without a box hits within TARGET_HIT_DIP of it', () => {
+    const target = { at: { x: 500, y: 300 } }
+    expect(hitsTarget({ x: 500 + TARGET_HIT_DIP - 1, y: 300 }, target)).toBe(true)
+    expect(hitsTarget({ x: 500 + TARGET_HIT_DIP + 1, y: 300 }, target)).toBe(false)
   })
 })
 

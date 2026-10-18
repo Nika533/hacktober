@@ -232,4 +232,52 @@ describe('SettingsPane', () => {
     expect(onUpdate).not.toHaveBeenCalled()
     expect(container.textContent).toContain('Ctrl+Alt+Space already starts Circle anything.')
   })
+
+  it('has a Lens anywhere row with its own error, refusing the other shortcuts’ keys', () => {
+    const { container, onUpdate } = setup(
+      {},
+      { lensHotkey: 'Another app already uses Ctrl+Alt+L.' }
+    )
+    const rows = [...container.querySelectorAll('.hoot-hotkey')]
+    expect(rows).toHaveLength(3)
+    expect(rows[2]?.textContent).toContain('Lens on a selection')
+    expect(rows[2]?.textContent).toContain('Ctrl+Alt+L')
+    expect(rows[2]?.textContent).toContain('Another app already uses Ctrl+Alt+L.')
+    const field = rows[2]!.querySelector<HTMLButtonElement>('.hoot-hotkey__field')!
+    click(field)
+    act(() => {
+      field.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: ' ',
+          code: 'Space',
+          ctrlKey: true,
+          shiftKey: true,
+          bubbles: true,
+          cancelable: true
+        })
+      )
+    })
+    expect(onUpdate).not.toHaveBeenCalled()
+    expect(container.textContent).toContain('Ctrl+Shift+Space already summons Hoot.')
+  })
+
+  it('refuses giving Summon the Lens keys', () => {
+    const { container, onUpdate } = setup()
+    const field = container.querySelector<HTMLButtonElement>('.hoot-hotkey__field')!
+    click(field)
+    act(() => {
+      field.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'l',
+          code: 'KeyL',
+          ctrlKey: true,
+          altKey: true,
+          bubbles: true,
+          cancelable: true
+        })
+      )
+    })
+    expect(onUpdate).not.toHaveBeenCalled()
+    expect(container.textContent).toContain('Ctrl+Alt+L already explains a selection with Lens.')
+  })
 })

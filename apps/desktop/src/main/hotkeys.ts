@@ -21,6 +21,8 @@ export interface HotkeyDeps {
   enabled: boolean
   onSummon(): void
   onCapture(): void
+  /** Lens anywhere: explain the text selected in the foreground app. */
+  onLens(): void
   shortcuts?: ShortcutApi
   timers?: HotkeyTimers
 }
@@ -40,10 +42,10 @@ const defaultTimers: HotkeyTimers = {
 }
 
 /**
- * Global summon/capture shortcuts (D1-21). Registration failures go to the
- * settings slice as structured `HotkeyError`s — Settings renders them on the
- * matching row. `suspend(true)` parks both hotkeys (with a 60 s resume cap)
- * so a recorder can grab the combo itself.
+ * Global summon/capture/Lens shortcuts (D1-21). Registration failures go to
+ * the settings slice as structured `HotkeyError`s — Settings renders them on
+ * the matching row. `suspend(true)` parks every hotkey (with a 60 s resume
+ * cap) so a recorder can grab the combo itself.
  */
 export function createHotkeys(deps: HotkeyDeps): Hotkeys {
   const { store, log } = deps
@@ -53,7 +55,7 @@ export function createHotkeys(deps: HotkeyDeps): Hotkeys {
   let applied: string[] = []
   let suspendedBy: number | null = null
   let suspendTimer: unknown = null
-  let last = { summon: '', capture: '' }
+  let last = { summon: '', capture: '', lens: '' }
 
   const unregisterAll = (): void => {
     for (const acc of applied) shortcuts.unregister(acc)
@@ -79,13 +81,14 @@ export function createHotkeys(deps: HotkeyDeps): Hotkeys {
   const apply = (): void => {
     unregisterAll()
     const s = store.get('settings').settings
-    last = { summon: s.summonHotkey, capture: s.captureHotkey }
+    last = { summon: s.summonHotkey, capture: s.captureHotkey, lens: s.lensHotkey }
     // Suspended: the settings change is remembered but nothing registers
     // until resume, and the previous errors stay.
     if (!deps.enabled || suspendedBy !== null) return
     const errors = [
       tryRegister('summonHotkey', s.summonHotkey, deps.onSummon),
-      tryRegister('captureHotkey', s.captureHotkey, deps.onCapture)
+      tryRegister('captureHotkey', s.captureHotkey, deps.onCapture),
+      tryRegister('lensHotkey', s.lensHotkey, deps.onLens)
     ].filter((e): e is HotkeyError => e !== null)
     for (const e of errors) log.warn(`hotkey ${e.which}: ${e.message}`)
     store.update('settings', { hotkeyErrors: errors })
@@ -104,7 +107,12 @@ export function createHotkeys(deps: HotkeyDeps): Hotkeys {
   const unwatch = store.onChange((changed) => {
     if (!changed.has('settings')) return
     const s = store.get('settings').settings
-    if (s.summonHotkey !== last.summon || s.captureHotkey !== last.capture) apply()
+    if (
+      s.summonHotkey !== last.summon ||
+      s.captureHotkey !== last.capture ||
+      s.lensHotkey !== last.lens
+    )
+      apply()
   })
 
   return {

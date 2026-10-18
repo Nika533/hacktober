@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { OverlayCommitSchema, SendPayloadSchema } from '../schemas/chat'
-import { IdSchema, RectSchema } from '../schemas/common'
+import { IdSchema, PointSchema, RectSchema } from '../schemas/common'
 import {
   LensContextSchema,
   LensEventSchema,
@@ -8,6 +8,7 @@ import {
   RewriteRequestSchema
 } from '../schemas/lens'
 import { SettingsPatchSchema } from '../schemas/settings'
+import { ANYWHERE_ACTIONS } from '../types/anywhere'
 import { SLICE_NAMES } from '../types/state'
 import type { InvokeChannel, SendChannel } from './routes'
 
@@ -46,6 +47,8 @@ export const INVOKE_ARGS = {
   'capture:getInit': none,
   'capture:commit': z.tuple([OverlayCommitSchema]),
   'capture:cancel': none,
+  'capture:click': z.tuple([PointSchema]),
+  'capture:minimize': none,
   'pins:create': z.tuple([IdSchema]),
   'pins:createFromText': z.tuple([z.string().min(1).max(100_000)]),
   'pins:close': none,
@@ -75,6 +78,12 @@ export const INVOKE_ARGS = {
   'lens:exportProfile': none,
   'lens:recentChanges': z.tuple([z.number().int().min(1).max(500)]),
   'lens:glossary': none,
+  'anywhere:current': none,
+  'anywhere:act': z.tuple([z.enum(ANYWHERE_ACTIONS)]),
+  'anywhere:close': none,
+  'code:apply': z.tuple([IdSchema, z.number().int().min(0).max(100)]),
+  'code:reveal': z.tuple([IdSchema, z.number().int().min(0).max(100)]),
+  'code:tagStates': z.tuple([IdSchema]),
   'app:openExternal': z.tuple([z.url({ protocol: /^https?$/ }).max(2048)])
 } satisfies Record<InvokeChannel, z.ZodType>
 
@@ -88,7 +97,8 @@ export const SEND_ARGS = {
   'buddy:dragMove': none,
   'buddy:dragEnd': z.tuple([z.object({ vx: z.number(), vy: z.number() })]),
   'buddy:setCursorTracking': z.tuple([z.boolean()]),
-  'pins:resize': z.tuple([z.number().min(0).max(10_000)])
+  'pins:resize': z.tuple([z.number().min(0).max(10_000)]),
+  'anywhere:resize': z.tuple([z.number().min(0).max(10_000)])
 } satisfies Record<SendChannel, z.ZodType>
 
 export type InvokeArgs<C extends InvokeChannel> = z.output<(typeof INVOKE_ARGS)[C]>

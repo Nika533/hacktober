@@ -13,7 +13,7 @@ import type { BridgeStatus } from './lens'
 
 /** A global shortcut that couldn't be registered (Settings shows it on that row). */
 export interface HotkeyError {
-  which: 'summonHotkey' | 'captureHotkey'
+  which: 'summonHotkey' | 'captureHotkey' | 'lensHotkey'
   accelerator: string
   message: string
 }
@@ -100,7 +100,7 @@ void _allSlices
 
 export type StatePatch = Partial<StateSlices>
 
-export type WindowKind = 'buddy' | 'studio' | 'capture' | 'note' | 'reader'
+export type WindowKind = 'buddy' | 'studio' | 'capture' | 'note' | 'reader' | 'anywhere'
 
 /** What each window subscribes to by default. */
 export const DEFAULT_SUBSCRIPTIONS: Record<WindowKind, readonly SliceName[]> = {
@@ -108,5 +108,6 @@ export const DEFAULT_SUBSCRIPTIONS: Record<WindowKind, readonly SliceName[]> = {
   studio: ['settings', 'system', 'studio', 'chat', 'sessions', 'lens'],
   capture: ['system'],
   note: ['system', 'pins'],
-  reader: ['settings', 'system', 'lens']
+  reader: ['settings', 'system', 'lens'],
+  anywhere: ['system', 'settings']
 }

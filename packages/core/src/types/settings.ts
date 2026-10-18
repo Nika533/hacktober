@@ -30,6 +30,8 @@ export interface Settings {
   model: ChatModelId
   summonHotkey: string
   captureHotkey: string
+  /** Lens anywhere: explain the text selected in any app. */
+  lensHotkey: string
   launchAtLogin: boolean
   saveHistory: boolean
   restorePins: boolean
@@ -62,6 +64,7 @@ export const DEFAULT_SETTINGS: Settings = {
   model: DEFAULT_CHAT_MODEL,
   summonHotkey: 'CommandOrControl+Shift+Space',
   captureHotkey: 'CommandOrControl+Alt+Space',
+  lensHotkey: 'CommandOrControl+Alt+L',
   launchAtLogin: false,
   saveHistory: true,
   restorePins: true,
@@ -90,6 +93,7 @@ export type SettingsPatch = Partial<
     | 'model'
     | 'summonHotkey'
     | 'captureHotkey'
+    | 'lensHotkey'
     | 'launchAtLogin'
     | 'saveHistory'
     | 'restorePins'

@@ -31,7 +31,8 @@ export const SITE_CATEGORIES = [
 ] as const
 export type SiteCategory = (typeof SITE_CATEGORIES)[number]
 
-export type LensSurface = 'html' | 'pdf' | 'reader'
+/** `app`: any desktop app (Lens anywhere, UI Automation); `editor`: the VS Code extension. */
+export type LensSurface = 'html' | 'pdf' | 'reader' | 'app' | 'editor'
 
 export type SelectionSize = 'term' | 'phrase' | 'sentence' | 'passage' | 'multi-paragraph'
 
