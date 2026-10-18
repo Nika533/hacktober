@@ -6,6 +6,7 @@ import {
   type Page,
   type Worker
 } from '@playwright/test'
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { serveFixtures, type FixtureServer } from '../scripts/serve.ts'
 
@@ -45,6 +46,13 @@ export const ui = (page: Page, selector: string): Locator =>
 
 export const extensionUrl = (worker: Worker, path: string): string =>
   `chrome-extension://${new URL(worker.url()).host}/${path}`
+
+export function matchesAboutBlank(): boolean {
+  const manifest = JSON.parse(readFileSync(resolve(EXTENSION, 'manifest.json'), 'utf8')) as {
+    content_scripts?: Array<{ match_about_blank?: boolean }>
+  }
+  return manifest.content_scripts?.[0]?.match_about_blank === true
+}
 
 export async function devLog(
   worker: Worker

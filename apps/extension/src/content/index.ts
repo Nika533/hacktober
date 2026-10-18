@@ -4,7 +4,7 @@
  */
 import { createLens, type Lens } from '@hoot/lens-dom'
 import { ExtensionBackend } from './backend'
-import { pageSite, urlHash } from './page'
+import { pageOrigin, pageSite, urlHash } from './page'
 
 const LOADED = Symbol.for('hoot.lens.content')
 const SALT_KEY = 'lens.salt'
@@ -26,11 +26,12 @@ async function main(): Promise<void> {
   const scope = globalThis as Scope
   if (scope[LOADED] || document.contentType !== 'text/html' || !document.documentElement) return
   const backend = new ExtensionBackend(chrome.runtime)
+  const origin = pageOrigin(location, globalThis.origin)
   const lens: Lens = createLens({
     document,
     backend,
-    site: pageSite(location),
-    urlHash: urlHash(location, await salt().catch(() => '')),
+    site: pageSite(location, origin),
+    urlHash: urlHash({ origin, pathname: location.pathname }, await salt().catch(() => '')),
     shadowMode: __HOOT_E2E__ ? 'open' : 'closed',
     onError: () => {
       if (backend.connected) return

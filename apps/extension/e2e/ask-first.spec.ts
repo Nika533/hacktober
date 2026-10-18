@@ -1,5 +1,15 @@
 import { test } from '@playwright/test'
-import { askAbout, devLog, expect, launch, open, shutdown, ui, type Harness } from './harness'
+import {
+  askAbout,
+  devLog,
+  expect,
+  launch,
+  matchesAboutBlank,
+  open,
+  shutdown,
+  ui,
+  type Harness
+} from './harness'
 
 let harness: Harness
 
@@ -124,4 +134,34 @@ test('runs inside same-origin frames', async () => {
   await frame.locator('hoot-lens-ui').waitFor({ state: 'attached' })
   await frame.locator('#p-child').dblclick({ position: { x: 4, y: 10 } })
   await expect(frame.locator('hoot-lens-ui .chip')).toBeVisible()
+})
+
+test('runs inside cross-origin frames', async () => {
+  const { context, fixtures } = harness
+  const page = await context.newPage()
+  await page.goto(`${fixtures.url}/iframes.html?cross=${fixtures.crossOriginUrl}`)
+  const frame = page.frameLocator('#cross-origin')
+  await frame.locator('hoot-lens-ui').waitFor({ state: 'attached' })
+  await frame.locator('#p-child').dblclick({ position: { x: 4, y: 10 } })
+  await expect(frame.locator('hoot-lens-ui .chip')).toBeVisible()
+  await frame.locator('hoot-lens-ui .chip').click()
+  await expect(frame.locator('#p-child hoot-lens-mark')).toHaveCount(1)
+})
+
+test('runs inside srcdoc frames', async () => {
+  test.skip(!matchesAboutBlank(), 'needs match_about_blank in the manifest (c/d2-requests)')
+  const { context, fixtures } = harness
+  const page = await context.newPage()
+  await page.goto(`${fixtures.url}/iframes.html`)
+  const frame = page.frameLocator('#srcdoc')
+  await frame.locator('hoot-lens-ui').waitFor({ state: 'attached' })
+  await frame.locator('#p-srcdoc').dblclick({ position: { x: 4, y: 10 } })
+  await expect(frame.locator('hoot-lens-ui .chip')).toBeVisible()
+
+  await page.locator('#p-top').click()
+  await page.keyboard.press('Alt+H')
+  await expect(ui(page, '.pill .status')).toHaveText('Lens is paused on this site')
+  await frame.locator('#p-srcdoc').dblclick({ position: { x: 4, y: 10 } })
+  await page.waitForTimeout(450)
+  await expect(frame.locator('hoot-lens-ui .chip')).toBeHidden()
 })

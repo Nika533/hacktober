@@ -1,9 +1,26 @@
 const SITE_PATTERN = /^([a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*)?$/
 
-export function pageSite(location: Pick<Location, 'protocol' | 'hostname'>): string {
+export function pageSite(location: Pick<Location, 'protocol' | 'hostname'>, origin = ''): string {
   if (location.protocol === 'file:') return ''
-  const host = location.hostname.toLowerCase().replace(/^www\./, '')
+  const hostname = location.protocol === 'about:' ? hostnameOf(origin) : location.hostname
+  const host = hostname.toLowerCase().replace(/^www\./, '')
   return SITE_PATTERN.test(host) && host.length <= 253 ? host : ''
+}
+
+function hostnameOf(origin: string): string {
+  try {
+    return new URL(origin).hostname
+  } catch {
+    return ''
+  }
+}
+
+/** about:blank and srcdoc frames inherit their parent's origin; their URL doesn't show it. */
+export function pageOrigin(
+  location: Pick<Location, 'protocol' | 'origin'>,
+  inherited: string
+): string {
+  return location.protocol === 'about:' ? inherited : location.origin
 }
 
 export function fnv1a64(text: string): string {

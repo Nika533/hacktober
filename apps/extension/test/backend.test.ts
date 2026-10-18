@@ -1,7 +1,7 @@
 import { DEFAULT_LENS_SETTINGS, LensBackendError } from '@hoot/core'
 import { describe, expect, it, vi } from 'vitest'
 import { ExtensionBackend, type RuntimeLike } from '../src/content/backend'
-import { fnv1a64, pageSite, urlHash } from '../src/content/page'
+import { fnv1a64, pageOrigin, pageSite, urlHash } from '../src/content/page'
 import { CTX } from './context'
 
 function runtime(
@@ -95,6 +95,15 @@ describe('page identity', () => {
     expect(pageSite({ protocol: 'http:', hostname: '127.0.0.1' })).toBe('127.0.0.1')
     expect(pageSite({ protocol: 'file:', hostname: '' })).toBe('')
     expect(pageSite({ protocol: 'http:', hostname: '[::1]' })).toBe('')
+  })
+
+  it('gives srcdoc and about:blank frames the site of the origin they inherit', () => {
+    const srcdoc = { protocol: 'about:', hostname: '', origin: 'null' }
+    const origin = pageOrigin(srcdoc, 'https://www.example.com')
+    expect(origin).toBe('https://www.example.com')
+    expect(pageSite(srcdoc, origin)).toBe('example.com')
+    expect(pageSite(srcdoc, pageOrigin(srcdoc, 'null'))).toBe('')
+    expect(pageOrigin({ protocol: 'https:', origin: 'https://a.test' }, 'x')).toBe('https://a.test')
   })
 
   it('hashes origin and path with a salt, never the query', () => {
