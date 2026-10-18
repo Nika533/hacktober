@@ -21,26 +21,37 @@ export interface Harness {
   server: FakeLensServer
 }
 
-export async function launch(): Promise<Harness> {
+/** Chromium with the e2e build loaded, its bridge pointed at `bridgeUrl` (the dev WebSocket). */
+export async function launchExtension(
+  bridgeUrl: string
+): Promise<Pick<Harness, 'context' | 'worker' | 'fixtures'>> {
   const fixtures = await serveFixtures()
-  const server = await createFakeLensServer({
-    delayMs: 250,
-    settings: { ...DEFAULT_LENS_SETTINGS, enabled: true, consentedAt: 0, mode: 'ask' }
-  })
   const context = await chromium.launchPersistentContext('', {
     channel: 'chromium',
     viewport: { width: 1000, height: 720 },
     args: [`--disable-extensions-except=${EXTENSION}`, `--load-extension=${EXTENSION}`]
   })
   const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
-  await worker.evaluate((url) => chrome.storage.local.set({ 'lens.devBridge': url }), server.url)
-  return { context, worker, fixtures, server }
+  await worker.evaluate((url) => chrome.storage.local.set({ 'lens.devBridge': url }), bridgeUrl)
+  return { context, worker, fixtures }
 }
 
-export async function shutdown(harness: Harness): Promise<void> {
+export async function launch(): Promise<Harness> {
+  const server = await createFakeLensServer({
+    delayMs: 250,
+    settings: { ...DEFAULT_LENS_SETTINGS, enabled: true, consentedAt: 0, mode: 'ask' }
+  })
+  return { ...(await launchExtension(server.url)), server }
+}
+
+export async function shutdown(
+  harness: Pick<Harness, 'context' | 'fixtures'> & {
+    server?: { close(): Promise<void> }
+  }
+): Promise<void> {
   await harness.context.close()
   await harness.fixtures.close()
-  await harness.server.close()
+  await harness.server?.close()
 }
 
 export { expect }
