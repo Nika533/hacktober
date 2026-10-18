@@ -35,8 +35,11 @@ export interface LensEngineDeps {
   now(): number
 }
 
-const ASSESS_TIMEOUT_MS = 4000
-const REWRITE_TIMEOUT_MS = 6000
+// Live Gemini (Oct 2026) answers even a two-token prompt in 5–7 s under load
+// (#49), so these are generous: a slow answer is better than none. Nothing
+// is retried after a timeout; the page shows its shimmer meanwhile.
+const ASSESS_TIMEOUT_MS = 10_000
+const REWRITE_TIMEOUT_MS = 15_000
 
 const baseLang = (tag: string): string => tag.toLowerCase().split('-')[0] ?? tag
 
