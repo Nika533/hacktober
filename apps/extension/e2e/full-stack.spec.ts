@@ -29,6 +29,7 @@ const ELECTRON = createRequire(import.meta.url)('electron') as unknown as string
 interface AppHooks {
   getState(): Pick<StateSlices, 'settings' | 'lens'>
   updateSettings(patch: { lens: LensSettingsPatch }): void
+  openStudio(): void
 }
 type AppGlobal = { __hoot?: AppHooks }
 type RendererGlobal = { hoot: HootApi }
@@ -51,10 +52,14 @@ const appState = (): Promise<Pick<StateSlices, 'settings' | 'lens'> | null> =>
 const patchApp = (patch: LensSettingsPatch): Promise<void> =>
   app.evaluate((_, lens) => (globalThis as AppGlobal).__hoot!.updateSettings({ lens }), patch)
 
-/** Any loaded Hoot window can ask main for Lens data; Studio exists even with --hidden. */
+/** A Hoot window to ask main for Lens data. Studio is created lazily, so open it if needed. */
 async function studio(): Promise<Page> {
-  await expect.poll(() => app.windows().some((w) => w.url().endsWith('/studio.html'))).toBe(true)
-  return app.windows().find((w) => w.url().endsWith('/studio.html'))!
+  const find = (): Page | undefined => app.windows().find((w) => w.url().endsWith('/studio.html'))
+  if (!find()) await app.evaluate(() => (globalThis as AppGlobal).__hoot!.openStudio())
+  await expect.poll(() => find() !== undefined).toBe(true)
+  const page = find()!
+  await page.waitForLoadState('domcontentloaded')
+  return page
 }
 
 test.beforeEach(async () => {
