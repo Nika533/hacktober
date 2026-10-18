@@ -56,6 +56,14 @@ try {
     if (v.axe) await axe(page, v.name)
 
     if (v.axe) {
+      // Studio frame: sidebar + chat pane.
+      const studio = page.locator('section', {
+        has: page.getByRole('heading', { name: 'Studio', exact: true })
+      })
+      await studio
+        .locator('.gallery__studio')
+        .screenshot({ path: resolve(out, `studio-${v.name}.png`) })
+
       // Chat: the resting conversation, then a fresh question mid-stream.
       const chat = page.locator('section', {
         has: page.getByRole('heading', { name: 'Chat', exact: true })
@@ -86,12 +94,12 @@ try {
 
       // Overlays: keyboard tooltip, then the destructive confirm.
       // Tab from the previous button so focus is keyboard focus (:focus-visible).
-      await page.getByRole('button', { name: 'New chat' }).focus()
-      await page.keyboard.press('Tab')
-      await page.locator('.hoot-tooltip').waitFor({ timeout: 3000 })
       const section = page.locator('section', {
         has: page.getByRole('heading', { name: 'Icon buttons' })
       })
+      await section.getByRole('button', { name: 'New chat' }).focus()
+      await page.keyboard.press('Tab')
+      await page.locator('.hoot-tooltip').waitFor({ timeout: 3000 })
       await section.screenshot({ path: resolve(out, `tooltip-${v.name}.png`) })
 
       await page.getByRole('button', { name: 'Clear all data…' }).click()

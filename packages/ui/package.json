@@ -19,6 +19,7 @@
     "shots": "node scripts/gallery-shots.mjs"
   },
   "dependencies": {
+    "@hoot/core": "*",
     "lucide-react": "1.55.0",
     "motion": "14.1.0",
     "react-markdown": "10.1.0",
@@ -29,7 +30,6 @@
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
-    "@hoot/core": "*",
     "@playwright/test": "1.64.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
