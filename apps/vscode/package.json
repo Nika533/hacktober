@@ -1,7 +1,7 @@
 {
   "name": "hoot-lens",
   "displayName": "Hoot Lens",
-  "description": "Select text you don't understand and Hoot shows a clearer version in place, or explains it in the Hoot chat. Powered by the Hoot desktop app.",
+  "description": "Select text you don't understand and Hoot shows a clearer version in place, or explains it in the Hoot chat. Hoot also reads the code you're looking at (no screenshots), highlights what it points out and applies the changes you accept. Powered by the Hoot desktop app.",
   "version": "0.1.0",
   "publisher": "hoot",
   "private": true,
@@ -48,6 +48,11 @@
       {
         "command": "hoot.menu",
         "title": "Show menu",
+        "category": "Hoot"
+      },
+      {
+        "command": "hoot.code.clear",
+        "title": "Clear highlights and proposed changes in code",
         "category": "Hoot"
       }
     ],
@@ -96,6 +101,29 @@
             "asciidoc"
           ],
           "description": "Language ids where automatic Lens runs. Make this clearer works in every file."
+        },
+        "hoot.code.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Let Hoot read the code you're looking at in this window (instead of screenshots) when you ask it about code, highlight what it points out, and apply the changes you accept. Takes effect after Developer: Reload Window."
+        },
+        "hoot.code.exclude": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "**/.env",
+            "**/.env.*",
+            "**/*.pem",
+            "**/*.key",
+            "**/*.pfx",
+            "**/*.p12",
+            "**/*.keystore",
+            "**/id_rsa*",
+            "**/secrets.*"
+          ],
+          "description": "Glob patterns of files Hoot never reads, even when they're on screen."
         }
       }
     }

@@ -308,6 +308,14 @@ describe('codeNote', () => {
     ).toContain('is unchanged')
   })
 
+  it('trusts the text, not the version (VS Code restarts versions when a file reopens)', () => {
+    const first = codeNote(snapshot(), null)
+    const reopened = FILE_TEXT.replace('i <= items', 'i < items')
+    const next = codeNote(snapshot({ active: file({ version: 3, text: reopened }) }), first.memory)
+    expect(next.note).toContain('Line 5 now reads:')
+    expect(next.note).not.toContain('is unchanged')
+  })
+
   it('sends everything again for another file, another window or new lines', () => {
     const first = codeNote(snapshot(), null)
     const added = codeNote(

@@ -2,6 +2,8 @@ import { randomBytes } from 'node:crypto'
 import * as vscode from 'vscode'
 import { LensBackendError } from '@hoot/core'
 import { createHootClient, defaultEndpoint } from './client'
+import { activateCodeLink } from './code/activate'
+import { CODE_COMMANDS } from './code/editor'
 import { MARK_COMMANDS, createLens } from './lens'
 import { errorMessage } from './messages'
 
@@ -9,7 +11,9 @@ const SALT_KEY = 'hoot.lens.salt'
 
 /**
  * Hoot Lens for VS Code: the Hoot desktop app is the brain (Claude key, Lens
- * engine, reader profile); this extension talks to it over the bridge pipe.
+ * engine, reader profile); this extension talks to it over the bridge pipe,
+ * and over the code link it lets Hoot read this window's code (instead of
+ * screenshots), highlight it and apply the changes you accept.
  */
 export function activate(context: vscode.ExtensionContext): void {
   const log = vscode.window.createOutputChannel('Hoot Lens', { log: true })
@@ -22,6 +26,13 @@ export function activate(context: vscode.ExtensionContext): void {
     log: (message) => log.info(message)
   })
   const lens = createLens({ client, salt, log })
+  const codeLink = activateCodeLink(context, log)
+  const codeLine = (): string =>
+    !codeLink
+      ? 'Hoot can’t read this window’s code (hoot.code.enabled is off).'
+      : codeLink.state === 'online'
+        ? 'Hoot reads this window’s code when you ask it about code: no screenshots.'
+        : 'Code link: waiting for Hoot.'
 
   const status = vscode.window.createStatusBarItem('hoot.status', vscode.StatusBarAlignment.Right)
   status.name = 'Hoot Lens'
@@ -37,10 +48,12 @@ export function activate(context: vscode.ExtensionContext): void {
       status.text = '$(eye-closed) Hoot: offline'
       status.tooltip = client.state === 'connecting' ? 'Hoot Lens: connecting…' : problem()
     }
+    status.tooltip = `${status.tooltip}\n${codeLine()}`
     status.show()
   }
 
   const reconnect = async (): Promise<void> => {
+    codeLink?.connect().catch(() => {})
     try {
       await client.connect()
       vscode.window.setStatusBarMessage('Hoot: connected', 3000)
@@ -56,6 +69,7 @@ export function activate(context: vscode.ExtensionContext): void {
       { label: '$(sparkle) Make this clearer', command: 'hoot.lens.rewrite' },
       { label: '$(comment-discussion) Explain in Hoot chat', command: 'hoot.explain' },
       { label: '$(discard) Restore all', command: 'hoot.lens.restoreAll' },
+      { label: '$(clear-all) Clear Hoot’s highlights in code', command: CODE_COMMANDS.clear },
       { label: '$(refresh) Reconnect', command: 'hoot.reconnect' }
     ]
     const pick = await vscode.window.showQuickPick(items, {
@@ -69,6 +83,7 @@ export function activate(context: vscode.ExtensionContext): void {
     status,
     lens,
     new vscode.Disposable(client.onChange(update)),
+    new vscode.Disposable(codeLink?.onChange(update) ?? (() => {})),
     new vscode.Disposable(() => client.dispose()),
     vscode.commands.registerCommand('hoot.lens.rewrite', () => lens.rewrite()),
     vscode.commands.registerCommand('hoot.explain', () => lens.explain()),

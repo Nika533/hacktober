@@ -22,6 +22,7 @@ import {
   useHootState,
   useReducedMotion
 } from '@hoot/ui'
+import { parseCodeAnswer } from '@hoot/core/code'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   boundsToScreen,
@@ -46,6 +47,7 @@ import {
   RedrawIcon,
   WiderIcon
 } from './icons'
+import { CodeActions } from './CodeActions'
 import { createPanelMotion, growFrom, shrinkInto, type Frame, type PanelMotion } from './motion'
 import { paint, type ScreenMark } from './paint'
 import { bounds, commitFor, rectBetween, type Shape } from './shape'
@@ -408,6 +410,11 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
   const parsed = useMemo(
     () => parseAnnotations(answer?.text ?? '', answering),
     [answer?.text, answering]
+  )
+  /** The code link's [[line]] / [[edit]] tags: listed under the answer with Show / Apply. */
+  const coded = useMemo(
+    () => parseCodeAnswer(parsed.text, { streaming: answering }),
+    [parsed.text, answering]
   )
 
   const marks = useMemo((): ScreenMark[] => {
@@ -1021,7 +1028,8 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
         >
           <header className="capture__chat-head" title="Drag to move" {...panelHandlers('chat')}>
             <span className="capture__chat-title">
-              <span className="capture__live-dot" aria-hidden /> Hoot sees your screen
+              <span className="capture__live-dot" aria-hidden />{' '}
+              {init.code ? 'Hoot reads your code in VS Code' : 'Hoot sees your screen'}
             </span>
             <button
               type="button"
@@ -1078,14 +1086,16 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
                 )}
                 {answer && (
                   <div className="capture__answer">
-                    {parsed.text ? (
+                    {coded.text ? (
                       <Markdown
-                        text={parsed.text}
+                        text={coded.text}
                         onCopy={(t) => hoot?.clipboard.writeText(t) ?? Promise.resolve()}
                         onOpenLink={(href) => void hoot?.app.openExternal(href)}
                       />
                     ) : answer.status === 'streaming' ? (
-                      <p className="capture__thinking">Looking at your screen…</p>
+                      <p className="capture__thinking">
+                        {init.code ? 'Reading your code…' : 'Looking at your screen…'}
+                      </p>
                     ) : null}
                     {answer.status === 'error' && (
                       <p className="capture__error">
@@ -1097,7 +1107,7 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
                         <button
                           type="button"
                           className="capture__pill capture__pill--quiet"
-                          onClick={() => copyAnswer(answer.id, parsed.text)}
+                          onClick={() => copyAnswer(answer.id, coded.text)}
                         >
                           <CopyIcon /> {copied === answer.id ? 'Copied' : 'Copy'}
                         </button>
@@ -1120,6 +1130,13 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
                         </button>
                       </div>
                     )}
+                    <CodeActions
+                      key={answer.id}
+                      api={hoot?.code}
+                      messageId={answer.id}
+                      tags={coded.tags}
+                      ready={answerDone}
+                    />
                   </div>
                 )}
               </div>

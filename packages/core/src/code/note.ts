@@ -108,7 +108,8 @@ export function codeNote(snapshot: CodeSnapshot, previous: CodeNoteMemory | null
     const changedProblems = found !== previous.problems
     const tail = [view(f), changedProblems ? problemsBlock(found) : 'Problems: unchanged.']
     const memory: CodeNoteMemory = { ...previous, problems: found }
-    if (previous.version === f.version || previous.text === f.text) {
+    // The text decides, not the version: VS Code starts versions over when a file reopens.
+    if (previous.text === f.text) {
       if (previous.window.start === f.window.start && previous.window.end === f.window.end) {
         return {
           note: [

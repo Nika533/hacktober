@@ -6,9 +6,6 @@ import { codeLinkPipePath, codeLinkTokenPath } from '@hoot/core/code'
 import { CODE_COMMANDS, DEFAULT_EXCLUDE, createCodeEditor } from './editor'
 import { createCodeLink, type CodeLink } from './link'
 
-/** Connect now instead of waiting for the next retry. */
-export const CODE_RECONNECT = 'hoot.code.reconnect'
-
 /**
  * The code link: Hoot reads the code you're looking at straight from this
  * window (no screenshots), highlights what it points at, and applies the
@@ -50,13 +47,7 @@ export function activateCodeLink(
     vscode.window.onDidChangeActiveTextEditor(() => link.focusChanged()),
     vscode.commands.registerCommand(CODE_COMMANDS.apply, (id: unknown) => editor.applyById(id)),
     vscode.commands.registerCommand(CODE_COMMANDS.dismiss, (id: unknown) => editor.dismiss(id)),
-    vscode.commands.registerCommand(CODE_COMMANDS.clear, () => editor.clearAll()),
-    vscode.commands.registerCommand(CODE_RECONNECT, () =>
-      link.connect().then(
-        () => vscode.window.setStatusBarMessage('Hoot: VS Code connected', 3000),
-        () => vscode.window.showWarningMessage('Hoot isn’t running. Start Hoot, then retry.')
-      )
-    )
+    vscode.commands.registerCommand(CODE_COMMANDS.clear, () => editor.clearAll())
   )
   link.connect().catch(() => {})
   return link

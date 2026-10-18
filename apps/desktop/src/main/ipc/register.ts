@@ -4,6 +4,7 @@ import type { AppContext } from '../context'
 import { createAnywhereHandlers } from '../anywhere'
 import { createCaptureHandlers } from '../capture'
 import { createChatHandlers } from '../chat'
+import { createCodeHandlers } from '../code'
 import { createLensHandlers } from '../lens'
 import { createPinsHandlers } from '../pins'
 import { registerAppIpc } from './app'
@@ -96,6 +97,7 @@ export function registerDomains(ctx: AppContext): void {
   registerHandlerMap(createLensHandlers(ctx.lens))
   registerHandlerMap(createChatHandlers(ctx.chat))
   registerHandlerMap(createCaptureHandlers(ctx.capture))
+  registerHandlerMap(createCodeHandlers(ctx.code))
   const pinsHandlers = createPinsHandlers(ctx.pins)
   registerSenderHandlerMap(pinsHandlers.invoke)
   registerSenderSendMap(pinsHandlers.send)

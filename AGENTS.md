@@ -31,6 +31,8 @@ Read in this order before writing code:
 | `apps/desktop/src/renderer/{studio,reader,buddy}` | Studio, Hoot Reader, Buddy (dot, pill, card) | d3 |
 | `apps/desktop/{electron-builder.yml,build,resources}` | Installer and packaging | C and d1 |
 | `apps/extension` | MV3 extension: content script, service worker, options, PDF viewer | d2 |
+| `apps/vscode` | VS Code extension: Lens in the editor, and the code link (`src/code`: Hoot reads the code on screen as text, highlights, applies accepted edits) | not in `ownership.json` yet |
+| `apps/desktop/src/main/code` | Code link pipe server + code service (VS Code snapshots instead of screenshots, highlights, Apply) | d1 (per `ownership.json`) |
 
 The exact rules are in `scripts/ownership.json`, and CI enforces them on PRs
 from `c/`, `d1/`, `d2/` and `d3/` branches. Everyone may change
@@ -134,6 +136,7 @@ One workspace: `npm.cmd run <script> -w @hoot/desktop` (or `@hoot/extension`,
   - `@hoot/core`: types, models, chat and lens helpers, IPC routes, framing (no zod; safe for the content script)
   - `@hoot/core/schemas`: zod schemas, `migrateSettings`, `applySettingsPatch`, `parseInvokeArgs`
   - `@hoot/core/testing`: `createFakeLensBackend`, `fakeRewrite`, `fakeAssess`
+  - `@hoot/core/code` (+ `@hoot/core/code/schemas`): the VS Code code link (snapshot types, the note that replaces screenshots of code, `[[line]]` / `[[edit]]` tags)
 - Validate at every boundary: IPC handlers call `parseInvokeArgs`/`parseSendArgs`;
   bridge frames go through `ExtToAppSchema`/`AppToExtSchema`; files from disk
   go through their schema (or `migrateSettings`); model output goes through

@@ -6,7 +6,7 @@ Claude key, the Lens engine and what Hoot knows about you. This extension only t
 to it, over the same local pipe the browser extension uses (`\\.\pipe\hoot-lens-<user>`,
 authenticated with the per-launch token in `%LOCALAPPDATA%\Hoot\bridge\token`).
 
-Your files are never changed. A Lens change is a mark over the original text: a tint,
+Lens never changes your files. A Lens change is a mark over the original text: a tint,
 a dotted underline and the rewrite in italics after it. Hover it for the full rewrite,
 the original and **Restore**, **I knew this**, **Explain more in Hoot** and
 **Copy rewrite**. Editing the marked text drops the mark. Every reaction teaches Hoot.
@@ -34,6 +34,34 @@ is off or in Ask first mode in Hoot settings, and terms Hoot knows you know are 
 | --- | --- |
 | `hoot.lens.auto` | `true` |
 | `hoot.lens.autoLanguages` | `["markdown", "plaintext", "latex", "restructuredtext", "asciidoc"]` |
+
+## Hoot reads your code (no screenshots)
+
+While Hoot runs, each VS Code window connects to it over a second local pipe
+(`\\.\pipe\hoot-code-<user>`, token in `%LOCALAPPDATA%\Hoot\bridge\code-token`).
+When you circle something with VS Code in front, or chat with Hoot right after using
+VS Code, every message carries the code you're looking at as text: the focused file
+with line numbers (all of it when it fits, else a window around what's on screen),
+your selection, the other editors on screen and the problems VS Code reports. Hoot
+never grabs a picture of the editor for that, and later messages in the same chat
+only send what changed.
+
+- **Pointing out mistakes:** Hoot highlights the lines in amber, with its note at the
+  end of the line and in a CodeLens above. The live overlay lists them; **Show** scrolls
+  VS Code to the spot.
+- **Changing, fixing or removing code:** Hoot proposes each change, highlighted in
+  blue. Hover it for the new code. Nothing changes until you click **Apply** (in the
+  CodeLens, the hover or the overlay). VS Code then checks that the lines are still
+  what Hoot read (or finds them once elsewhere) and applies the change as one edit
+  that **Ctrl+Z** undoes. If the code changed in the meantime, it refuses and asks you
+  to ask again. Files are not saved for you.
+- **Dismiss** removes one highlight; **Hoot: Clear highlights and proposed changes in
+  code** removes them all. Editing a highlighted line drops its highlight.
+
+| Setting | Default |
+| --- | --- |
+| `hoot.code.enabled` | `true` (reload the window after changing it) |
+| `hoot.code.exclude` | `.env*`, `*.pem`, `*.key`, `*.pfx`, `*.p12`, `*.keystore`, `id_rsa*`, `secrets.*`: never read, even on screen |
 
 ## Install from the repo
 
