@@ -74,6 +74,8 @@ describe('thresholds', () => {
     expect(adaptThreshold(0.75, { kind: 'knew_it', msSinceShown: 1000 })).toBeCloseTo(0.78)
     expect(adaptThreshold(0.75, { kind: 'reverted', msSinceShown: 9000 })).toBe(0.75)
     expect(adaptThreshold(0.75, { kind: 'kept', msSinceShown: null })).toBeCloseTo(0.74)
+    expect(adaptThreshold(0.75, { kind: 'knew_it', msSinceShown: 60_000 })).toBeCloseTo(0.78)
+    expect(adaptThreshold(0.75, { kind: 'reselected', msSinceShown: null })).toBeCloseTo(0.74)
     expect(adaptThreshold(0.75, { kind: 'explain_more', msSinceShown: 1000 })).toBe(0.75)
     expect(adaptThreshold(0.94, { kind: 'reverted', msSinceShown: 0 })).toBe(0.95)
     expect(adaptThreshold(0.55, { kind: 'kept', msSinceShown: null })).toBe(0.55)

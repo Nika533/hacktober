@@ -79,15 +79,22 @@ export function effectiveThreshold(
   return clamp(base - SENSITIVITY_RANGE * lens.sensitivity, THRESHOLD_MIN, THRESHOLD_MAX)
 }
 
-/** §6.2 adaptive threshold: fast reverts raise θ, kept changes lower it. */
+/** A revert this soon after the change appeared counts as "I didn't need it". */
+export const FAST_REVERT_MS = 5000
+
+/**
+ * Adaptive threshold (§6.2, §8.3): "I knew this" and fast reverts raise θ,
+ * kept changes and re-selections lower it.
+ */
 export function adaptThreshold(
   threshold: number,
   event: { kind: LensEventKind; msSinceShown: number | null }
 ): number {
-  const fast = event.msSinceShown !== null && event.msSinceShown <= 5000
-  if ((event.kind === 'reverted' || event.kind === 'knew_it') && fast) {
+  const fast = event.msSinceShown !== null && event.msSinceShown <= FAST_REVERT_MS
+  if (event.kind === 'knew_it' || (event.kind === 'reverted' && fast)) {
     return Math.min(THRESHOLD_MAX, threshold + 0.03)
   }
+  if (event.kind === 'reselected') return Math.max(THRESHOLD_MIN, threshold - 0.01)
   if (event.kind === 'kept') return Math.max(THRESHOLD_MIN, threshold - 0.01)
   return threshold
 }
