@@ -65,9 +65,10 @@ if (process.argv.includes('--register')) {
   registerCli(['--launcher', launcher])
   const registered = (key) => {
     try {
-      return execFileSync('reg', ['query', key, '/ve'], { encoding: 'utf8' }).includes(
-        plan.files[0]
-      )
+      return execFileSync('reg', ['query', key, '/ve'], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore']
+      }).includes(plan.files[0])
     } catch {
       return false
     }
@@ -106,8 +107,11 @@ try {
     },
     { type: 'settings.get', reqId: 'smoke-settings' }
   ])
-  check(replies[0]?.type === 'welcome', `hoot-bridge hello → ${replies[0]?.type ?? 'no reply'}`)
-  check(replies[1]?.type === 'settings', `settings.get → ${replies[1]?.type ?? 'no reply'}`)
+  // Replies can arrive in any order (welcome waits for the profile), so match by reqId.
+  const hello = replies.get('smoke-hello')
+  const settings = replies.get('smoke-settings')
+  check(hello?.type === 'welcome', `hoot-bridge hello → ${hello?.type ?? 'no reply'}`)
+  check(settings?.type === 'settings', `settings.get → ${settings?.type ?? 'no reply'}`)
 
   await page.waitForTimeout(500)
   check(
@@ -128,7 +132,7 @@ console.log('packaged smoke passed')
 /**
  * Start hoot-bridge the way Chrome does on Windows (cmd.exe, the caller's
  * origin as the first argument), send native-messaging frames (4-byte
- * little-endian length + JSON) and collect one reply per request.
+ * little-endian length + JSON) and collect the replies by reqId.
  */
 function talkThroughHost(callerOrigin, requests) {
   const hostEnv = { ...process.env, HOOT_BRIDGE_DIR: env.HOOT_BRIDGE_DIR }
@@ -137,7 +141,7 @@ function talkThroughHost(callerOrigin, requests) {
     ['/d', '/s', '/c', `""${launcher}" ${callerOrigin} --parent-window=0"`],
     { env: hostEnv, windowsVerbatimArguments: true }
   )
-  const replies = []
+  const replies = new Map()
   let buffer = Buffer.alloc(0)
   let stderr = ''
   host.stderr.on('data', (d) => (stderr += d))
@@ -146,7 +150,7 @@ function talkThroughHost(callerOrigin, requests) {
     const finish = () => {
       clearTimeout(timer)
       host.stdin.end()
-      if (replies.length < requests.length && stderr) console.log(stderr.trim())
+      if (replies.size < requests.length && stderr) console.log(stderr.trim())
       resolve(replies)
     }
     const timer = setTimeout(finish, TIMEOUT_MS)
@@ -159,8 +163,14 @@ function talkThroughHost(callerOrigin, requests) {
         const message = JSON.parse(buffer.subarray(4, 4 + length).toString('utf8'))
         buffer = buffer.subarray(4 + length)
         // Pushes have no reqId; keep only the replies.
-        if ('reqId' in message) replies.push(message)
-        if (replies.length === requests.length) finish()
+        if (typeof message.reqId === 'string') replies.set(message.reqId, message)
+        else if (message.type === 'error') {
+          // A connection-level error (e.g. unauthorized): no reply will follow.
+          console.log(`hoot-bridge: ${message.code}: ${message.message}`)
+          finish()
+          return
+        }
+        if (replies.size === requests.length) finish()
       }
     })
     for (const request of requests) {
