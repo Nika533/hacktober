@@ -5,12 +5,15 @@ import { kindFromName } from '../services/reader'
  * A dropped file Chromium tries to navigate the page to (F-D1-6): file:
  * URLs only, Reader extensions only — anything else isn't a drop we own.
  */
-export function readerPathFromNavigation(url: string): string | null {
+export function readerPathFromNavigation(
+  url: string,
+  windows = process.platform === 'win32'
+): string | null {
   if (!url.startsWith('file:')) return null
   let path: string
   try {
     // URL drops ?query/#hash; fileURLToPath decodes %20 and UNC hosts.
-    path = fileURLToPath(new URL(url))
+    path = fileURLToPath(new URL(url), { windows })
   } catch {
     return null
   }
@@ -24,11 +27,12 @@ export function readerPathFromNavigation(url: string): string | null {
  */
 export function fileArgFromArgv(
   argv: readonly string[],
-  exists: (path: string) => boolean
+  exists: (path: string) => boolean,
+  windows = process.platform === 'win32'
 ): string | null {
   for (const arg of argv.slice(1)) {
     if (arg.startsWith('-')) continue
-    const path = arg.startsWith('file:') ? readerPathFromNavigation(arg) : arg
+    const path = arg.startsWith('file:') ? readerPathFromNavigation(arg, windows) : arg
     if (path === null || kindFromName(path) === null) continue
     if (exists(path)) return path
   }
