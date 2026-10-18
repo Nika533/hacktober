@@ -19,6 +19,8 @@
     "shots": "node scripts/shots.mjs"
   },
   "dependencies": {
+    "@hoot/core": "*",
+    "@hoot/lens-dom": "*",
     "pdfjs-dist": "6.4.299"
   },
   "devDependencies": {

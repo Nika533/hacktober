@@ -12,3 +12,4 @@ export {
   type TextRun
 } from './reflow'
 export { renderReflow } from './renderReflow'
+export { PdfOverlayRenderer, type PdfOverlayRendererOptions } from './overlay'

@@ -10,6 +10,12 @@
   --hoot-pdf-text: var(--text-1, CanvasText);
   --hoot-pdf-text-2: var(--text-2, CanvasText);
   --hoot-pdf-selection: var(--selection, Highlight);
+  --hoot-pdf-accent: var(--accent, Highlight);
+  /* Rewritten text and its cards sit on the paper, so they use paper colours. */
+  --hoot-pdf-ink: #1b1b1f;
+  --hoot-pdf-card-shadow:
+    0 1px 2px rgb(0 0 0 / 0.08), 0 6px 18px rgb(0 0 0 / 0.16), 0 0 0 1px rgb(0 0 0 / 0.08);
+  --hoot-pdf-note-shadow: 0 1px 2px rgb(0 0 0 / 0.08), 0 0 0 1px rgb(0 0 0 / 0.1);
 
   position: relative;
   box-sizing: border-box;
@@ -163,4 +169,87 @@
 }
 .hoot-pdf-reflow__empty {
   color: var(--hoot-pdf-text-2);
+}
+
+/* ---- Lens marks in pages mode (PdfOverlayRenderer) ---- */
+.hoot-pdf-marks {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+.hoot-pdf-mark,
+.hoot-pdf-mark__run {
+  position: absolute;
+}
+.hoot-pdf-mark {
+  overflow: hidden;
+  color: var(--hoot-pdf-ink);
+  background: var(--hoot-pdf-paper);
+  overflow-wrap: break-word;
+  /* A little paper bleed hides anti-aliased edges of the glyphs underneath. */
+  box-shadow: 0 0 0 1.5px var(--hoot-pdf-paper);
+}
+.hoot-pdf-mark mark {
+  all: unset;
+  pointer-events: auto;
+  cursor: default;
+  background: color-mix(in srgb, var(--hoot-pdf-accent) 12%, transparent);
+  text-decoration: underline dotted color-mix(in srgb, var(--hoot-pdf-accent) 60%, transparent);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.2em;
+  border-radius: 3px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.hoot-pdf-mark mark:focus-visible {
+  outline: 2px solid var(--hoot-pdf-accent);
+  outline-offset: 1px;
+}
+/* Too long even at the smallest size: the box grows into a card. */
+.hoot-pdf-mark--card {
+  overflow: visible;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  border-radius: 6px;
+  box-shadow: var(--hoot-pdf-card-shadow);
+}
+/* Gloss: tint the run, and put the note beside it (or under it). */
+.hoot-pdf-mark__run {
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--hoot-pdf-accent) 12%, transparent);
+  border-bottom: 1.5px dotted color-mix(in srgb, var(--hoot-pdf-accent) 60%, transparent);
+}
+.hoot-pdf-mark[data-action='gloss'] {
+  overflow: visible;
+  padding: 3px 6px;
+  border-radius: 6px;
+  line-height: 1.35;
+  box-shadow: var(--hoot-pdf-note-shadow);
+}
+.hoot-pdf-mark[data-action='gloss'] mark {
+  background: none;
+  text-decoration: none;
+}
+.hoot-pdf-mark--margin {
+  border-inline-start: 2px solid var(--hoot-pdf-accent);
+}
+@media (prefers-contrast: more) {
+  .hoot-pdf-mark mark,
+  .hoot-pdf-mark__run {
+    background: none;
+    box-shadow: inset 0 0 0 1px var(--hoot-pdf-accent);
+  }
+}
+@media (forced-colors: active) {
+  .hoot-pdf-mark {
+    forced-color-adjust: none;
+    background: Canvas;
+    color: CanvasText;
+    outline: 1px solid CanvasText;
+  }
+  .hoot-pdf-mark mark {
+    background: Highlight;
+    color: HighlightText;
+  }
 }
