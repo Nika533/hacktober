@@ -21,6 +21,8 @@
   },
   "devDependencies": {
     "@hoot/core": "*",
+    "@hoot/pdf-view": "*",
+    "@hoot/ui": "*",
     "@playwright/test": "1.64.0",
     "@resvg/resvg-js": "2.6.2",
     "@types/pngjs": "^6.0.5",

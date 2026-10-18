@@ -1,0 +1,85 @@
+.hoot-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+  min-width: 0;
+}
+.hoot-field__label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-1);
+}
+.hoot-field__control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-md);
+  padding: 0 var(--space-1) 0 var(--space-2-5);
+  border: 1px solid var(--stroke-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  color: var(--text-1);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+.hoot-field__control:hover {
+  border-color: var(--stroke-control);
+}
+/* The ring lives on the box, not the bare input. */
+.hoot-field__control:focus-within {
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 1px var(--focus-ring);
+}
+.hoot-field__control[data-invalid] {
+  border-color: var(--danger);
+}
+.hoot-field__control[data-invalid]:focus-within {
+  box-shadow: 0 0 0 1px var(--danger);
+}
+.hoot-field__input {
+  flex: 1;
+  min-width: 0;
+  height: calc(var(--control-md) - 2px);
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font-size: 0.875rem;
+}
+.hoot-field__input:focus-visible {
+  outline: none;
+}
+.hoot-field__input::placeholder {
+  color: var(--text-3);
+}
+.hoot-field__input:disabled {
+  opacity: 0.5;
+}
+.hoot-field__adorn {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-2);
+}
+.hoot-field__adorn:first-child > svg {
+  width: 1rem;
+  height: 1rem;
+}
+.hoot-field__desc,
+.hoot-field__error {
+  font-family: var(--font-small);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+.hoot-field__desc {
+  color: var(--text-2);
+}
+.hoot-field__error {
+  color: var(--danger);
+}
+
+@media (forced-colors: active) {
+  .hoot-field__control:focus-within {
+    outline: 2px solid Highlight;
+  }
+}
