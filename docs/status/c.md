@@ -4,6 +4,7 @@ Only C edits this file. Updated when plans or blockers change (AGENTS.md).
 
 ## Now
 
+- **F-C1 chat service** (`c/F-C1-chat-service`): `apps/desktop/src/main/chat`.
 - **C-30 wiring** (`c/C-30-wire-learning`): `LensService.feedback` applies the §8.3 learning
   rules (`applyLensEvent`, revert timing measured from the `shown` event) and topic decay runs
   at startup.
@@ -26,6 +27,22 @@ Only C edits this file. Updated when plans or blockers change (AGENTS.md).
 ## Blocked on
 
 - Nothing. The live Gemini tests need a key (`GEMINI_API_KEY`).
+
+## For d1: wiring chat (F-C1, docs/finish-plan.md)
+
+```ts
+import { createChatService, createChatHandlers } from './chat'
+const chat = createChatService({
+  store, broadcaster, persistence, writer, log,
+  getProvider: async () => (env.fakeAi ? createFakeProvider() : secrets.get() ? createGeminiProvider(secrets.get()!) : null),
+  takeClipboardSelection: () => clipboard.takeArmedText(), // D1-21 clipboard chip
+  onActivity: (a) => buddy.onChatActivity(a), // thinking/talking/done/stopped/error → mood, answerReady
+  openPath: (p) => shell.openPath(p).then(() => undefined)
+})
+for (const [ch, fn] of Object.entries(createChatHandlers(chat))) handleInvoke(ch, (_s, ...args) => fn(...args))
+flush.add('chat', () => chat.flush()) // finishes a pending delete, saves the open session
+// Lens "Explain more": createLensService({ onExplain: (message) => { buddy.openCard(); void chat.startExplain(message) } })
+```
 
 ## For d1: wiring Lens into main (after D1-10)
 
