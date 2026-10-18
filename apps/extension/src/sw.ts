@@ -2,57 +2,75 @@
  * Service worker: bridge client (native messaging to hoot-bridge), PDF
  * interception, per-tab rate limits and caches. d2 builds it in D2-20.
  */
-import { DEFAULT_LENS_SETTINGS, type LensSettings } from '@hoot/core'
+import { DEFAULT_LENS_SETTINGS, type Browser, type LensSettings } from '@hoot/core'
 import { LensSettingsSchema } from '@hoot/core/schemas'
-import { createFakeLensBackend } from '@hoot/core/testing'
 import type { PushMessage } from './messages'
+import { TransportError, createBridgeClient, type Connect } from './sw/bridge'
 import { createRouter } from './sw/router'
 import { SETTINGS_KEY, createSettingsStore } from './sw/settings'
-import { unavailableUpstream, type Upstream } from './sw/upstream'
+import { createLensSync } from './sw/sync'
+import { nativeTransport, webSocketTransport } from './sw/transports'
 
-const E2E_LOG_KEY = 'lens.e2eLog'
-const E2E_LOG_MAX = 50
+const DEV_BRIDGE_KEY = 'lens.devBridge'
 
 const defaults: LensSettings = __HOOT_E2E__
   ? { ...DEFAULT_LENS_SETTINGS, enabled: true, consentedAt: 0, mode: 'ask' }
   : DEFAULT_LENS_SETTINGS
 
-async function logForE2e(kind: 'feedback' | 'explain', payload: unknown): Promise<void> {
-  const stored = await chrome.storage.session.get(E2E_LOG_KEY)
-  const log = Array.isArray(stored[E2E_LOG_KEY]) ? stored[E2E_LOG_KEY] : []
-  await chrome.storage.session.set({
-    [E2E_LOG_KEY]: [...log, { kind, payload, at: Date.now() }].slice(-E2E_LOG_MAX)
+const connect: Connect = __HOOT_E2E__
+  ? async (handlers) => {
+      const url = (await chrome.storage.local.get(DEV_BRIDGE_KEY))[DEV_BRIDGE_KEY]
+      if (typeof url !== 'string') throw new TransportError('not_running')
+      return webSocketTransport(url)(handlers)
+    }
+  : nativeTransport
+
+function currentBrowser(): Browser {
+  const data = (navigator as { userAgentData?: { brands?: Array<{ brand: string }> } })
+    .userAgentData
+  const brands = (data?.brands ?? []).map((entry) => entry.brand.toLowerCase())
+  if (brands.some((brand) => brand.includes('edge'))) return 'edge'
+  if (brands.some((brand) => brand.includes('brave'))) return 'brave'
+  if (brands.some((brand) => brand.includes('chrom'))) return 'chrome'
+  return 'other'
+}
+
+function broadcast(push: PushMessage, toTabs = true): void {
+  chrome.runtime.sendMessage(push).catch(() => undefined)
+  if (!toTabs) return
+  void chrome.tabs.query({}).then((tabs) => {
+    for (const tab of tabs) {
+      if (tab.id !== undefined) chrome.tabs.sendMessage(tab.id, push).catch(() => undefined)
+    }
   })
 }
 
-const upstream: () => Upstream = __HOOT_E2E__
-  ? lazy(() => {
-      const fake = createFakeLensBackend({ delayMs: 250, settings: defaults })
-      return {
-        assess: (ctx, opts) => fake.assess(ctx, opts),
-        rewrite: (request, opts) => fake.rewrite(request, opts),
-        getProfile: () => fake.getProfile(),
-        feedback: async (event) => {
-          await fake.feedback(event)
-          await logForE2e('feedback', event)
-        },
-        explainMore: async (ctx) => {
-          await fake.explainMore(ctx)
-          await logForE2e('explain', ctx)
-        }
-      }
-    })
-  : () => unavailableUpstream
+const bridge = createBridgeClient({
+  connect,
+  extVersion: chrome.runtime.getManifest().version,
+  browser: currentBrowser()
+})
 
-function lazy<T>(create: () => T): () => T {
-  let value: T | undefined
-  return () => (value ??= create())
-}
+const sync = createLensSync({
+  bridge,
+  store: createSettingsStore(chrome.storage.local, defaults),
+  local: chrome.storage.local,
+  session: chrome.storage.session,
+  onProfile: (profile) => broadcast({ type: 'lens.profile.changed', profile })
+})
+
+bridge.subscribe((event) => {
+  if (event.type === 'status')
+    broadcast({ type: 'lens.status.changed', status: event.status }, false)
+})
 
 const router = createRouter({
   extensionId: chrome.runtime.id,
-  upstream,
-  settings: createSettingsStore(chrome.storage.local, defaults)
+  upstream: () => bridge,
+  settings: sync.settings,
+  profile: () => sync.profile(),
+  status: (connectNow) => sync.status(connectNow),
+  warm: () => sync.warm()
 })
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -64,12 +82,5 @@ chrome.storage.onChanged.addListener((changes, area) => {
   const change = changes[SETTINGS_KEY]
   if (area !== 'local' || !change) return
   const parsed = LensSettingsSchema.safeParse(change.newValue)
-  if (!parsed.success) return
-  const push: PushMessage = { type: 'lens.settings.changed', lens: parsed.data }
-  chrome.runtime.sendMessage(push).catch(() => undefined)
-  void chrome.tabs.query({}).then((tabs) => {
-    for (const tab of tabs) {
-      if (tab.id !== undefined) chrome.tabs.sendMessage(tab.id, push).catch(() => undefined)
-    }
-  })
+  if (parsed.success) broadcast({ type: 'lens.settings.changed', lens: parsed.data })
 })

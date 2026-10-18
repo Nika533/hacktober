@@ -40,6 +40,40 @@ body {
   line-height: 1.375rem;
   font-weight: 600;
 }
+.hoot-options__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.hoot-options__dot {
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--text-3);
+}
+.hoot-options__status[data-tone='ok'] .hoot-options__dot {
+  background: var(--success);
+}
+.hoot-options__status[data-tone='warn'] .hoot-options__dot {
+  background: var(--warning);
+}
+.hoot-options__help {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+}
+@media (forced-colors: active) {
+  .hoot-options__dot {
+    background: CanvasText;
+  }
+}
+
 .hoot-options__mode {
   align-self: flex-start;
 }

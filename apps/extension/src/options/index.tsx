@@ -8,11 +8,12 @@ import { ExtensionBackend } from '../content/backend'
 import { OptionsApp } from './App'
 
 const root = document.getElementById('root')
+const backend = new ExtensionBackend(chrome.runtime)
 if (root) {
   createRoot(root).render(
     <StrictMode>
       <HootUIProvider>
-        <OptionsApp source={new ExtensionBackend(chrome.runtime)} />
+        <OptionsApp source={backend} connection={backend} />
       </HootUIProvider>
     </StrictMode>
   )

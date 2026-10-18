@@ -1,3 +1,5 @@
+import { createFakeLensServer, type FakeLensServer } from '@hoot/bridge/testing'
+import { DEFAULT_LENS_SETTINGS } from '@hoot/core'
 import {
   chromium,
   expect,
@@ -15,22 +17,30 @@ export interface Harness {
   context: BrowserContext
   worker: Worker
   fixtures: FixtureServer
+  /** C-13's fake protocol server, which the e2e build's service worker talks to */
+  server: FakeLensServer
 }
 
 export async function launch(): Promise<Harness> {
   const fixtures = await serveFixtures()
+  const server = await createFakeLensServer({
+    delayMs: 250,
+    settings: { ...DEFAULT_LENS_SETTINGS, enabled: true, consentedAt: 0, mode: 'ask' }
+  })
   const context = await chromium.launchPersistentContext('', {
     channel: 'chromium',
     viewport: { width: 1000, height: 720 },
     args: [`--disable-extensions-except=${EXTENSION}`, `--load-extension=${EXTENSION}`]
   })
   const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
-  return { context, worker, fixtures }
+  await worker.evaluate((url) => chrome.storage.local.set({ 'lens.devBridge': url }), server.url)
+  return { context, worker, fixtures, server }
 }
 
 export async function shutdown(harness: Harness): Promise<void> {
   await harness.context.close()
   await harness.fixtures.close()
+  await harness.server.close()
 }
 
 export { expect }
@@ -46,14 +56,9 @@ export const ui = (page: Page, selector: string): Locator =>
 export const extensionUrl = (worker: Worker, path: string): string =>
   `chrome-extension://${new URL(worker.url()).host}/${path}`
 
-export async function devLog(
-  worker: Worker
-): Promise<Array<{ kind: string; payload: { kind?: string } }>> {
-  return worker.evaluate(async () => {
-    const stored = await chrome.storage.session.get('lens.e2eLog')
-    return (stored['lens.e2eLog'] ?? []) as Array<{ kind: string; payload: { kind?: string } }>
-  })
-}
+/** Feedback kinds the app received, in order. */
+export const feedbackKinds = (harness: Harness): string[] =>
+  harness.server.backend.events.map((event) => event.kind)
 
 export async function askAbout(page: Page, selector: string): Promise<void> {
   await page.locator(selector).dblclick()

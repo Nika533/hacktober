@@ -11,6 +11,8 @@ export interface StorageArea {
 export interface SettingsStore {
   get(): Promise<LensSettings>
   patch(patch: LensSettingsPatch): Promise<LensSettings>
+  /** Take the app's settings as they are. */
+  replace(lens: LensSettings): Promise<void>
 }
 
 export function createSettingsStore(area: StorageArea, defaults: LensSettings): SettingsStore {
@@ -22,11 +24,16 @@ export function createSettingsStore(area: StorageArea, defaults: LensSettings): 
   }
 
   let queue: Promise<unknown> = Promise.resolve()
+  const serial = <T>(work: () => Promise<T>): Promise<T> => {
+    const run = queue.then(work)
+    queue = run.catch(() => undefined)
+    return run
+  }
 
   return {
     get,
-    patch(patch) {
-      const run = queue.then(async () => {
+    patch: (patch) =>
+      serial(async () => {
         const current = await get()
         const next = applySettingsPatch(
           { ...DEFAULT_SETTINGS, lens: current },
@@ -34,9 +41,7 @@ export function createSettingsStore(area: StorageArea, defaults: LensSettings): 
         ).lens
         await area.set({ [SETTINGS_KEY]: next })
         return next
-      })
-      queue = run.catch(() => undefined)
-      return run
-    }
+      }),
+    replace: (lens) => serial(() => area.set({ [SETTINGS_KEY]: lens }))
   }
 }
