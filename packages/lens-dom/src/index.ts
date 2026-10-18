@@ -26,6 +26,7 @@ export {
   type PageContext
 } from './context'
 export { findTextRange, trimRange } from './find'
+export { KEPT_AFTER_MS, KEPT_TICK_MS, KeptTracker, type KeptTrackerOptions } from './kept'
 export {
   SelectionWatcher,
   sizeClass,
@@ -35,6 +36,7 @@ export {
   type SelectionWatcherOptions
 } from './selection'
 export { MARK_TAG, UI_TAG, checkRange, isInsideLens } from './guard'
+export { ReadingTracker, rarityOf } from './signals'
 export {
   DynamicPageDetector,
   STRONG_MARKERS,

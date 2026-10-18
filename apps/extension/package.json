@@ -17,8 +17,10 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
+    "@hoot/bridge": "*",
     "@hoot/core": "*",
     "@hoot/lens-dom": "*",
+    "@hoot/pdf-view": "*",
     "@hoot/ui": "*",
     "@playwright/test": "1.64.0",
     "@types/chrome": "0.3.5",

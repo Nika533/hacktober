@@ -19,17 +19,17 @@ export const ICON_CSS = `
 }
 .icon .face {
   fill: color-mix(in srgb, var(--hl-accent) 18%, transparent);
-  stroke: var(--hl-accent);
+  stroke: var(--hl-accent-text);
   stroke-width: 1.4;
 }
 .icon .eye {
   fill: var(--hl-surface-solid);
-  stroke: var(--hl-accent);
+  stroke: var(--hl-accent-text);
   stroke-width: 1.2;
 }
 .icon .pupil,
 .icon .beak {
-  fill: var(--hl-accent);
+  fill: var(--hl-accent-text);
 }
 `
 

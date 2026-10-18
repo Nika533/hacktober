@@ -4,7 +4,8 @@ import { HootUIProvider } from '@hoot/ui'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { OptionsApp, type SettingsSource } from '../src/options/App'
+import { OptionsApp, type ConnectionSource, type SettingsSource } from '../src/options/App'
+import type { BridgeStatus } from '../src/messages'
 import { normalizeSite, sortedSites } from '../src/options/sites'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -27,7 +28,7 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
-async function mount(source: SettingsSource): Promise<HTMLElement> {
+async function mount(source: SettingsSource, connection?: ConnectionSource): Promise<HTMLElement> {
   const container = document.createElement('div')
   document.body.append(container)
   const root = createRoot(container)
@@ -35,7 +36,7 @@ async function mount(source: SettingsSource): Promise<HTMLElement> {
   await act(async () =>
     root.render(
       <HootUIProvider>
-        <OptionsApp source={source} />
+        <OptionsApp source={source} connection={connection} />
       </HootUIProvider>
     )
   )
@@ -86,7 +87,7 @@ const siteNames = (): string[] =>
 describe('normalizeSite', () => {
   it('turns URLs and hostnames into the site key the content script uses', () => {
     expect(normalizeSite('  https://www.Example.com/a?b#c ')).toBe('example.com')
-    expect(normalizeSite('news.example.co.uk')).toBe('news.example.co.uk')
+    expect(normalizeSite('news.example.co.uk')).toBe('example.co.uk')
     expect(normalizeSite('localhost:4510')).toBe('localhost')
     expect(normalizeSite('http://127.0.0.1:4510/article.html')).toBe('127.0.0.1')
   })
@@ -185,6 +186,35 @@ describe('options page', () => {
     await choose('Mode', 'auto')
     expect(document.body.textContent).toContain('Couldn’t save that change.')
     expect(checked('Mode')).toBe('ask')
+  })
+
+  it('shows the connection to the Hoot app and follows its changes', async () => {
+    const listeners = new Set<(status: BridgeStatus) => void>()
+    const connection: ConnectionSource = {
+      status: vi.fn(async (): Promise<BridgeStatus> => ({
+        state: 'not_running',
+        appVersion: null
+      })),
+      onStatus: (cb) => {
+        listeners.add(cb)
+        return () => listeners.delete(cb)
+      }
+    }
+    await mount(createFakeLensBackend({ settings: SETTINGS }), connection)
+    await settle()
+    const status = (): string => document.querySelector('[role="status"]')?.textContent ?? ''
+    expect(status()).toBe('Hoot isn’t running.')
+    expect(document.body.textContent).toContain('Open Hoot on this computer.')
+
+    act(() => button('Try again').click())
+    await settle()
+    expect(connection.status).toHaveBeenCalledTimes(2)
+
+    act(() => {
+      for (const cb of listeners) cb({ state: 'connected', appVersion: '1.2.3' })
+    })
+    expect(status()).toBe('Connected to Hoot 1.2.3')
+    expect(document.body.textContent).not.toContain('Try again')
   })
 
   it('offers a retry when the settings can’t be loaded', async () => {
