@@ -121,6 +121,61 @@ test('Ask-first rewrites through the real app, and the app records the change', 
     .toEqual([expect.objectContaining({ original: 'heteroscedasticity' }) as RecentChange])
 })
 
+/** Select a paragraph's text (no trailing newline, so it stays one block). */
+async function selectParagraph(page: Page, selector: string): Promise<void> {
+  await page.locator(selector).evaluate((p) => {
+    const range = document.createRange()
+    range.selectNodeContents(p)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+  })
+}
+
+// Demo script step 3 (rebuild-plan §10).
+test('“I knew this” restores the term, and the app’s profile now lists it as known', async () => {
+  const { context, fixtures } = ext!
+  const page = await context.newPage()
+  await open(page, `${fixtures.url}/article.html`)
+  await askAbout(page, '#p-hetero em')
+  const mark = page.locator('#p-hetero hoot-lens-mark mark')
+  await expect(mark).toBeVisible()
+  await mark.hover()
+  await ui(page, '[role="dialog"] [data-action="knewIt"]').click()
+  await expect(page.locator('#p-hetero hoot-lens-mark')).toHaveCount(0)
+  await expect(page.locator('#p-hetero em')).toHaveText('heteroscedasticity')
+
+  const window = await studio()
+  await expect
+    .poll(async () => {
+      const view = await window.evaluate(() =>
+        (globalThis as unknown as RendererGlobal).hoot.lens.profile()
+      )
+      return Object.entries(view.profile.terms)
+        .filter(([, entry]) => entry.state === 'known')
+        .map(([term]) => term.toLowerCase())
+    })
+    .toContain('heteroscedasticity')
+})
+
+// Demo script step 4: a legal page gets a gloss, never a replacement, with the reading-aid note.
+test('on a terms-of-service page a dense sentence gets a gloss with the reading-aid note', async () => {
+  const { context, fixtures } = ext!
+  const page = await context.newPage()
+  await open(page, `${fixtures.url}/high-stakes.html`)
+  const original = await page.locator('#p-liability').textContent()
+  await selectParagraph(page, '#p-liability')
+  await expect(ui(page, '.chip')).toBeVisible()
+  await ui(page, '.chip').click()
+  const mark = page.locator('#p-liability hoot-lens-mark')
+  await expect(mark).toHaveCount(1)
+  // A gloss keeps the original words on the page.
+  expect(await page.locator('#p-liability').textContent()).toBe(original)
+  await mark.hover()
+  await expect(ui(page, '[role="dialog"]')).toContainText(
+    'Reading aid — the original wording is what applies.'
+  )
+})
+
 test('settings changed on either side show up on the other', async () => {
   const { context, worker } = ext!
   const options = await context.newPage()
