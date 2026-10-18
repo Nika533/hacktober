@@ -26,5 +26,30 @@ export const extensionOrigin = (id: string): string => `chrome-extension://${id}
 export function bridgePipePath(platform: Platform, user: string, tmpDir: string): string {
   const safeUser = user.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 64) || 'user'
   if (platform === 'win32') return `\\\\.\\pipe\\hoot-lens-${safeUser}`
-  return `${tmpDir.replace(/\/+$/, '')}/hoot-lens-${safeUser}.sock`
+  const path = `${tmpDir.replace(/\/+$/, '')}/hoot-lens-${safeUser}.sock`
+  // Unix socket paths are limited to ~104 bytes (macOS); fall back to /tmp.
+  return path.length <= 100 ? path : `/tmp/hoot-lens-${safeUser}.sock`
 }
+
+export interface BridgeEnv {
+  HOOT_BRIDGE_DIR?: string
+  LOCALAPPDATA?: string
+  HOME?: string
+  XDG_CONFIG_HOME?: string
+}
+
+/**
+ * Directory holding the per-launch bridge token the app writes and
+ * hoot-bridge reads. It's per-user and independent of Electron's userData
+ * naming, so the packaged app, dev runs and the bridge always agree.
+ * `HOOT_BRIDGE_DIR` overrides it for tests and dev.
+ */
+export function bridgeDir(platform: Platform, env: BridgeEnv): string {
+  if (env.HOOT_BRIDGE_DIR) return env.HOOT_BRIDGE_DIR
+  if (platform === 'win32') return `${env.LOCALAPPDATA ?? 'C:\\'}\\Hoot\\bridge`
+  if (platform === 'darwin') return `${env.HOME ?? ''}/Library/Application Support/Hoot/bridge`
+  return `${env.XDG_CONFIG_HOME ?? `${env.HOME ?? ''}/.config`}/Hoot/bridge`
+}
+
+export const bridgeTokenPath = (platform: Platform, env: BridgeEnv): string =>
+  `${bridgeDir(platform, env)}${platform === 'win32' ? '\\' : '/'}token`
