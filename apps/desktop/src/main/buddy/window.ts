@@ -14,6 +14,7 @@ import {
 import type { Logger } from '../log'
 import type { Store } from '../store/store'
 import { createSecureWindow, loadRenderer, type WindowRegistry } from '../windows/base'
+import { relocateAnchor } from '../windows/bounds'
 import { fixedLayout, anchorAfterDrag, cursorInRegions } from './hitTest'
 import { initialMachine, reduce, type BuddyEvent, type MachineState } from './machine'
 
@@ -27,6 +28,7 @@ const CURSOR_CHANNEL = HOOT_API_ROUTES.buddy.onCursor.channel
 /** The part of Electron's `screen` the buddy needs. */
 export interface BuddyScreen {
   getCursorScreenPoint(): Point
+  getAllDisplays(): { workArea: Rect }[]
   getDisplayNearestPoint(p: Point): { workArea: Rect }
   getPrimaryDisplay(): { workArea: Rect }
 }
@@ -94,6 +96,10 @@ export interface BuddyWindow {
   anchor(): Point
   mode(): BuddyMode
   isFocused(): boolean
+  /** Re-resolve the anchor + relayout after a display topology/DPI change. */
+  relayout(): void
+  /** Sleep/unlock recovery: repaint (transparent windows can come back blank) + relayout. */
+  resume(): void
   onModeChange(cb: (mode: BuddyMode) => void): Unsubscribe
   /** Collapse-timer gate inputs — e2e diagnostics (`__hoot.buddyDebug`). */
   debug(): {
@@ -575,6 +581,21 @@ export function createBuddyWindow(deps: BuddyDeps): BuddyWindow {
     anchor,
     mode: () => machine.mode,
     isFocused: () => focused || (win?.isFocused() ?? false),
+    relayout() {
+      const workAreas = scr.getAllDisplays().map((d) => d.workArea)
+      const a = relocateAnchor(anchor(), workAreas, scr.getPrimaryDisplay().workArea)
+      if (!samePoint(a, anchor())) {
+        liveAnchor = a
+        persistAnchor(a)
+      }
+      // Even an unchanged anchor needs a fresh layout: fixedLayout re-reads
+      // the work area, so a scale-factor or taskbar change moves the window.
+      syncSlice()
+    },
+    resume() {
+      if (win && !win.isDestroyed() && win.isVisible()) win.webContents.invalidate()
+      this.relayout()
+    },
     debug: () => ({
       mode: machine.mode,
       pending: machine.pending,
