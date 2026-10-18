@@ -79,7 +79,10 @@ export interface CaptureService {
   /** Close the overlay without capturing. */
   cancel(): Promise<void>
   isCapturing(): boolean
-  /** Create the overlay window and warm up the screen grabber; call once at idle. */
+  /**
+   * Create the overlay window now; the screen grabber warms up once the app has
+   * settled (its first grab blocks main). Safe to call at startup.
+   */
   prewarm(): void
 }
 
