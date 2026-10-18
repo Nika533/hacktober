@@ -25,11 +25,5 @@
   "options_page": "options.html",
   "action": {
     "default_title": "Hoot Lens"
-  },
-  "web_accessible_resources": [
-    {
-      "resources": ["viewer.html", "viewer.js"],
-      "matches": ["<all_urls>"]
-    }
-  ]
+  }
 }
