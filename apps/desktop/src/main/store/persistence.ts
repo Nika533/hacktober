@@ -25,6 +25,7 @@ import { backupCorrupt, readJson, writeBinaryAtomic, writeJsonAtomic } from './f
  *   sessions/index.json      { activeId, sessions: SessionMeta[] }
  *   sessions/<id>.json
  *   pins.json                Pin[]
+ *   ui-state.json            { onboardingStep } — setup state, not history
  *   attachments/<id>.png
  *   gemini-key.bin           (owned by secrets.ts)
  */
@@ -74,6 +75,26 @@ export interface Persistence {
 
 const EMPTY_INDEX: SessionIndex = { activeId: null, sessions: [] }
 
+/** Setup/UI state that isn't a Settings field (#70: resume onboarding). */
+export interface UiState {
+  onboardingStep: number
+}
+
+/**
+ * Kept off `Persistence` so existing fakes in other builders' tests still
+ * satisfy it; `createPersistence` returns `Persistence & UiStateStore`.
+ */
+export interface UiStateStore {
+  loadUiState(): Promise<UiState>
+  saveUiState(s: UiState): Promise<void>
+}
+
+const UiStateSchema = z.object({
+  onboardingStep: z.number().int().min(0).max(20)
+})
+
+const DEFAULT_UI_STATE: UiState = { onboardingStep: 0 }
+
 const IndexFileSchema = z.object({
   activeId: IdSchema.nullable(),
   sessions: z.array(z.unknown())
@@ -117,13 +138,14 @@ export function migrateSession(raw: unknown): unknown {
   return out
 }
 
-export function createPersistence(deps: PersistenceDeps): Persistence {
+export function createPersistence(deps: PersistenceDeps): Persistence & UiStateStore {
   const { root, log } = deps
   const sessionsDir = join(root, 'sessions')
   const attachmentsDir = join(root, 'attachments')
   const settingsFile = join(root, 'settings.json')
   const indexFile = join(sessionsDir, 'index.json')
   const pinsFile = join(root, 'pins.json')
+  const uiStateFile = join(root, 'ui-state.json')
 
   const checkId = (id: string): void => {
     if (!IdSchema.safeParse(id).success)
@@ -269,6 +291,23 @@ export function createPersistence(deps: PersistenceDeps): Persistence {
     },
 
     savePins: (p) => writeJson(pinsFile, p),
+
+    async loadUiState() {
+      const r = await readJson(uiStateFile)
+      if (!r.ok) {
+        if (r.reason === 'corrupt') await backupAndWarn(uiStateFile, 'ui-state.json', r.error)
+        return { ...DEFAULT_UI_STATE }
+      }
+      const parsed = UiStateSchema.safeParse(r.value)
+      if (!parsed.success) {
+        await backupAndWarn(uiStateFile, 'ui-state.json')
+        return { ...DEFAULT_UI_STATE }
+      }
+      return parsed.data
+    },
+
+    // Setup state, not history: saved regardless of saveHistory.
+    saveUiState: (s) => writeJson(uiStateFile, s),
 
     attachmentPath,
 

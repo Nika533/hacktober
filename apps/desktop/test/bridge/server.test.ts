@@ -194,6 +194,18 @@ describe('bridge server', () => {
     expect(lensSettings.sites['example.com']).toBe('paused')
   })
 
+  it('finishing the cold start reaches the extension with the settings push', async () => {
+    const c = await client()
+    c.send({ type: 'bridge.auth', token: token(), origin: ORIGIN })
+    c.send(hello)
+    expect(await c.next('welcome')).toMatchObject({ profile: { askFirstRemaining: 10 } })
+
+    lensSettings = { ...lensSettings, coldStartDone: true }
+    server.pushSettings(lensSettings)
+    expect(await c.next('settings.changed')).toMatchObject({ lens: { coldStartDone: true } })
+    expect(await c.next('profile.changed')).toMatchObject({ profile: { askFirstRemaining: 0 } })
+  })
+
   it('refuses to start twice on the same pipe', async () => {
     const second = createBridgeServer({
       lens,

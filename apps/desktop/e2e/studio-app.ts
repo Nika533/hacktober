@@ -29,7 +29,10 @@ export async function launch(userData: string): Promise<ElectronApplication> {
       HOOT_USER_DATA: userData
     }
   })
-  await expect.poll(() => app.evaluate(() => globalThis.__hoot !== undefined)).toBe(true)
+  // Several Electrons start at once on CI; the first launch can take a while.
+  await expect
+    .poll(() => app.evaluate(() => globalThis.__hoot !== undefined), { timeout: 30_000 })
+    .toBe(true)
   return app
 }
 

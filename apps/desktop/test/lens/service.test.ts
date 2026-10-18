@@ -354,6 +354,20 @@ describe('LensService cold start (#59)', () => {
     )
   })
 
+  it('settingsChanged applies the finish at once, before any other call', async () => {
+    let settings: LensSettings = { ...DEFAULT_LENS_SETTINGS, enabled: true, coldStartDone: false }
+    const s = await coldService(() => settings)
+    const pushed: number[] = []
+    s.onProfile((snap) => pushed.push(snap.askFirstRemaining))
+    settings = { ...settings, coldStartDone: true }
+    s.settingsChanged()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(pushed).toEqual([0])
+    s.settingsChanged()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(pushed).toEqual([0])
+  })
+
   it('finishes a profile still in cold start at launch, and leaves others alone', async () => {
     const store = createMemoryLensStorage()
     const cold = { ...DEFAULT_LENS_SETTINGS, enabled: true, coldStartDone: false }

@@ -287,6 +287,9 @@ export function createBridgeServer(deps: BridgeServerDeps): BridgeServer {
     },
 
     pushSettings(lens) {
+      // Settings that change the profile (the cold start) apply first, so the
+      // profile push follows the settings push.
+      deps.lens.settingsChanged()
       for (const c of conns) c.pushSettings(lens)
     }
   }

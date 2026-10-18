@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { CARD_WINDOW, type Rect } from '@hoot/core'
-import { anchorAfterDrag, cursorInRegions, fixedLayout } from '../src/main/buddy/hitTest'
+import {
+  anchorAfterDrag,
+  BUDDY_CANVAS_PAD,
+  cursorInRegions,
+  fixedLayout
+} from '../src/main/buddy/hitTest'
 
 const WA: Rect = { x: 0, y: 0, width: 1920, height: 1040 }
 
@@ -40,27 +45,31 @@ describe('fixedLayout', () => {
     { anchor: { x: 1880, y: 1000 }, openX: 'left', openY: 'up' }
   ] as const
 
-  it.each(corners)('$openX/$openY keeps the owl on the anchor and stays inside', (c) => {
+  it.each(corners)('$openX/$openY keeps the owl on the anchor; card rect stays inside', (c) => {
     const l = fixedLayout({ x: c.anchor.x, y: c.anchor.y }, WA)
-    expect(l.bounds.width).toBe(CARD_WINDOW.width)
-    expect(l.bounds.height).toBe(CARD_WINDOW.height)
+    // The canvas is the card rect padded by BUDDY_CANVAS_PAD on every side.
+    expect(l.bounds.width).toBe(CARD_WINDOW.width + 2 * BUDDY_CANVAS_PAD)
+    expect(l.bounds.height).toBe(CARD_WINDOW.height + 2 * BUDDY_CANVAS_PAD)
     expect(l.openX).toBe(c.openX)
     expect(l.openY).toBe(c.openY)
-    // bounds inside the work area
-    expect(l.bounds.x).toBeGreaterThanOrEqual(WA.x)
-    expect(l.bounds.y).toBeGreaterThanOrEqual(WA.y)
-    expect(l.bounds.x + l.bounds.width).toBeLessThanOrEqual(WA.x + WA.width)
-    expect(l.bounds.y + l.bounds.height).toBeLessThanOrEqual(WA.y + WA.height)
-    // owl (window-local) lands back on the anchor in screen coordinates
-    expect(l.bounds.x + l.owl.x).toBeCloseTo(c.anchor.x, 0)
-    expect(l.bounds.y + l.owl.y).toBeCloseTo(c.anchor.y, 0)
+    // The inner card rect (canvas minus the pad) stays inside the work area;
+    // the pad itself may overhang the edges.
+    expect(l.bounds.x + BUDDY_CANVAS_PAD).toBeGreaterThanOrEqual(WA.x)
+    expect(l.bounds.y + BUDDY_CANVAS_PAD).toBeGreaterThanOrEqual(WA.y)
+    expect(l.bounds.x + l.bounds.width - BUDDY_CANVAS_PAD).toBeLessThanOrEqual(WA.x + WA.width)
+    expect(l.bounds.y + l.bounds.height - BUDDY_CANVAS_PAD).toBeLessThanOrEqual(WA.y + WA.height)
+    // owl (window-local) lands back on the anchor in screen coordinates —
+    // exactly, since pad shifts bounds and owl by the same amount.
+    expect(l.bounds.x + l.owl.x).toBe(c.anchor.x)
+    expect(l.bounds.y + l.owl.y).toBe(c.anchor.y)
   })
 
   it('shifts the window (not the anchor) when the anchor is near an edge', () => {
     const l = fixedLayout({ x: 0, y: 0 }, WA)
-    // clamped into the work area; the owl offset grows to keep screen position
-    expect(l.bounds.x).toBe(WA.x)
-    expect(l.bounds.y).toBe(WA.y)
+    // card rect clamped into the work area at 0; the pad pushes the canvas
+    // 16 past the edge and the owl offset grows to keep screen position.
+    expect(l.bounds.x).toBe(WA.x - BUDDY_CANVAS_PAD)
+    expect(l.bounds.y).toBe(WA.y - BUDDY_CANVAS_PAD)
     expect(l.bounds.x + l.owl.x).toBe(0)
     expect(l.bounds.y + l.owl.y).toBe(0)
   })

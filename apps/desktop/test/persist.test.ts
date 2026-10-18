@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_SETTINGS, type Session, type StateSlices } from '@hoot/core'
 import { watchPersistence } from '../src/main/store/persist'
-import type { Persistence } from '../src/main/store/persistence'
+import type { Persistence, UiStateStore } from '../src/main/store/persistence'
 import { createStore, initialSlices } from '../src/main/store/store'
 import { createDebouncedWriter } from '../src/main/store/writer'
 
@@ -16,7 +16,7 @@ const system: StateSlices['system'] = {
 
 const setup = (): {
   store: ReturnType<typeof createStore>
-  persistence: Persistence
+  persistence: Persistence & UiStateStore
   writer: ReturnType<typeof createDebouncedWriter>
   calls: string[]
 } => {
@@ -39,8 +39,11 @@ const setup = (): {
     },
     saveSessionIndex: async (i: { activeId: string | null }) => {
       calls.push(`index:${i.activeId ?? 'null'}`)
+    },
+    saveUiState: async (s: { onboardingStep: number }) => {
+      calls.push(`uiState:${s.onboardingStep}`)
     }
-  } as unknown as Persistence
+  } as unknown as Persistence & UiStateStore
   const writer = createDebouncedWriter({ delayMs: 300, onError: () => {} })
   return { store, persistence, writer, calls }
 }
@@ -111,6 +114,34 @@ describe('watchPersistence', () => {
     await flushMicrotask()
     await s.writer.flush()
     expect(s.calls).toEqual(['index:b'])
+  })
+
+  it('onboardingStep change schedules the uiState write', async () => {
+    const s = setup()
+    watchPersistence(s.store, s.persistence, s.writer)
+    s.store.update('studio', { onboardingStep: 2 })
+    await flushMicrotask()
+    await s.writer.flush()
+    expect(s.calls).toEqual(['uiState:2'])
+  })
+
+  it('other studio changes do not write uiState', async () => {
+    const s = setup()
+    watchPersistence(s.store, s.persistence, s.writer)
+    s.store.update('studio', { view: 'settings' })
+    s.store.update('studio', { open: false })
+    await flushMicrotask()
+    expect(s.writer.pending()).toBe(0)
+  })
+
+  it('finishOnboarding resetting the step writes 0', async () => {
+    const s = setup()
+    s.store.update('studio', { onboardingStep: 2, view: 'onboarding' })
+    watchPersistence(s.store, s.persistence, s.writer)
+    s.store.update('studio', { onboardingStep: 0, view: 'chat' })
+    await flushMicrotask()
+    await s.writer.flush()
+    expect(s.calls).toEqual(['uiState:0'])
   })
 
   it('unrelated slices schedule nothing', async () => {

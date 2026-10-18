@@ -39,6 +39,7 @@ export function ReadingDemo(): React.JSX.Element {
           }
           onOpenView={() => undefined}
           onOpenLink={() => undefined}
+          onColdStart={async () => setLens((l) => ({ ...l, coldStartDone: true }))}
           onBack={() => undefined}
         />
       </StudioLayout>

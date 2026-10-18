@@ -49,6 +49,7 @@ the `.ps1` shims.
 | `npm.cmd run lint` | ESLint over the repo |
 | `npm.cmd test` | Vitest, every workspace as its own project |
 | `npm.cmd run test:live` | Real Gemini calls; needs `GEMINI_API_KEY` |
+| `npm.cmd run eval` | Lens rewrite-quality evals (C-31) on real Gemini; `EVAL_FAKE=1` dry-runs the harness; `EVAL_UPDATE_BASELINE=1` saves the baseline |
 | `npm.cmd run build` | Build every workspace (desktop → `out/`, extension → `dist/`) |
 | `npm.cmd run build:e2e -w @hoot/extension` | Extension with the fake backend, open shadow roots and Lens on (what the e2e suite loads) |
 | `npm.cmd run serve:fixtures -w @hoot/extension` | Build and serve the Lens fixture pages on http://localhost:4510 |

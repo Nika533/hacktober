@@ -9,9 +9,14 @@
     "src/preload/**/*",
     "test/**/*",
     "test-live/**/*",
-    "e2e/**/*"
+    "e2e/**/*",
+    "evals/**/*",
+    "vitest.eval.config.mts"
   ],
   "compilerOptions": {
-    "types": ["node", "electron-vite/node"]
+    "types": [
+      "node",
+      "electron-vite/node"
+    ]
   }
 }

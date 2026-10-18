@@ -4,82 +4,78 @@ Only C edits this file. Updated when plans or blockers change (AGENTS.md).
 
 ## Now
 
-- **F-C1 chat service** (`c/F-C1-chat-service`): `apps/desktop/src/main/chat`.
-- **C-30 wiring** (`c/C-30-wire-learning`): `LensService.feedback` applies the §8.3 learning
-  rules (`applyLensEvent`, revert timing measured from the `shown` event) and topic decay runs
-  at startup.
+- **Waiting on the Gemini key (#48)** for the live half of F-C3 (`npm run test:live`, G2 live
+  runs with `node scripts/gate-g2.mjs --live --runs 2`) and F-C4 (the eval report with
+  `npm run eval`, and the §7.2 latency numbers from `test-live/latency.live.test.ts`).
+- In review: #96 (pins e2e), #98 (gate G2 script), #100 (AGENTS.md and CONTRACTS.md).
+
+Queue (docs/finish-plan.md §4): F-C0 ✅ → F-C1 ✅ #39 → F-C2 ✅ #41 (+ e2e #96) → F-C3: G1 ✅
+(#71), G2 offline ✅ (#98), live blocked on #48 → F-C4: harness ✅ #31, latency harness ✅ #56,
+report blocked on #48 → F-C5 ✅ #52 → F-C6: README ✅ #53 #58, AGENTS/CONTRACTS #100 → tag
+`hackathon-v1` when §1 passes. Gate results go on the pinned tracking issue #49.
 
 ## Done (merged)
 
-- M0: monorepo, contracts, Gemini provider, CI, ownership check, extension ID (#6, #7).
-- M1: guardrails + prompts (#10), Lens engine + `LensService` + Lens IPC (#11),
-  bridge connection + fake server (#12).
-- M2: scorer + risk classifier (#13), hoot-bridge native host + registration (#16),
-  bridge server in the app (#20), learning rules (#17), hotkey contract (#19),
-  d2/d3 requests (#15).
-
-## Next
-
-- C-31 eval harness (`apps/desktop/evals`, `npm run eval`).
-- Live Gemini run (`npm run test:live`) as soon as a key is available on the C machine.
-- Integration gate M2 with d1 (Lens + bridge wiring in main) and d2 (D2-20 bridge client).
+- M0–M2: monorepo, contracts, Gemini provider, CI, ownership check; guardrails, prompts, Lens
+  engine and service, scorer, risk, learning rules; bridge connection, hoot-bridge, bridge
+  server; hotkey contract (#6–#20).
+- F-C0: reviewed and merged #30; contract audit for chat, pins, capture and buddy found
+  nothing missing.
+- F-C1 chat service (#39); F-C2 pins and sticky notes (#41); Lens cold-start finish (#62,
+  #74); data-terms check of the consent and onboarding copy (#55, #63, README #58).
+- F-C4 eval harness (#31) and latency harness (#56); F-C5 installer, native-host
+  registration, packaged smoke (#52); manifest hardening and icons (#44).
+- Gate G1 passed on `main` (#71, results on #49); gate G2's offline desktop half passed
+  (#98).
 
 ## Blocked on
 
-- Nothing. The live Gemini tests need a key (`GEMINI_API_KEY`).
+- #48: a Gemini key on C's machine (environment variable only).
 
-## For d1: wiring chat (F-C1, docs/finish-plan.md)
+## For d1: wiring chat, pins and the native host
+
+Lens and the bridge are wired (#46). The rest uses the same seams:
 
 ```ts
-import { createChatService, createChatHandlers } from './chat'
+import { createChatHandlers, createChatService } from './chat'
+import { createNoteWindows, createPinsHandlers, createPinsService } from './pins'
+import { ensureNativeHost } from './bridge'
+
 const chat = createChatService({
   store, broadcaster, persistence, writer, log,
-  getProvider: async () => (env.fakeAi ? createFakeProvider() : secrets.get() ? createGeminiProvider(secrets.get()!) : null),
+  getProvider: async () => ai.createProvider(),
   takeClipboardSelection: () => clipboard.takeArmedText(), // D1-21 clipboard chip
   onActivity: (a) => buddy.onChatActivity(a), // thinking/talking/done/stopped/error → mood, answerReady
   openPath: (p) => shell.openPath(p).then(() => undefined)
 })
-for (const [ch, fn] of Object.entries(createChatHandlers(chat))) handleInvoke(ch, (_s, ...args) => fn(...args))
+registerHandlerMap(createChatHandlers(chat))
 flush.add('chat', () => chat.flush()) // finishes a pending delete, saves the open session
-// Lens "Explain more": createLensService({ onExplain: (message) => { buddy.openCard(); void chat.startExplain(message) } })
-```
+ctx.hooks.explain = (message) => { buddy.openCard(); void chat.startExplain(message) }
 
-## For d1: wiring Lens into main (after D1-10)
-
-```ts
-import { createLensService, createLensHandlers, createFsLensStorage } from './lens'
-const lens = await createLensService({
-  storage: createFsLensStorage(join(userData, 'hoot', 'lens')),
-  getLensSettings: () => state.settings.settings.lens,
-  getProvider: async () => (fakeAi ? createFakeProvider() : key ? createGeminiProvider(key) : null),
-  fake: process.env.HOOT_FAKE_LENS === '1',
-  onExplain: (message, ctx) => chat.startExplain(message), // D1-23: open the card, send right away
-  chooseExportPath: (name) => dialog.showSaveDialog({ defaultPath: name }).then((r) => r.filePath ?? null)
+// Pins (#41): note windows act only on their own pin, so these handlers take the sender.
+const notes = createNoteWindows({
+  rendererUrl, anchor: () => buddy.anchor(), isQuitting: () => quitting,
+  onCloseRequest: (id) => pins.remove(id), onBounds: (id, b) => pins.setBounds(id, b)
 })
-for (const [ch, fn] of Object.entries(createLensHandlers(lens)))
-  ipcMain.handle(ch, (_e, ...args) => fn(...parseInvokeArgs(ch, args)))
-lens.onProfile((snap) => broadcast('lens:profileChanged', snap))
-// before-quit: await lens.flush()
+const pins = createPinsService({ store, windows: notes, openSession: (id) => openInCardOrStudio(id) })
+const h = createPinsHandlers(pins)
+for (const [ch, fn] of Object.entries(h.invoke)) handleInvoke(ch, (sender, ...a) => fn(sender, ...a))
+for (const [ch, fn] of Object.entries(h.send)) onSend(ch, (sender, ...a) => fn(sender, ...a))
+pins.restore() // after the window registry is up; tray: pins.setVisible(show)
+
+// Packaged only, after start(): repairs the browser registration (build:unpack, moved install).
+if (app.isPackaged) {
+  void ensureNativeHost({
+    platform: process.platform as Platform, resourcesPath: process.resourcesPath,
+    home: os.homedir(), localAppData: process.env['LOCALAPPDATA'], log: (m) => log.info(m)
+  })
+}
 ```
 
-Bridge server (C-20), after `whenReady` and the single-instance lock (d1 request 1):
-
-```ts
-import { createBridgeServer, AnotherInstanceError } from './bridge'
-const bridge = createBridgeServer({
-  lens, appVersion: app.getVersion(), platform: process.platform, env: process.env,
-  pipePath: bridgePipePath(process.platform, os.userInfo().username, os.tmpdir()),
-  getLensSettings: () => state.settings.settings.lens,
-  patchLensSettings: (patch) => settings.update({ lens: patch }).then(() => state.settings.settings.lens),
-  devWebSocket: process.env.HOOT_DEV_BRIDGE === '1'
-    ? { port: Number(process.env.HOOT_DEV_BRIDGE_PORT ?? 7341), pairingCode: process.env.HOOT_DEV_BRIDGE_CODE ?? randomCode() }
-    : null,
-  onStatus: (s) => updateSlice('lens', s)
-})
-await bridge.start() // AnotherInstanceError → another Hoot owns the pipe: exit
-// when Lens settings change from Studio: bridge.pushSettings(newLensSettings)
-// will-quit: await bridge.stop()
-```
+Also for d1 (launch at login, low priority): `settings:update` sets the login item only when
+the setting changes. The default (off) matches a fresh install, but after a reinstall or a
+settings reset the two can drift. Syncing once at packaged startup keeps them in step:
+`app.setLoginItemSettings({ openAtLogin: settings.launchAtLogin, args: ['--hidden'] })`.
 
 ## Requests
 

@@ -1,7 +1,7 @@
-import { execFileSync } from 'node:child_process'
-import { chmodSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { execFile } from 'node:child_process'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { dirname } from 'node:path'
+import { promisify } from 'node:util'
 import {
   NATIVE_HOST_NAME,
   allowedExtensionIds,
@@ -71,72 +71,64 @@ export function planRegistration(opts: {
   return { manifest, files: dirs.map((d) => `${d}/${file}`), registryKeys: [] }
 }
 
-/** A dev launcher that runs the built bridge with the current Node. */
-function writeDevLauncher(platform: Platform, distDir: string): string {
-  const host = join(distDir, 'hoot-bridge.cjs')
-  if (platform === 'win32') {
-    const path = join(distDir, 'hoot-bridge-dev.cmd')
-    writeFileSync(path, `@echo off\r\n"${process.execPath}" "${host}" %*\r\n`)
-    return path
-  }
-  const path = join(distDir, 'hoot-bridge-dev.sh')
-  writeFileSync(path, `#!/bin/sh\nexec "${process.execPath}" "${host}" "$@"\n`)
-  chmodSync(path, 0o755)
-  return path
+/** The side effects of registering, injectable for tests. */
+export interface RegistrationIO {
+  writeFile(path: string, data: string): Promise<void>
+  removeFile(path: string): Promise<void>
+  /** Null when the file doesn't exist. */
+  readFile(path: string): Promise<string | null>
+  /** Runs `reg.exe` with these arguments and returns its stdout; rejects on failure. */
+  reg(args: readonly string[]): Promise<string>
 }
 
-/**
- * `npm run register-host -w @hoot/bridge [-- --unregister] [--launcher <path>] [--dry-run]`
- * Registers hoot-bridge for the current user. Without `--launcher` it points
- * at a dev launcher for dist/hoot-bridge.cjs. The installer (D1-30) does the
- * same with the packaged `resources/hoot-bridge.cmd`.
- */
-function main(): void {
-  const args = process.argv.slice(2)
-  const flag = (name: string): boolean => args.includes(name)
-  const value = (name: string): string | undefined => {
-    const i = args.indexOf(name)
-    return i >= 0 ? args[i + 1] : undefined
-  }
-  const platform = process.platform as Platform
-  const distDir = dirname(resolve(process.argv[1] ?? '.'))
-  const sideEffects = !flag('--unregister') && !flag('--dry-run')
-  const launcherPath =
-    value('--launcher') ??
-    (sideEffects ? writeDevLauncher(platform, distDir) : join(distDir, 'hoot-bridge-dev'))
-  const plan = planRegistration({
-    platform,
-    home: homedir(),
-    localAppData: process.env['LOCALAPPDATA'],
-    launcherPath: launcherPath ? resolve(launcherPath) : ''
-  })
+const run = promisify(execFile)
 
-  if (flag('--dry-run')) {
-    console.log(JSON.stringify(plan, null, 2))
-    return
-  }
+export const nodeRegistrationIO: RegistrationIO = {
+  async writeFile(path, data) {
+    await mkdir(dirname(path), { recursive: true })
+    await writeFile(path, data)
+  },
+  removeFile: (path) => rm(path, { force: true }),
+  readFile: (path) => readFile(path, 'utf8').catch(() => null),
+  reg: async (args) => (await run('reg', [...args], { windowsHide: true })).stdout
+}
+
+const manifestText = (plan: RegistrationPlan): string => JSON.stringify(plan.manifest, null, 2)
+
+/** Write (or with `unregister`, remove) the manifest files and registry keys of a plan. */
+export async function applyRegistration(
+  plan: RegistrationPlan,
+  io: RegistrationIO,
+  opts: { unregister?: boolean } = {}
+): Promise<void> {
   for (const file of plan.files) {
-    if (flag('--unregister')) rmSync(file, { force: true })
-    else {
-      mkdirSync(dirname(file), { recursive: true })
-      writeFileSync(file, JSON.stringify(plan.manifest, null, 2))
-    }
+    if (opts.unregister) await io.removeFile(file)
+    else await io.writeFile(file, manifestText(plan))
   }
   for (const key of plan.registryKeys) {
-    const cmd = flag('--unregister')
-      ? ['delete', key, '/f']
-      : ['add', key, '/ve', '/t', 'REG_SZ', '/d', plan.files[0] ?? '', '/f']
-    try {
-      execFileSync('reg', cmd, { stdio: 'ignore' })
-    } catch {
-      if (!flag('--unregister')) throw new Error(`could not write ${key}`)
+    if (opts.unregister) {
+      // A browser that was never registered has no key; that's fine.
+      await io.reg(['delete', key, '/f']).catch(() => undefined)
+    } else {
+      await io
+        .reg(['add', key, '/ve', '/t', 'REG_SZ', '/d', plan.files[0] ?? '', '/f'])
+        .catch(() => {
+          throw new Error(`could not write ${key}`)
+        })
     }
   }
-  console.log(
-    flag('--unregister')
-      ? `Unregistered ${NATIVE_HOST_NAME}.`
-      : `Registered ${NATIVE_HOST_NAME} → ${plan.manifest.path}\nAllowed: ${plan.manifest.allowed_origins.join(', ')}`
-  )
 }
 
-if (require.main === module) main()
+/** True when every manifest file and registry key already says what the plan would write. */
+export async function isRegistered(plan: RegistrationPlan, io: RegistrationIO): Promise<boolean> {
+  for (const file of plan.files) {
+    if ((await io.readFile(file)) !== manifestText(plan)) return false
+  }
+  const target = (plan.files[0] ?? '').toLowerCase()
+  for (const key of plan.registryKeys) {
+    // `reg query` localises the "(Default)" label, so look for the path itself.
+    const out = await io.reg(['query', key, '/ve']).catch(() => '')
+    if (!out.toLowerCase().includes(target)) return false
+  }
+  return true
+}

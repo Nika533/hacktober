@@ -59,7 +59,10 @@ const hook = <K extends NoArgHook>(name: K): Promise<ReturnType<Hooks[K]>> =>
 const buddyMode = async (): Promise<string> => (await hook('getState')).buddy?.mode ?? ''
 
 async function openCard(): Promise<Page> {
-  await expect.poll(() => app.evaluate(() => globalThis.__hoot !== undefined)).toBe(true)
+  // Several Electrons start at once on CI; the first launch can take a while.
+  await expect
+    .poll(() => app.evaluate(() => globalThis.__hoot !== undefined), { timeout: 30_000 })
+    .toBe(true)
   await hook('finishOnboarding')
   await hook('summon')
   const page = await buddyPage()
