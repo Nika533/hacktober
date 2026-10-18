@@ -127,8 +127,11 @@ One workspace: `npm.cmd run <script> -w @hoot/desktop` (or `@hoot/extension`,
   go through their schema (or `migrateSettings`); model output goes through
   `generateJson`'s schema.
 - **Changing a contract:** open a PR touching only `packages/core`, titled
-  `contract: …`. Keep it additive; C reviews it first. A breaking change needs
-  a "seen" line from every consumer in their status file.
+  `contract: …`. Additive changes (new optional fields, routes, types) merge
+  once CI is green and C has reviewed (CODEOWNERS; C aims for 30 minutes).
+  The root typecheck builds every consumer, so CI catches breakage. A
+  breaking change also needs a "seen" line from every consumer in their
+  status file.
 
 ## Conventions
 
@@ -160,23 +163,44 @@ One workspace: `npm.cmd run <script> -w @hoot/desktop` (or `@hoot/extension`,
 
 ## Workflow
 
+**Merge on green.** CI is the gate, not a person.
+
 - **Never push to `main`.** Every change goes through a PR so CI and the ownership check
   run on it.
-- Branch `<you>/<TASK-ID>-<slug>` (e.g. `d2/D2-10-inline-renderer`). PR title
-  `<TASK-ID>: <summary>`. Keep PRs small (aim for under 400 changed lines).
-- CI must be green: ownership, typecheck, lint, unit (Ubuntu + Windows), e2e (Windows).
+- Branch `<you>/<TASK-ID>-<slug>` (e.g. `d2/D2-10-inline-renderer`) from
+  `main`. PR title `<TASK-ID>: <summary>`.
+- Open the PR and turn on auto-merge (`gh pr merge --auto --squash`). It
+  merges as soon as the required checks pass: `ownership`, `checks`
+  (Ubuntu + Windows: typecheck, lint errors, unit, build), `e2e` (Windows;
+  skipped for docs-only PRs) and `ui-shots` (gallery screenshots + axe; only
+  when `packages/ui` or a renderer changed).
+- No approval is needed unless `.github/CODEOWNERS` asks for one: core
+  contracts, preload/IPC/window hardening, the bridge, dependencies, and
+  tooling/rules. Everything else merges on green.
+- **Post-merge review:** C skims merged diffs. If something on `main` is
+  wrong, revert first and discuss after. A red `main` is everyone's top
+  priority.
+- **Don't stack.** Each PR merges within minutes of going green, so start
+  the next branch from `main`. If you truly depend on an unmerged PR, say so
+  in the description.
+- Small PRs merge faster; about 400 changed lines is a guideline, not a rule
+  (tests and screenshots don't count).
 - Dependencies: exact versions only, and only versions **published at least
-  7 days earlier** (check `npm view <pkg> time`). There is one `zod`, forced
-  by the root `overrides`.
-- Rebase on `main` often. **Lockfile conflict:** take `main`'s
-  `package-lock.json`, then run `npm.cmd install`. Never hand-merge it.
-- After every PR, update `docs/status/<you>.md` (Now / Next / Blocked on / Requests / Notes).
+  7 days earlier** (check `npm view <pkg> time`). There is one `zod` and one
+  React (19.3.0), forced by the root `overrides` and root devDependencies.
+- **Lockfile conflict:** take `main`'s `package-lock.json`, then run
+  `npm.cmd install`. Never hand-merge it.
+- Update `docs/status/<you>.md` (Now / Next / Blocked on / Requests / Notes)
+  when your plan or blockers change, and at least daily; not after every PR.
 - Blocked on another builder? Use the fakes or move to your next unblocked
   task. Don't edit their paths.
 
 **Definition of done:**
 
-1. typecheck, lint and unit tests pass, plus e2e for user-visible flows.
+1. CI green: typecheck, lint, unit, plus e2e for user-visible flows and
+   `ui-shots` (axe clean) for UI.
 2. Runs with `HOOT_FAKE_AI=1` / `HOOT_FAKE_LENS=1` and no key.
-3. Meets the quality bar in `docs/rebuild-plan.md` §1 (light and dark screenshots for UI).
-4. Status file updated.
+3. Meets the quality bar in `docs/rebuild-plan.md` §1. For UI, the
+   `ui-screenshots` CI artifact (light, dark, high contrast) is the
+   screenshot evidence; link it or attach a crop in the PR.
+4. Status file current if your plan or blockers changed.

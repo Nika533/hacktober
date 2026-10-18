@@ -1,0 +1,29 @@
+# Review is required only where a mistake breaks other builders or weakens
+# security. Everything not listed merges on green CI (see AGENTS.md, Workflow).
+# The owner below is C's reviewer; change the handle if C reviews from another
+# account. Later lines win.
+
+# Shared contracts: every workspace builds against these.
+/packages/core/                         @Nika533
+
+# Security boundary: preload, IPC, window hardening (sandbox, CSP, nav guards),
+# native messaging.
+/apps/desktop/src/preload/              @Nika533
+/apps/desktop/src/main/ipc/             @Nika533
+/apps/desktop/src/main/windows/         @Nika533
+/apps/desktop/src/main/bridge/          @Nika533
+/packages/bridge/                       @Nika533
+/apps/extension/static/manifest.json    @Nika533
+
+# Dependencies (exact versions, published at least 7 days earlier).
+package.json                            @Nika533
+.npmrc                                  @Nika533
+
+# Tooling and the rules themselves.
+/.github/                               @Nika533
+/scripts/                               @Nika533
+/AGENTS.md                              @Nika533
+/docs/rebuild-plan.md                   @Nika533
+/eslint.config.mjs                      @Nika533
+/tsconfig.base.json                     @Nika533
+/vitest.config.ts                       @Nika533
