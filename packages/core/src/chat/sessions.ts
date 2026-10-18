@@ -7,17 +7,16 @@ export interface SessionGroup {
   items: SessionMeta[]
 }
 
-function startOfDay(d: Date): number {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+/** Local midnight `daysAgo` calendar days before `d` (DST days are 23 or 25 hours). */
+function startOfDay(d: Date, daysAgo = 0): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() - daysAgo).getTime()
 }
-
-const DAY = 24 * 60 * 60 * 1000
 
 /** Group sessions by recency of updatedAt, preserving their sort order. */
 export function groupSessions(metas: SessionMeta[], now: Date): SessionGroup[] {
   const today = startOfDay(now)
-  const yesterday = today - DAY
-  const weekAgo = today - 6 * DAY
+  const yesterday = startOfDay(now, 1)
+  const weekAgo = startOfDay(now, 6)
   const groups: Record<SessionGroupLabel, SessionMeta[]> = {
     Today: [],
     Yesterday: [],
