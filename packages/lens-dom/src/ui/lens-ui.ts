@@ -25,6 +25,8 @@ export interface LensUiOptions {
   handlers: LensUiHandlers
   animate?: boolean
   trustedOnly?: boolean
+  /** The page is a local file (site ''): the pill says "local files", not "this site". */
+  localFiles?: boolean
   openDelayMs?: number
   closeDelayMs?: number
 }
@@ -69,7 +71,7 @@ export class LensUi {
     this.#closeDelay = options.closeDelayMs ?? 250
     root.styles.apply(root.shadow, ICON_CSS)
     this.popover = new Popover(root, handlers, { animate })
-    this.pill = new PagePill(root, handlers, { animate })
+    this.pill = new PagePill(root, handlers, { animate, localFiles: options.localFiles })
     this.chip = new AskChip(root, () => handlers.ask(), { animate })
     this.shimmer = new Shimmer(root)
     this.announcer = new Announcer(root)
