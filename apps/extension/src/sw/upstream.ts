@@ -1,37 +1,17 @@
-import type {
-  AssessResult,
-  ExplainRequest,
-  LensContext,
-  LensFeedback,
-  ProfileView,
-  RewriteRequest,
-  RewriteResult
-} from '@hoot/lens-dom'
+import { LensBackendError, type LensBackend } from '@hoot/core'
 
-export interface Upstream {
-  readonly name: string
-  rewrite(reqId: string, request: RewriteRequest, signal: AbortSignal): Promise<RewriteResult>
-  assess(reqId: string, context: LensContext, signal: AbortSignal): Promise<AssessResult>
-  feedback(event: LensFeedback): Promise<void>
-  profile(): Promise<ProfileView>
-  explain(request: ExplainRequest): Promise<void>
-}
+export type Upstream = Pick<
+  LensBackend,
+  'assess' | 'rewrite' | 'feedback' | 'explainMore' | 'getProfile'
+>
 
-export class UpstreamError extends Error {
-  readonly code: string
-
-  constructor(code: string, message = code) {
-    super(message)
-    this.name = 'UpstreamError'
-    this.code = code
-  }
-}
+const unavailable = (): Promise<never> =>
+  Promise.reject(new LensBackendError('app_unavailable', 'Hoot isn’t running'))
 
 export const unavailableUpstream: Upstream = {
-  name: 'unavailable',
-  rewrite: () => Promise.reject(new UpstreamError('app-unavailable', 'Hoot isn’t running')),
-  assess: () => Promise.reject(new UpstreamError('app-unavailable', 'Hoot isn’t running')),
+  assess: unavailable,
+  rewrite: unavailable,
   feedback: () => Promise.resolve(),
-  profile: () => Promise.resolve({ summary: '', version: 0 }),
-  explain: () => Promise.reject(new UpstreamError('app-unavailable', 'Hoot isn’t running'))
+  explainMore: unavailable,
+  getProfile: unavailable
 }

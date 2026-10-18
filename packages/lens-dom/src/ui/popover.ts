@@ -1,4 +1,5 @@
-import { COPY, TRANSFORM_LABEL } from '../copy'
+import { TRANSFORM_RULES } from '@hoot/core'
+import { COPY } from '../copy'
 import { el } from '../dom'
 import type { Mark } from '../render/types'
 import { DURATION, Presence } from './motion'
@@ -223,7 +224,7 @@ export class Popover {
     this.#buttons.copyRewritten.hidden = gloss
     this.#buttons.copyRewritten.textContent = COPY.copyRewritten
     this.#stakes.hidden = !mark.spec.highStakes
-    this.#transform.textContent = TRANSFORM_LABEL[mark.spec.transform]
+    this.#transform.textContent = TRANSFORM_RULES[mark.spec.transform].label
   }
 
   #run(action: Action): void {

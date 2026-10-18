@@ -1,29 +1,30 @@
 {
   "name": "@hoot/extension",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
-  "description": "Hoot Lens for Chromium browsers (MV3).",
+  "description": "Hoot Lens MV3 extension for Chrome and Edge (owner: d2)",
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "build:dev": "node scripts/build.mjs --dev",
+    "build:e2e": "node scripts/build.mjs --mode e2e",
+    "dev": "node scripts/build.mjs --mode e2e --watch",
+    "typecheck": "tsc -p tsconfig.json",
     "fixtures": "node scripts/build-fixtures.mjs",
     "serve:fixtures": "node scripts/build-fixtures.mjs && node scripts/serve.ts",
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
-    "e2e": "node scripts/build.mjs --dev && node scripts/build-fixtures.mjs && playwright test"
+    "e2e": "node scripts/build.mjs --mode e2e && node scripts/build-fixtures.mjs && playwright test"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
   },
   "devDependencies": {
+    "@hoot/core": "*",
+    "@hoot/lens-dom": "*",
     "@playwright/test": "1.64.0",
     "@types/chrome": "0.3.5",
-    "@types/node": "24.19.2",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "esbuild": "0.28.2",
-    "happy-dom": "20.14.6",
     "react": "19.3.0",
-    "react-dom": "19.3.0",
-    "typescript": "5.9.3",
-    "vitest": "5.0.3"
+    "react-dom": "19.3.0"
   }
 }

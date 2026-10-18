@@ -1,18 +1,14 @@
+import { MAX_REPLACE_WORDS, countWords, type LensSignals, type SelectionSize } from '@hoot/core'
 import { blockOf } from './blocks'
 import { isElement } from './dom'
 import { trimRange } from './find'
 import { isInsideLens } from './guard'
-import { normalizeWhitespace, wordCount } from './text'
+import { normalizeWhitespace } from './text'
 
-export type SizeClass = 'term' | 'phrase' | 'sentence' | 'multi-paragraph'
-
-export interface SelectionSignals {
-  sizeClass: SizeClass
-  words: number
-  dwellMs: number
-  copied: boolean
-  reselected: boolean
-}
+export type SelectionSignals = Pick<
+  LensSignals,
+  'sizeClass' | 'dwellMs' | 'copiedWithinMs' | 'reselectCount'
+> & { words: number }
 
 export interface SelectionCandidate {
   range: Range
@@ -40,14 +36,13 @@ export interface SelectionWatcherOptions {
 
 const TERM_WORDS = 3
 const PHRASE_WORDS = 10
-const SENTENCE_WORDS = 80
 const EDITABLE = new Set(['INPUT', 'TEXTAREA', 'SELECT'])
 
-export function sizeClass(words: number, multiBlock: boolean): SizeClass {
-  if (multiBlock || words > SENTENCE_WORDS) return 'multi-paragraph'
+export function sizeClass(words: number, multiBlock: boolean): SelectionSize {
+  if (multiBlock) return 'multi-paragraph'
   if (words <= TERM_WORDS) return 'term'
   if (words <= PHRASE_WORDS) return 'phrase'
-  return 'sentence'
+  return words <= MAX_REPLACE_WORDS ? 'sentence' : 'passage'
 }
 
 function isTypingKey(event: KeyboardEvent): boolean {
@@ -75,7 +70,7 @@ export class SelectionWatcher {
   readonly #scrollCooldownMs: number
   readonly #fastScroll: number
   readonly #now: () => number
-  readonly #seen = new Set<string>()
+  readonly #seen = new Map<string, number>()
   #current: SelectionCandidate | null = null
   #changedAt = 0
   #settledAt = 0
@@ -190,8 +185,9 @@ export class SelectionWatcher {
     const current = this.#current
     const read = this.#read()
     const text = read?.text ?? current?.text ?? ''
-    const afterSettle = !!current && this.#now() - this.#settledAt <= this.#copyWindowMs
-    if (current) current.signals.copied = true
+    const sinceSettle = this.#now() - this.#settledAt
+    const afterSettle = !!current && sinceSettle <= this.#copyWindowMs
+    if (current) current.signals.copiedWithinMs ??= sinceSettle
     if (this.#dwellTimer) clearTimeout(this.#dwellTimer)
     this.#dwellTimer = null
     if (text) this.#listener.copied?.({ text, afterSettle })
@@ -220,8 +216,9 @@ export class SelectionWatcher {
       this.#scheduleSettle(wait)
       return
     }
-    const words = wordCount(read.text)
+    const words = countWords(read.text)
     const multiBlock = blockOf(read.range.startContainer) !== blockOf(read.range.endContainer)
+    const reselectCount = this.#seen.get(read.text) ?? 0
     const candidate: SelectionCandidate = {
       range: read.range,
       text: read.text,
@@ -229,11 +226,11 @@ export class SelectionWatcher {
         sizeClass: sizeClass(words, multiBlock),
         words,
         dwellMs: this.#now() - this.#changedAt,
-        copied: false,
-        reselected: this.#seen.has(read.text)
+        copiedWithinMs: null,
+        reselectCount
       }
     }
-    this.#seen.add(read.text)
+    this.#seen.set(read.text, reselectCount + 1)
     this.#current = candidate
     this.#settledAt = this.#now()
     this.#active = true
@@ -244,7 +241,7 @@ export class SelectionWatcher {
 
   #dwell(candidate: SelectionCandidate): void {
     this.#dwellTimer = null
-    if (this.#current !== candidate || candidate.signals.copied) return
+    if (this.#current !== candidate || candidate.signals.copiedWithinMs !== null) return
     const read = this.#read()
     if (!read || read.text !== candidate.text) return
     if (this.#cooldownLeft() > 0) {

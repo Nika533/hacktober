@@ -1,9 +1,9 @@
-import type { MarkAction, Transform } from '../contract'
+import type { RenderAction, Transform } from '@hoot/core'
 
 export type GlossPlacement = 'inline' | 'block'
 
 export interface MarkSpec {
-  action: MarkAction
+  action: RenderAction
   transform: Transform
   text: string
   highStakes?: boolean

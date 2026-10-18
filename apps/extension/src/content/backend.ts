@@ -1,16 +1,18 @@
 import {
-  LensError,
+  LensBackendError,
   type AssessResult,
-  type ExplainRequest,
   type LensBackend,
+  type LensCallOptions,
   type LensContext,
-  type LensFeedback,
-  type LensSettingsView,
-  type ProfileView,
+  type LensEvent,
+  type LensSettings,
+  type LensSettingsPatch,
+  type ProfileSnapshot,
+  type RewriteOutcome,
   type RewriteRequest,
-  type RewriteResult
-} from '@hoot/lens-dom'
-import { parsePush, parseSettings, type ContentMessage, type Reply } from '../messages'
+  type Unsubscribe
+} from '@hoot/core'
+import { isPush, isReply, type ContentMessage, type ReplyValues } from '../messages'
 
 export interface RuntimeLike {
   readonly id?: string
@@ -21,65 +23,66 @@ export interface RuntimeLike {
   }
 }
 
-function isReply(value: unknown): value is Reply {
-  return typeof value === 'object' && value !== null && typeof (value as Reply).ok === 'boolean'
-}
-
 export class ExtensionBackend implements LensBackend {
   readonly #runtime: RuntimeLike
-  readonly #listeners = new Set<(settings: LensSettingsView) => void>()
+  readonly #settings = new Set<(lens: LensSettings) => void>()
+  readonly #profile = new Set<(profile: ProfileSnapshot) => void>()
+  #seq = 0
 
   constructor(runtime: RuntimeLike) {
     this.#runtime = runtime
     runtime.onMessage.addListener(this.#onPush)
   }
 
-  async rewrite(reqId: string, request: RewriteRequest): Promise<RewriteResult> {
-    return this.#send<RewriteResult>({ type: 'lens.rewrite', reqId, request })
+  get connected(): boolean {
+    return !!this.#runtime.id
   }
 
-  async assess(reqId: string, context: LensContext): Promise<AssessResult> {
-    return this.#send<AssessResult>({ type: 'lens.assess', reqId, context })
+  assess(ctx: LensContext, opts?: LensCallOptions): Promise<AssessResult> {
+    const reqId = this.#reqId()
+    return this.#cancellable(reqId, opts, () => this.#send({ type: 'lens.assess', reqId, ctx }))
   }
 
-  cancel(reqId: string): void {
-    void this.#send({ type: 'lens.cancel', reqId }).catch(() => undefined)
+  rewrite(request: RewriteRequest, opts?: LensCallOptions): Promise<RewriteOutcome> {
+    const reqId = this.#reqId()
+    return this.#cancellable(reqId, opts, () =>
+      this.#send({ type: 'lens.rewrite', reqId, request })
+    )
   }
 
-  feedback(event: LensFeedback): void {
-    void this.#send({ type: 'lens.feedback', event }).catch(() => undefined)
+  async feedback(event: LensEvent): Promise<void> {
+    await this.#send({ type: 'lens.feedback', event })
   }
 
-  getProfile(): Promise<ProfileView> {
-    return this.#send<ProfileView>({ type: 'lens.profile.get' })
+  async explainMore(ctx: LensContext): Promise<void> {
+    await this.#send({ type: 'lens.explain', ctx })
   }
 
-  async getSettings(): Promise<LensSettingsView> {
-    const settings = parseSettings(await this.#send({ type: 'lens.settings.get' }))
-    if (!settings) throw new LensError('invalid-settings')
-    return settings
+  getProfile(): Promise<ProfileSnapshot> {
+    return this.#send({ type: 'lens.profile.get' })
   }
 
-  onSettings(listener: (settings: LensSettingsView) => void): () => void {
-    this.#listeners.add(listener)
-    return () => this.#listeners.delete(listener)
+  getSettings(): Promise<LensSettings> {
+    return this.#send({ type: 'lens.settings.get' })
   }
 
-  explainMore(request: ExplainRequest): void {
-    void this.#send({ type: 'lens.explain', request }).catch(() => undefined)
+  patchSettings(patch: LensSettingsPatch): Promise<LensSettings> {
+    return this.#send({ type: 'lens.settings.patch', patch })
   }
 
-  async sitePaused(site: string): Promise<boolean> {
-    const value = await this.#send<{ paused: boolean }>({ type: 'lens.site.get', site })
-    return value.paused === true
+  onSettings(cb: (lens: LensSettings) => void): Unsubscribe {
+    this.#settings.add(cb)
+    return () => this.#settings.delete(cb)
   }
 
-  setSitePaused(site: string, paused: boolean): Promise<unknown> {
-    return this.#send({ type: 'lens.site.pause', site, paused })
+  onProfile(cb: (profile: ProfileSnapshot) => void): Unsubscribe {
+    this.#profile.add(cb)
+    return () => this.#profile.delete(cb)
   }
 
   destroy(): void {
-    this.#listeners.clear()
+    this.#settings.clear()
+    this.#profile.clear()
     try {
       this.#runtime.onMessage.removeListener(this.#onPush)
     } catch {
@@ -87,23 +90,47 @@ export class ExtensionBackend implements LensBackend {
     }
   }
 
-  async #send<T>(message: ContentMessage): Promise<T> {
-    if (!this.#runtime.id) throw new LensError('extension-reloaded')
+  #reqId(): string {
+    return `c${Date.now().toString(36)}${(++this.#seq).toString(36)}`
+  }
+
+  async #cancellable<T>(
+    reqId: string,
+    opts: LensCallOptions | undefined,
+    run: () => Promise<T>
+  ): Promise<T> {
+    const signal = opts?.signal
+    const cancel = (): void =>
+      void this.#send({ type: 'lens.cancel', reqId }).catch(() => undefined)
+    signal?.addEventListener('abort', cancel, { once: true })
+    try {
+      return await run()
+    } finally {
+      signal?.removeEventListener('abort', cancel)
+    }
+  }
+
+  async #send<K extends ContentMessage['type']>(
+    message: Extract<ContentMessage, { type: K }>
+  ): Promise<ReplyValues[K]> {
+    if (!this.connected) {
+      throw new LensBackendError('app_unavailable', 'extension context invalidated')
+    }
     let reply: unknown
     try {
       reply = await this.#runtime.sendMessage(message)
     } catch (error) {
-      if (!this.#runtime.id) throw new LensError('extension-reloaded')
-      throw new LensError('no-connection', error instanceof Error ? error.message : String(error))
+      const reason = this.connected ? 'network' : 'app_unavailable'
+      throw new LensBackendError(reason, error instanceof Error ? error.message : String(error))
     }
-    if (!isReply(reply)) throw new LensError('no-response')
-    if (!reply.ok) throw new LensError(reply.error.code, reply.error.message)
-    return reply.value as T
+    if (!isReply(reply)) throw new LensBackendError('internal', 'no reply from the service worker')
+    if (!reply.ok) throw new LensBackendError(reply.error.code, reply.error.message)
+    return reply.value as ReplyValues[K]
   }
 
   #onPush = (raw: unknown): void => {
-    const push = parsePush(raw)
-    if (!push) return
-    for (const listener of this.#listeners) listener(push.settings)
+    if (!isPush(raw)) return
+    if (raw.type === 'lens.settings.changed') for (const cb of this.#settings) cb(raw.lens)
+    else for (const cb of this.#profile) cb(raw.profile)
   }
 }

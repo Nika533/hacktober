@@ -1,13 +1,6 @@
+import { LENS_LIMITS } from '@hoot/core'
 import { describe, expect, it } from 'vitest'
-import {
-  PARAGRAPH_MAX,
-  SPAN_MAX,
-  clampText,
-  extractContext,
-  headingPath,
-  languageOf,
-  windowAround
-} from '../src/context'
+import { clampText, extractContext, headingPath, languageOf, windowAround } from '../src/context'
 import { InlineRenderer } from '../src/render/inline'
 import { loadArticle, rangeForText } from './helpers'
 
@@ -71,14 +64,14 @@ describe('extractContext', () => {
     range.setEnd(text, middle + 'w300 w301'.length)
     const context = extractContext(range)
     expect(context.span).toBe('w300 w301')
-    expect(context.paragraph.length).toBeLessThanOrEqual(PARAGRAPH_MAX + 2)
+    expect(context.paragraph.length).toBeLessThanOrEqual(LENS_LIMITS.paragraph)
     expect(context.paragraph).toContain('w300 w301')
     expect(context.paragraph.startsWith('…')).toBe(true)
     expect(context.paragraph.endsWith('…')).toBe(true)
 
     range.setStart(text, 0)
     range.setEnd(text, text.length)
-    expect(extractContext(range).span.length).toBeLessThanOrEqual(SPAN_MAX)
+    expect(extractContext(range).span.length).toBeLessThanOrEqual(LENS_LIMITS.span)
   })
 })
 

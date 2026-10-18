@@ -2,20 +2,20 @@
   "name": "@hoot/lens-dom",
   "version": "0.0.0",
   "private": true,
-  "description": "Hoot Lens in the page: marks, renderers and shadow-DOM UI. Framework-free.",
+  "description": "In-page Hoot Lens: selection, renderers and shadow-DOM UI. Framework-free (owner: d2)",
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json",
     "demo": "node demo/build.mjs"
   },
+  "dependencies": {
+    "@hoot/core": "*"
+  },
   "devDependencies": {
-    "esbuild": "0.28.2",
-    "happy-dom": "20.14.6",
-    "typescript": "5.9.3",
-    "vitest": "5.0.3"
+    "esbuild": "0.28.2"
   }
 }

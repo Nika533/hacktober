@@ -5,7 +5,6 @@ import {
   LensUi,
   OverlayRenderer,
   SelectionWatcher,
-  TRANSFORM_LABEL,
   announceChange,
   createUiRoot,
   extractContext,
@@ -149,5 +148,5 @@ const watcher = new SelectionWatcher(
 )
 
 Object.assign(window, {
-  __hootLens: { renderer, ui, root, copy, watcher, log, TRANSFORM_LABEL }
+  __hootLens: { renderer, ui, root, copy, watcher, log }
 })

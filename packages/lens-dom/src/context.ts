@@ -1,12 +1,10 @@
+import { LENS_LIMITS } from '@hoot/core'
 import { blockOf } from './blocks'
 import { isElement, ownerDocument } from './dom'
 import { normalizeWhitespace } from './text'
 
-export const SPAN_MAX = 600
-export const PARAGRAPH_MAX = 1500
-const HEADING_MAX = 120
-const TITLE_MAX = 200
 const ELLIPSIS = '…'
+export const UNKNOWN_LANG = 'und'
 
 export interface PageContext {
   span: string
@@ -52,12 +50,12 @@ export function headingPath(range: Range): string[] {
   for (const heading of Array.from(doc.querySelectorAll('h1, h2, h3'))) {
     if (!precedes(heading, range)) break
     const level = Number(heading.tagName.slice(1))
-    const text = clampText(normalizeWhitespace(heading.textContent ?? ''), HEADING_MAX)
+    const text = clampText(normalizeWhitespace(heading.textContent ?? ''), LENS_LIMITS.heading)
     if (!text) continue
     while (stack.length && (stack[stack.length - 1]?.level ?? 0) >= level) stack.pop()
     stack.push({ level, text })
   }
-  return stack.map((heading) => heading.text)
+  return stack.map((heading) => heading.text).slice(-LENS_LIMITS.headings)
 }
 
 export function languageOf(node: Node): string {
@@ -71,18 +69,18 @@ export function languageOf(node: Node): string {
 
 export function extractContext(range: Range): PageContext {
   const doc = ownerDocument(range.startContainer)
-  const span = clampText(normalizeWhitespace(range.toString()), SPAN_MAX)
+  const span = clampText(normalizeWhitespace(range.toString()), LENS_LIMITS.span)
   const block = blockOf(range.startContainer)
   const paragraph = windowAround(
     normalizeWhitespace(block?.textContent ?? span),
     span.endsWith(ELLIPSIS) ? span.slice(0, -1) : span,
-    PARAGRAPH_MAX
+    LENS_LIMITS.paragraph
   )
   return {
     span,
     paragraph,
     headingPath: headingPath(range),
-    title: clampText(normalizeWhitespace(doc.title ?? ''), TITLE_MAX),
-    lang: languageOf(range.startContainer)
+    title: clampText(normalizeWhitespace(doc.title ?? ''), LENS_LIMITS.title),
+    lang: languageOf(range.startContainer) || UNKNOWN_LANG
   }
 }

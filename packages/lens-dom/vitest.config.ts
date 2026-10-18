@@ -1,8 +1,9 @@
-import { defineConfig } from 'vitest/config'
+import { defineProject } from 'vitest/config'
 
-export default defineConfig({
+export default defineProject({
   test: {
-    include: ['tests/**/*.test.ts'],
+    name: 'lens-dom',
+    include: ['test/**/*.test.ts'],
     environment: 'happy-dom'
   }
 })

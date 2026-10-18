@@ -1,28 +1,13 @@
 export {
-  LensError,
-  type AssessResult,
-  type DomainRisk,
-  type ExplainRequest,
-  type LensBackend,
-  type LensContext,
-  type LensEventKind,
-  type LensFeedback,
-  type LensMode,
-  type LensSettingsView,
-  type MarkAction,
-  type ProfileView,
-  type RewriteRequest,
-  type RewriteResult,
-  type Transform
-} from './contract'
-export {
   createLens,
+  isForeignLanguage,
   pageBlockReason,
   type CreateLensOptions,
   type Lens,
+  type PageClassification,
   type RendererChoice
 } from './controller'
-export { COPY, TRANSFORM_LABEL, announceChange, changedCount, describeMark } from './copy'
+export { COPY, announceChange, changedCount, describeMark } from './copy'
 export { blockOf, isBlock } from './blocks'
 export {
   CopyController,
@@ -32,8 +17,7 @@ export {
   type CopyMode
 } from './clipboard'
 export {
-  PARAGRAPH_MAX,
-  SPAN_MAX,
+  UNKNOWN_LANG,
   clampText,
   extractContext,
   headingPath,
@@ -41,17 +25,16 @@ export {
   windowAround,
   type PageContext
 } from './context'
-export { findTextRange } from './find'
+export { findTextRange, trimRange } from './find'
 export {
   SelectionWatcher,
   sizeClass,
   type SelectionCandidate,
   type SelectionListener,
   type SelectionSignals,
-  type SelectionWatcherOptions,
-  type SizeClass
+  type SelectionWatcherOptions
 } from './selection'
-export { MARK_TAG, MAX_SPAN_CHARS, UI_TAG, checkRange, isInsideLens } from './guard'
+export { MARK_TAG, UI_TAG, checkRange, isInsideLens } from './guard'
 export {
   DynamicPageDetector,
   STRONG_MARKERS,

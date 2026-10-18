@@ -15,7 +15,7 @@ await build({
   outfile: resolve(out, 'main.js'),
   logLevel: 'info'
 })
-const fixture = await readFile(resolve(here, '../tests/fixtures/article.html'), 'utf8')
+const fixture = await readFile(resolve(here, '../test/fixtures/article.html'), 'utf8')
 await writeFile(
   resolve(out, 'index.html'),
   fixture.replace('</body>', '  <script src="./main.js"></script>\n  </body>')

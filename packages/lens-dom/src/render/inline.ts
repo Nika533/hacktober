@@ -1,8 +1,9 @@
+import { countWords } from '@hoot/core'
 import { blockOf } from '../blocks'
 import { describeMark } from '../copy'
 import { el, prefersReducedMotion } from '../dom'
 import { MARK_TAG, checkRange } from '../guard'
-import { stripWrappingParens, wordCount } from '../text'
+import { stripWrappingParens } from '../text'
 import { DURATION, dematerialize, easing, materialize, play, settled } from '../ui/motion'
 import { MARK_CSS, StyleSheets } from '../ui/styles'
 import { Lifecycle, blockTextOf, locate, remember, type Remembered } from './lifecycle'
@@ -349,7 +350,7 @@ function isIntact(entry: Entry): boolean {
 }
 
 export function glossPlacement(spec: MarkSpec, original: string): GlossPlacement {
-  return spec.placement ?? (wordCount(original) <= INLINE_GLOSS_MAX_WORDS ? 'inline' : 'block')
+  return spec.placement ?? (countWords(original) <= INLINE_GLOSS_MAX_WORDS ? 'inline' : 'block')
 }
 
 export function glossNode(doc: Document, spec: MarkSpec, placement: GlossPlacement): HTMLElement {

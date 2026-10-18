@@ -1,127 +1,110 @@
-import type { LensSettingsView, RewriteRequest } from '@hoot/lens-dom'
+import { DEFAULT_LENS_SETTINGS, type LensEvent, type LensSettings } from '@hoot/core'
+import { createFakeLensBackend } from '@hoot/core/testing'
 import { describe, expect, it, vi } from 'vitest'
-import { createDevUpstream } from '../src/sw/dev-upstream'
-import { createRouter } from '../src/sw/router'
+import { createRouter, type Router } from '../src/sw/router'
+import { SETTINGS_KEY, createSettingsStore, type StorageArea } from '../src/sw/settings'
 import { unavailableUpstream, type Upstream } from '../src/sw/upstream'
+import { CTX } from './context'
 
-const SETTINGS: LensSettingsView = {
-  enabled: true,
-  mode: 'ask',
-  copy: 'original',
-  highStakes: 'gloss'
-}
-
-const request: RewriteRequest = {
-  span: 'heteroscedasticity',
-  paragraph: 'The model shows heteroscedasticity.',
-  headingPath: ['Residuals'],
-  title: 'Article',
-  lang: 'en',
-  risk: 'normal'
-}
-
+const ENABLED: LensSettings = { ...DEFAULT_LENS_SETTINGS, enabled: true, mode: 'ask' }
 const sender = { id: 'ext-id', tab: { id: 7 } }
+const request = { ctx: CTX, allowedTransforms: ['define'], risk: 'normal' }
 
-function setup(upstream: Upstream = createDevUpstream({ push: async () => undefined }, 5)): {
-  router: ReturnType<typeof createRouter>
-  setSettings(next: LensSettingsView): void
-  paused: Set<string>
+function memoryArea(initial: Record<string, unknown> = {}): StorageArea & {
+  data: Record<string, unknown>
 } {
-  let settings = { ...SETTINGS }
-  const paused = new Set<string>()
-  const router = createRouter({
-    extensionId: 'ext-id',
-    upstream: () => upstream,
-    settings: { get: async () => settings },
-    sites: {
-      isPaused: async (site) => paused.has(site),
-      setPaused: async (site, value) => void (value ? paused.add(site) : paused.delete(site))
-    }
-  })
+  const data = { ...initial }
   return {
-    router,
-    setSettings: (next) => {
-      settings = next
-    },
-    paused
+    data,
+    get: async (key) => ({ [key]: data[key] }),
+    set: async (items) => void Object.assign(data, items)
   }
 }
 
+function setup(
+  upstream: Upstream = createFakeLensBackend({ settings: ENABLED }),
+  area = memoryArea({ [SETTINGS_KEY]: ENABLED })
+): { router: Router; area: ReturnType<typeof memoryArea> } {
+  const router = createRouter({
+    extensionId: 'ext-id',
+    upstream: () => upstream,
+    settings: createSettingsStore(area, DEFAULT_LENS_SETTINGS)
+  })
+  return { router, area }
+}
+
 describe('service worker router', () => {
-  it('only answers our own content scripts', async () => {
+  it('only answers our own content scripts and valid messages', async () => {
     const { router } = setup()
     expect(
       await router.handle({ type: 'lens.settings.get' }, { id: 'other', tab: { id: 1 } })
     ).toEqual({
       ok: false,
-      error: { code: 'forbidden', message: 'forbidden' }
+      error: { code: 'unauthorized', message: 'unauthorized' }
     })
     expect(await router.handle({ type: 'lens.settings.get' }, { id: 'ext-id' })).toMatchObject({
       ok: false
     })
     expect(await router.handle({ type: 'nope' }, sender)).toMatchObject({
       ok: false,
-      error: { code: 'invalid-message' }
+      error: { code: 'bad_request' }
     })
   })
 
   it('routes a rewrite through the upstream', async () => {
     const { router } = setup()
     const reply = await router.handle({ type: 'lens.rewrite', reqId: 'r1', request }, sender)
-    expect(reply).toEqual({
+    expect(reply).toMatchObject({
       ok: true,
       value: {
         kind: 'rewritten',
-        action: 'replace',
-        transform: 'define',
-        text: 'heteroscedasticity (when the spread of errors changes across values)',
-        term: 'heteroscedasticity',
-        confidence: 0.9,
-        cacheKey: 'dev:heteroscedasticity'
+        result: {
+          action: 'replace',
+          transform: 'define',
+          text: 'heteroscedasticity (a fake definition)'
+        }
       }
     })
   })
 
-  it('returns a gloss for high-stakes requests in the dev stub', async () => {
-    const { router } = setup()
-    const reply = await router.handle(
-      { type: 'lens.rewrite', reqId: 'r2', request: { ...request, risk: 'high' } },
-      sender
-    )
-    expect(reply).toMatchObject({
+  it('skips rewrites while Lens is off', async () => {
+    const { router } = setup(undefined, memoryArea())
+    expect(await router.handle({ type: 'lens.rewrite', reqId: 'r3', request }, sender)).toEqual({
       ok: true,
-      value: { action: 'gloss', text: 'when the spread of errors changes across values' }
-    })
-  })
-
-  it('refuses rewrites while Lens is off', async () => {
-    const { router, setSettings } = setup()
-    setSettings({ ...SETTINGS, enabled: false })
-    expect(
-      await router.handle({ type: 'lens.rewrite', reqId: 'r3', request }, sender)
-    ).toMatchObject({
-      ok: false,
-      error: { code: 'lens-off' }
+      value: { kind: 'skipped', reason: 'lens_off' }
     })
   })
 
   it('cancels an in-flight request by reqId and tab', async () => {
-    const { router } = setup(createDevUpstream({ push: async () => undefined }, 1000))
+    const { router } = setup(createFakeLensBackend({ settings: ENABLED, delayMs: 1000 }))
     const pending = router.handle({ type: 'lens.rewrite', reqId: 'r4', request }, sender)
-    await Promise.resolve()
+    await new Promise((resolve) => setTimeout(resolve, 10))
     expect(router.inflight()).toBe(1)
     await router.handle({ type: 'lens.cancel', reqId: 'r4' }, sender)
-    expect(await pending).toMatchObject({ ok: false, error: { code: 'cancelled' } })
+    expect(await pending).toEqual({ ok: true, value: { kind: 'skipped', reason: 'cancelled' } })
     expect(router.inflight()).toBe(0)
   })
 
-  it('stores per-site pause', async () => {
-    const { router, paused } = setup()
-    await router.handle({ type: 'lens.site.pause', site: 'example.com', paused: true }, sender)
-    expect(paused.has('example.com')).toBe(true)
-    expect(await router.handle({ type: 'lens.site.get', site: 'example.com' }, sender)).toEqual({
+  it('applies settings patches, including per-site pause', async () => {
+    const { router, area } = setup()
+    const reply = await router.handle(
+      { type: 'lens.settings.patch', patch: { sites: { 'example.com': 'paused' } } },
+      sender
+    )
+    expect(reply).toMatchObject({ ok: true, value: { sites: { 'example.com': 'paused' } } })
+    expect((area.data[SETTINGS_KEY] as LensSettings).sites).toEqual({ 'example.com': 'paused' })
+    await router.handle(
+      { type: 'lens.settings.patch', patch: { sites: { 'example.com': null } } },
+      sender
+    )
+    expect((area.data[SETTINGS_KEY] as LensSettings).sites).toEqual({})
+  })
+
+  it('falls back to the defaults when stored settings are corrupt', async () => {
+    const { router } = setup(undefined, memoryArea({ [SETTINGS_KEY]: { enabled: 'yes' } }))
+    expect(await router.handle({ type: 'lens.settings.get' }, sender)).toEqual({
       ok: true,
-      value: { paused: true }
+      value: DEFAULT_LENS_SETTINGS
     })
   })
 
@@ -129,28 +112,36 @@ describe('service worker router', () => {
     const { router } = setup(unavailableUpstream)
     expect(await router.handle({ type: 'lens.rewrite', reqId: 'r5', request }, sender)).toEqual({
       ok: false,
-      error: { code: 'app-unavailable', message: 'Hoot isn’t running' }
+      error: { code: 'app_unavailable', message: 'Hoot isn’t running' }
     })
   })
 
-  it('forwards feedback and explain requests', async () => {
-    const push = vi.fn(async () => undefined)
-    const { router } = setup(createDevUpstream({ push }, 1))
-    const event = {
-      eventId: 'e1',
+  it('forwards valid feedback and explain requests', async () => {
+    const fake = createFakeLensBackend({ settings: ENABLED })
+    const explain = vi.spyOn(fake, 'explainMore')
+    const { router } = setup(fake)
+    const event: LensEvent = {
+      id: 'e1',
+      ts: 1,
+      site: 'example.com',
+      urlHash: 'h',
       kind: 'shown',
       transform: 'define',
       mode: 'ask',
       term: null,
+      topic: null,
       lang: 'en',
       spanWords: 1,
+      p: 0,
+      difficulty: null,
       latencyMs: 300
     }
-    await router.handle({ type: 'lens.feedback', event }, sender)
-    await router.handle(
-      { type: 'lens.explain', request: { span: 'x', paragraph: 'y', title: 'z' } },
-      sender
-    )
-    expect(push.mock.calls.map((call) => (call as unknown[])[0])).toEqual(['feedback', 'explain'])
+    expect(await router.handle({ type: 'lens.feedback', event }, sender)).toEqual({
+      ok: true,
+      value: null
+    })
+    await router.handle({ type: 'lens.explain', ctx: CTX }, sender)
+    expect(fake.events).toEqual([event])
+    expect(explain).toHaveBeenCalledWith(CTX)
   })
 })

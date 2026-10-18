@@ -19,9 +19,7 @@ test('Ask-first rewrites a term in place and restores it exactly', async () => {
 
   await askAbout(page, '#p-hetero em')
   const mark = page.locator('#p-hetero hoot-lens-mark mark')
-  await expect(mark).toHaveText(
-    'heteroscedasticity (when the spread of errors changes across values)'
-  )
+  await expect(mark).toHaveText('heteroscedasticity (a fake definition)')
   await expect(ui(page, '.pill .status')).toHaveText('Hoot changed 1 thing')
 
   await mark.hover()
@@ -43,14 +41,12 @@ test('copying a changed sentence copies the original', async () => {
   const page = await context.newPage()
   await open(page, `${fixtures.url}/article.html`)
   await askAbout(page, '#p-ols b')
-  await expect(page.locator('#p-ols hoot-lens-mark mark')).toHaveText(
-    'ordinary least squares (OLS)'
-  )
+  await expect(page.locator('#p-ols hoot-lens-mark mark')).toHaveText('OLS (Fake Expanded Form)')
   await page.locator('#p-ols').click({ clickCount: 3 })
   await page.keyboard.press('Control+C')
   const copied = await page.evaluate(() => navigator.clipboard.readText())
   expect(copied).toContain('The OLS estimator')
-  expect(copied).not.toContain('ordinary least squares')
+  expect(copied).not.toContain('Fake Expanded Form')
 })
 
 test('never offers Lens on code, quotes, inputs or password pages', async () => {

@@ -1,14 +1,5 @@
-import type { Transform } from './contract'
+import { TRANSFORM_RULES, type Transform } from '@hoot/core'
 import type { MarkSpec } from './render/types'
-
-export const TRANSFORM_LABEL: Record<Transform, string> = {
-  define: 'Defined a term',
-  expand: 'Expanded an acronym',
-  simplify: 'Simplified a sentence',
-  translate: 'Translated',
-  example: 'Added an example',
-  unpack: 'Put notation into words'
-}
 
 const VERB: Record<Transform, string> = {
   define: 'Defined',
@@ -56,5 +47,5 @@ export function describeMark(spec: MarkSpec, original: string): string {
 export function announceChange(spec: MarkSpec): string {
   return spec.action === 'gloss'
     ? 'Hoot added a note.'
-    : `${TRANSFORM_LABEL[spec.transform]}. Press Alt+Z to undo.`
+    : `${TRANSFORM_RULES[spec.transform].label}. Press Alt+Z to undo.`
 }

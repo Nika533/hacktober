@@ -54,7 +54,12 @@ describe('SelectionWatcher', () => {
     expect(events.map((event) => event.type)).toEqual(['settled'])
     const candidate = events[0]?.candidate
     expect(candidate?.text).toBe('heteroscedasticity')
-    expect(candidate?.signals).toMatchObject({ sizeClass: 'term', words: 1, reselected: false })
+    expect(candidate?.signals).toMatchObject({
+      sizeClass: 'term',
+      words: 1,
+      reselectCount: 0,
+      copiedWithinMs: null
+    })
     advance(900)
     expect(events.map((event) => event.type)).toEqual(['settled', 'dwell'])
     expect(events[1]?.candidate?.signals.dwellMs).toBe(1200)
@@ -77,7 +82,7 @@ describe('SelectionWatcher', () => {
     advance(2000)
     expect(events.map((event) => event.type)).toEqual(['settled', 'copied'])
     expect(events[1]?.afterSettle).toBe(true)
-    expect(events[0]?.candidate?.signals.copied).toBe(true)
+    expect(events[0]?.candidate?.signals.copiedWithinMs).toBe(0)
   })
 
   it('reports clearing and marks a reselected span', () => {
@@ -87,7 +92,7 @@ describe('SelectionWatcher', () => {
     select(rangeForText(article, 'fitted values'))
     advance(300)
     expect(events.map((event) => event.type)).toEqual(['settled', 'cleared', 'settled'])
-    expect(events[2]?.candidate?.signals.reselected).toBe(true)
+    expect(events[2]?.candidate?.signals.reselectCount).toBe(1)
   })
 
   it('holds off while the user is typing and after a fast scroll', () => {
@@ -138,7 +143,9 @@ describe('sizeClass', () => {
     [3, false, 'term'],
     [7, false, 'phrase'],
     [25, false, 'sentence'],
-    [120, false, 'multi-paragraph'],
+    [40, false, 'sentence'],
+    [41, false, 'passage'],
+    [120, false, 'passage'],
     [5, true, 'multi-paragraph']
   ] as const)('%i words, multiBlock %s → %s', (words, multiBlock, expected) => {
     expect(sizeClass(words, multiBlock)).toBe(expected)

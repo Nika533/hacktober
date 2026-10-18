@@ -1,11 +1,10 @@
+import { LENS_LIMITS, type RenderAction } from '@hoot/core'
 import { blockOf } from './blocks'
-import type { MarkAction } from './contract'
 import { isElement } from './dom'
 import type { BlockReason, RangeCheck } from './render/types'
 
 export const MARK_TAG = 'hoot-lens-mark'
 export const UI_TAG = 'hoot-lens-ui'
-export const MAX_SPAN_CHARS = 600
 
 const CONTROL_TAGS = new Set(['INPUT', 'TEXTAREA', 'SELECT', 'OPTION', 'BUTTON'])
 const HIDDEN_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'HEAD', 'TITLE'])
@@ -25,7 +24,7 @@ function isEditable(element: Element): boolean {
 
 export function elementReason(
   element: Element,
-  action: MarkAction | undefined,
+  action: RenderAction | undefined,
   contained: boolean
 ): BlockReason | null {
   const tag = element.tagName.toUpperCase()
@@ -45,7 +44,7 @@ export function elementReason(
   return null
 }
 
-function boundaryReason(node: Node, action: MarkAction | undefined): BlockReason | null {
+function boundaryReason(node: Node, action: RenderAction | undefined): BlockReason | null {
   for (let current: Node | null = node; current; current = current.parentNode) {
     if (!isElement(current)) continue
     const reason = elementReason(current, action, false)
@@ -54,7 +53,7 @@ function boundaryReason(node: Node, action: MarkAction | undefined): BlockReason
   return null
 }
 
-function innerReason(range: Range, action: MarkAction | undefined): BlockReason | null {
+function innerReason(range: Range, action: RenderAction | undefined): BlockReason | null {
   const root = range.commonAncestorContainer
   const doc = root.ownerDocument ?? (root as Document)
   const walker = doc.createTreeWalker(root, 1)
@@ -68,12 +67,12 @@ function innerReason(range: Range, action: MarkAction | undefined): BlockReason 
 
 const no = (reason: BlockReason): RangeCheck => ({ ok: false, reason })
 
-export function checkRange(range: Range, action?: MarkAction): RangeCheck {
+export function checkRange(range: Range, action?: RenderAction): RangeCheck {
   if (range.collapsed) return no('collapsed')
   if (!range.startContainer.isConnected || !range.endContainer.isConnected) return no('detached')
   const text = range.toString()
   if (!text.trim()) return no('no-text')
-  if (text.length > MAX_SPAN_CHARS) return no('too-long')
+  if (text.length > LENS_LIMITS.span) return no('too-long')
   const reason =
     boundaryReason(range.startContainer, action) ?? boundaryReason(range.endContainer, action)
   if (reason) return no(reason)

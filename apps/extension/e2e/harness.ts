@@ -9,7 +9,7 @@ import {
 import { resolve } from 'node:path'
 import { serveFixtures, type FixtureServer } from '../scripts/serve.ts'
 
-const EXTENSION = resolve(import.meta.dirname, '../dist/dev')
+const EXTENSION = resolve(import.meta.dirname, '../dist')
 
 export interface Harness {
   context: BrowserContext
@@ -47,8 +47,8 @@ export async function devLog(
   worker: Worker
 ): Promise<Array<{ kind: string; payload: { kind?: string } }>> {
   return worker.evaluate(async () => {
-    const stored = await chrome.storage.session.get('lens.devLog')
-    return (stored['lens.devLog'] ?? []) as Array<{ kind: string; payload: { kind?: string } }>
+    const stored = await chrome.storage.session.get('lens.e2eLog')
+    return (stored['lens.e2eLog'] ?? []) as Array<{ kind: string; payload: { kind?: string } }>
   })
 }
 
