@@ -5,25 +5,34 @@ that isn't, open a `contract: …` PR (additive; C reviews it first).
 
 ## Entry points
 
-| Import | Contains | zod? |
-|---|---|---|
-| `@hoot/core` | Types, `CHAT_MODELS` / `LENS_MODELS`, chat helpers (`buildMessages`, `titleFrom`, prompts, `groupSessions`), utils (geometry, accelerator, clipboard), lens helpers (`TRANSFORM_RULES`, `lensCacheKey`), IPC routes + `createHootApi`, framing, `LensBackend`, bridge constants | no |
-| `@hoot/core/schemas` | zod schemas for every boundary; `migrateSettings`, `applySettingsPatch`, `migrateMessageError`; bridge message schemas; `INVOKE_ARGS` / `SEND_ARGS` + `parseInvokeArgs` / `parseSendArgs` | yes |
-| `@hoot/core/testing` | `createFakeLensBackend`, `fakeRewrite`, `fakeAssess`, `FAKE_PROFILE_SNAPSHOT` | yes |
+| Import               | Contains                                                                                                                                                                                                                                                                        | zod? |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- |
+| `@hoot/core`         | Types, `CHAT_MODELS` / `LENS_MODELS`, chat helpers (`buildMessages`, `titleFrom`, prompts, `groupSessions`), utils (geometry, accelerator, clipboard), lens helpers (`TRANSFORM_RULES`, `lensCacheKey`), IPC routes + `createHootApi`, framing, `LensBackend`, bridge constants | no   |
+| `@hoot/core/schemas` | zod schemas for every boundary; `migrateSettings`, `applySettingsPatch`, `migrateMessageError`; bridge message schemas; `INVOKE_ARGS` / `SEND_ARGS` + `parseInvokeArgs` / `parseSendArgs`                                                                                       | yes  |
+| `@hoot/core/testing` | `createFakeLensBackend`, `fakeRewrite`, `fakeAssess`, `FAKE_PROFILE_SNAPSHOT`                                                                                                                                                                                                   | yes  |
 
 ## Map
 
-| Contract | File | Notes |
-|---|---|---|
-| Settings v2 | `src/types/settings.ts`, `src/schemas/settings.ts` | `migrateSettings` reads any version and salvages valid fields one by one. `SettingsPatch` is what renderers may change: `pillAnchor`, `studioBounds`, `onboardingDone` and `schemaVersion` are main-only |
-| Chat | `src/types/chat.ts`, `src/schemas/chat.ts` | `Attachment` has no path: main derives `attachments/<id>.png`. Ids match `IdSchema` (no dots or slashes). Errors are `AiErrorCode`; `migrateMessageError` maps legacy `'401'`, `'429'`, `'529'`, `'no-key'` |
-| App vocabulary | `src/types/app.ts` | Modes, moods, capture, pins (`sessionId`/`messageId` are null for glossary pins) |
-| State slices | `src/types/state.ts` | `settings`, `system`, `buddy`, `studio`, `chat`, `sessions`, `pins`, `lens`; `DEFAULT_SUBSCRIPTIONS` per window |
-| `window.hoot` | `src/ipc/api.ts` (`HootApi`), `src/ipc/routes.ts`, `src/ipc/schemas.ts` | Preload is `createHootApi(transport)`. Main validates with `parseInvokeArgs(channel, args)`. Handler types: `ApiFn<C>`, `InvokeResult<C>`, `EventPayload<C>` |
-| Lens types | `src/types/lens.ts`, `src/schemas/lens.ts` | `LensContext` is everything that leaves the page (limits in `LENS_LIMITS`). Model output schemas for §7.3 are `AssessModelOutputSchema` and `RewriteModelOutputSchema` |
-| Lens backend | `src/protocol/backend.ts` | What lens-dom needs. Implemented by the extension (SW → bridge), the Reader (IPC) and the fake. Methods reject with `LensBackendError(code)` |
-| Bridge protocol | `src/protocol/bridge.ts`, `framing.ts`, `constants.ts` | 4-byte LE length + UTF-8 JSON, 1 MB cap. Exactly one reply per `reqId`. `cancel` names the request to cancel. The first pipe frame from hoot-bridge is `bridge.auth`. Dev extension id `DEV_EXTENSION_ID`; pipe path `bridgePipePath()` |
-| Models | `src/models.ts` | Chat: Flash-Lite, Flash (default), Argon (paid). Lens: assess and rewriteFast on Flash-Lite, rewriteStrong on Flash for long simplify/unpack |
+| Contract        | File                                                                    | Notes                                                                                                                                                                                                                                   |
+| --------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Settings v2     | `src/types/settings.ts`, `src/schemas/settings.ts`                      | `migrateSettings` reads any version and salvages valid fields one by one. `SettingsPatch` is what renderers may change: `pillAnchor`, `studioBounds`, `onboardingDone` and `schemaVersion` are main-only                                |
+| Chat            | `src/types/chat.ts`, `src/schemas/chat.ts`                              | `Attachment` has no path: main derives `attachments/<id>.png`. Ids match `IdSchema` (no dots or slashes). Errors are `AiErrorCode`; `migrateMessageError` maps legacy `'401'`, `'429'`, `'529'`, `'no-key'`                             |
+| App vocabulary  | `src/types/app.ts`                                                      | Modes, moods, capture, pins (`sessionId`/`messageId` are null for glossary pins)                                                                                                                                                        |
+| State slices    | `src/types/state.ts`                                                    | `settings`, `system`, `buddy`, `studio`, `chat`, `sessions`, `pins`, `lens`; `DEFAULT_SUBSCRIPTIONS` per window                                                                                                                         |
+| `window.hoot`   | `src/ipc/api.ts` (`HootApi`), `src/ipc/routes.ts`, `src/ipc/schemas.ts` | Preload is `createHootApi(transport)`. Main validates with `parseInvokeArgs(channel, args)`. Handler types: `ApiFn<C>`, `InvokeResult<C>`, `EventPayload<C>`                                                                            |
+| Lens types      | `src/types/lens.ts`, `src/schemas/lens.ts`                              | `LensContext` is everything that leaves the page (limits in `LENS_LIMITS`). Model output schemas for §7.3 are `AssessModelOutputSchema` and `RewriteModelOutputSchema`                                                                  |
+| Lens backend    | `src/protocol/backend.ts`                                               | What lens-dom needs. Implemented by the extension (SW → bridge), the Reader (IPC) and the fake. Methods reject with `LensBackendError(code)`                                                                                            |
+| Bridge protocol | `src/protocol/bridge.ts`, `framing.ts`, `constants.ts`                  | 4-byte LE length + UTF-8 JSON, 1 MB cap. Exactly one reply per `reqId`. `cancel` names the request to cancel. The first pipe frame from hoot-bridge is `bridge.auth`. Dev extension id `DEV_EXTENSION_ID`; pipe path `bridgePipePath()` |
+| Models          | `src/models.ts`                                                         | Chat: Flash-Lite, Flash (default), Argon (paid). Lens: assess and rewriteFast on Flash-Lite, rewriteStrong on Flash for long simplify/unpack                                                                                            |
+
+## Dev / e2e transport (d2)
+
+`@hoot/bridge/testing` exports `createFakeLensServer({ port?, pairingCode?, delayMs?, settings?, profile? })`. It returns `{ url, pairingCode, backend, connections, close }`.
+
+- Connect to `url` (`ws://127.0.0.1:<port>/?code=<pairing>`). A wrong code closes with 4401.
+- Send one JSON bridge message per WebSocket **text** frame. There's no length prefix, because WebSocket frames already delimit messages.
+- `backend` is a `FakeLensBackend` for assertions (`.events`, `.explained`) and pushes (`emitSettings`, `emitProfile`).
+- The app's dev transport (`HOOT_DEV_BRIDGE=1`, C-20) speaks the same format.
 
 ## Fake Lens rules (for tests)
 
