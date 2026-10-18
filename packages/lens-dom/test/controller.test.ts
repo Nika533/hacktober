@@ -12,6 +12,7 @@ import {
 } from '@hoot/core/testing'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createLens, isForeignLanguage, pageBlockReason, type Lens } from '../src/controller'
+import type { Renderer, RendererListener } from '../src/render/types'
 import { UI_TAG } from '../src/guard'
 import { loadArticle, rangeForText, textNodes } from './helpers'
 
@@ -229,6 +230,38 @@ describe('createLens with @hoot/core fakes', () => {
     await start()
     select('heteroscedasticity')
     expect(chip().hidden).toBe(true)
+  })
+
+  it('uses a renderer the host passes in, such as a PDF view’s', async () => {
+    const applied: string[] = []
+    const listeners = new Set<RendererListener>()
+    const host: Renderer = {
+      kind: 'host',
+      check: () => ({ ok: true }),
+      apply: (range, spec) => {
+        applied.push(range.toString())
+        const anchor = document.createElement('mark')
+        document.body.append(anchor)
+        return { id: 'h1', spec, original: range.toString(), anchor, rects: () => [] }
+      },
+      restore: () => true,
+      restoreAll: () => 0,
+      get: () => undefined,
+      marks: () => [],
+      subscribe: (listener) => {
+        listeners.add(listener)
+        return () => listeners.delete(listener)
+      },
+      destroy: () => undefined
+    }
+    await start({ renderer: host })
+    select('heteroscedasticity')
+    expect((await ask())?.id).toBe('h1')
+    expect(applied).toEqual(['heteroscedasticity'])
+    expect(document.querySelector('hoot-lens-mark')).toBeNull()
+    lens!.destroy()
+    lens = null
+    expect(listeners.size).toBe(0)
   })
 
   it('stays off on deny-listed hosts unless the site is set to always', async () => {
