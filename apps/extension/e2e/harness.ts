@@ -45,9 +45,13 @@ export async function shutdown(harness: Harness): Promise<void> {
 
 export { expect }
 
+/** Lens is on the page and has its settings (the e2e build marks the UI host). */
+export const lensReady = (scope: { locator(selector: string): Locator }): Promise<void> =>
+  scope.locator('hoot-lens-ui[data-ready]').waitFor({ state: 'attached' })
+
 export async function open(page: Page, url: string): Promise<void> {
   await page.goto(url)
-  await page.locator('hoot-lens-ui').waitFor({ state: 'attached' })
+  await lensReady(page)
 }
 
 export const ui = (page: Page, selector: string): Locator =>

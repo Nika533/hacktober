@@ -2,7 +2,7 @@
  * Content script: runs @hoot/lens-dom on the page with the service worker as
  * its LensBackend. d2 wires it up in D2-15.
  */
-import { createLens, type Lens } from '@hoot/lens-dom'
+import { UI_TAG, createLens, type Lens } from '@hoot/lens-dom'
 import { ExtensionBackend } from './backend'
 import { installSalt, pageHost, pageOrigin, pageSite, urlHash } from './page'
 
@@ -30,6 +30,10 @@ async function main(): Promise<void> {
     }
   })
   scope[LOADED] = lens
+  // e2e waits for this before selecting anything: until the settings are in, Lens ignores selections.
+  if (__HOOT_E2E__) {
+    void lens.ready.then(() => document.querySelector(UI_TAG)?.setAttribute('data-ready', ''))
+  }
 }
 
 void main()

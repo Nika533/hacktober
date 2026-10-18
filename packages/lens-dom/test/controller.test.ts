@@ -191,6 +191,28 @@ describe('createLens with @hoot/core fakes', () => {
     expect(shadow().querySelectorAll('.shimmer')).toHaveLength(0)
   })
 
+  it('is ready once the settings are in, even when the profile fails first', async () => {
+    const errors: unknown[] = []
+    const slow: LensBackend = {
+      ...backend,
+      getSettings: () => new Promise((resolve) => setTimeout(() => resolve(ENABLED), 50)),
+      getProfile: async () => {
+        throw new Error('no profile yet')
+      }
+    }
+    let ready = false
+    const started = start({ onError: (error) => errors.push(error) }, slow).then(() => {
+      ready = true
+    })
+    await vi.advanceTimersByTimeAsync(10)
+    expect(ready).toBe(false)
+    await vi.advanceTimersByTimeAsync(50)
+    await started
+    select('heteroscedasticity')
+    expect(chip().hidden).toBe(false)
+    expect(errors).toHaveLength(1)
+  })
+
   it('stays quiet while Lens is off and wakes up when settings change', async () => {
     backend = createFakeLensBackend({ settings: { ...ENABLED, enabled: false } })
     await start()

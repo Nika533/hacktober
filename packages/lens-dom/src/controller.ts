@@ -567,12 +567,9 @@ export function createLens(options: CreateLensOptions): Lens {
     backend.getSettings().then((initial) => {
       settings = initial
       sync()
-    }),
-    backend.getProfile().then(useProfile)
-  ]).then(
-    () => undefined,
-    (error: unknown) => report(error)
-  )
+    }, report),
+    backend.getProfile().then(useProfile, report)
+  ]).then(() => undefined)
 
   cleanup.push(
     backend.onSettings((next) => {

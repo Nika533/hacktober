@@ -4,6 +4,7 @@ import {
   expect,
   feedbackKinds,
   launch,
+  lensReady,
   open,
   shutdown,
   ui,
@@ -96,7 +97,7 @@ test('keyboard map: Alt+Z undoes, Alt+H pauses and the pause survives a reload',
   await page.keyboard.press('Alt+H')
   await expect(ui(page, '.pill .status')).toHaveText('Lens is paused on this site')
   await page.reload()
-  await page.locator('hoot-lens-ui').waitFor({ state: 'attached' })
+  await lensReady(page)
   await page.locator('#p-hetero em').dblclick()
   await page.waitForTimeout(450)
   await expect(ui(page, '.chip')).toBeHidden()
@@ -129,7 +130,7 @@ test('runs inside same-origin frames', async () => {
   const page = await context.newPage()
   await page.goto(`${fixtures.url}/iframes.html`)
   const frame = page.frameLocator('#same-origin')
-  await frame.locator('hoot-lens-ui').waitFor({ state: 'attached' })
+  await lensReady(frame)
   await frame.locator('#p-child').dblclick({ position: { x: 4, y: 10 } })
   await expect(frame.locator('hoot-lens-ui .chip')).toBeVisible()
 })
@@ -139,7 +140,7 @@ test('runs inside cross-origin frames', async () => {
   const page = await context.newPage()
   await page.goto(`${fixtures.url}/iframes.html?cross=${fixtures.crossOriginUrl}`)
   const frame = page.frameLocator('#cross-origin')
-  await frame.locator('hoot-lens-ui').waitFor({ state: 'attached' })
+  await lensReady(frame)
   await frame.locator('#p-child').dblclick({ position: { x: 4, y: 10 } })
   await expect(frame.locator('hoot-lens-ui .chip')).toBeVisible()
   await frame.locator('hoot-lens-ui .chip').click()
@@ -151,7 +152,7 @@ test('runs inside srcdoc frames', async () => {
   const page = await context.newPage()
   await page.goto(`${fixtures.url}/iframes.html`)
   const frame = page.frameLocator('#srcdoc')
-  await frame.locator('hoot-lens-ui').waitFor({ state: 'attached' })
+  await lensReady(frame)
   await frame.locator('#p-srcdoc').dblclick({ position: { x: 4, y: 10 } })
   await expect(frame.locator('hoot-lens-ui .chip')).toBeVisible()
 
