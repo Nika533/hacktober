@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 
 // Workspace packages ship TypeScript source, so they are bundled, never
 // externalized like the runtime dependencies in package.json.
-const WORKSPACE = ['@hoot/core', '@hoot/ui', '@hoot/lens-dom', '@hoot/pdf-view']
+const WORKSPACE = ['@hoot/core', '@hoot/bridge', '@hoot/ui', '@hoot/lens-dom', '@hoot/pdf-view']
 
 export default defineConfig({
   main: {
