@@ -21,18 +21,27 @@ const system: StateSlices['system'] = {
 
 const log: Logger = { info: () => {}, warn: () => {}, error: () => {} }
 
+const contains = (r: Rect, p: { x: number; y: number }): boolean =>
+  p.x >= r.x && p.x < r.x + r.width && p.y >= r.y && p.y < r.y + r.height
+
 function makeScreen(): {
   cursor: { x: number; y: number }
   workArea: Rect
+  workAreas: Rect[]
   getCursorScreenPoint(): { x: number; y: number }
-  getDisplayNearestPoint(): { workArea: Rect }
+  getAllDisplays(): { workArea: Rect }[]
+  getDisplayNearestPoint(p: { x: number; y: number }): { workArea: Rect }
   getPrimaryDisplay(): { workArea: Rect }
 } {
   const s = {
     cursor: { x: 960, y: 500 },
     workArea: WA,
+    workAreas: [WA],
     getCursorScreenPoint: () => ({ ...s.cursor }),
-    getDisplayNearestPoint: () => ({ workArea: s.workArea }),
+    getAllDisplays: () => s.workAreas.map((workArea) => ({ workArea })),
+    getDisplayNearestPoint: (p: { x: number; y: number }) => ({
+      workArea: s.workAreas.find((wa) => contains(wa, p)) ?? s.workArea
+    }),
     getPrimaryDisplay: () => ({ workArea: s.workArea })
   }
   return s
@@ -392,5 +401,47 @@ describe('buddy window', () => {
     expect(l.bounds.x + l.owl.x).toBeCloseTo(60, 0)
     expect(l.bounds.y + l.owl.y).toBeCloseTo(60, 0)
     expect(store.get('settings').settings.pillAnchor).toEqual({ x: 60, y: 60 })
+  })
+
+  it('relayout pulls an off-screen anchor into the nearest work area', () => {
+    const { buddy, store, screen, fake } = setup()
+    buddy.summon()
+    buddy.transitionDone(1)
+    // A user-set anchor on a display that is then unplugged: the remaining
+    // display is smaller.
+    buddy.setAnchor({ x: 1880, y: 1000 })
+    screen.workArea = { x: 0, y: 0, width: 800, height: 600 }
+    screen.workAreas = [screen.workArea]
+    buddy.relayout()
+    expect(buddy.anchor()).toEqual({ x: 760, y: 560 })
+    expect(store.get('settings').settings.pillAnchor).toEqual({ x: 760, y: 560 })
+    const l = store.get('buddy').layout!
+    expect(l.bounds.x + l.owl.x).toBe(760)
+    expect(l.bounds.y + l.owl.y).toBe(560)
+    expect(fake.win.getBounds()).toEqual(l.bounds)
+  })
+
+  it('relayout keeps an on-screen anchor but re-bounds the window on a DPI change', () => {
+    const { buddy, store, screen, fake } = setup()
+    buddy.summon()
+    buddy.transitionDone(1)
+    buddy.setAnchor({ x: 400, y: 400 })
+    const anchor0 = buddy.anchor()
+    // The work area shrank (taskbar grew) — same anchor, fresh layout pushed.
+    screen.workArea = { x: 0, y: 0, width: 1920, height: 960 }
+    screen.workAreas = [screen.workArea]
+    buddy.relayout()
+    expect(buddy.anchor()).toEqual(anchor0)
+    expect(store.get('settings').settings.pillAnchor).toEqual(anchor0)
+    expect(fake.win.getBounds()).toEqual(store.get('buddy').layout!.bounds)
+  })
+
+  it('resume repaints the visible window and relayouts', () => {
+    const { buddy, fake } = setup()
+    buddy.summon()
+    buddy.transitionDone(1)
+    const before = fake.calls.invalidate
+    buddy.resume()
+    expect(fake.calls.invalidate).toBe(before + 1)
   })
 })

@@ -1,4 +1,4 @@
-import { app, dialog, safeStorage, shell } from 'electron'
+import { app, dialog, powerMonitor, safeStorage, screen, shell } from 'electron'
 import { randomBytes } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, stat } from 'node:fs/promises'
@@ -50,9 +50,11 @@ import { readSystem, watchSystem } from './system'
 import { installTestHooks } from './testHooks'
 import { createTray, type TrayHandle } from './tray'
 import { createWindowRegistry, rendererUrlFor, type WindowRegistry } from './windows/base'
+import { watchDisplays } from './windows/displays'
 import { fileArgFromArgv } from './windows/drop'
 import { createReaderWindow } from './windows/reader'
 import { createStudioWindow, type StudioWindow } from './windows/studio'
+import { watchPower } from './powerWatch'
 
 export interface AppContext {
   env: AppEnv
@@ -180,9 +182,9 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
   // assigned below; the guard can't fire before a page loads anyway.
   const onFileDrop = (p: string): void => ctx.hooks.openInReader(p)
 
-  // One Studio window, created hidden and reused. (Constructed here rather
-  // than in start() so ctx.studio is always populated; nothing is visible
-  // until start() decides what to open.)
+  // One Studio window, created lazily on first open() and reused — a hidden
+  // start pays no renderer for it. (Constructed here rather than in start()
+  // so ctx.studio is always populated.)
   const studio = createStudioWindow({ store, windows, log, onFileDrop })
   // Shared with the note windows: closing on quit must not delete the pin.
   let quitting = false
@@ -230,6 +232,17 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     onCapture: () => ctx.hooks.startCapture()
   })
   flush.add('hotkeys', async () => hotkeys.dispose())
+
+  // Monitor/DPI changes re-resolve the buddy anchor and re-centre stranded
+  // windows; sleep/unlock repaints the transparent owl + re-registers keys.
+  const unwatchDisplays = watchDisplays({
+    screen,
+    windows,
+    relayoutBuddy: () => buddy.relayout()
+  })
+  const unwatchPower = watchPower({ powerMonitor, buddy, hotkeys })
+  flush.add('displays', async () => unwatchDisplays())
+  flush.add('power', async () => unwatchPower())
 
   const tray = createTray({
     store,
