@@ -124,6 +124,20 @@ describe('service worker router', () => {
     expect((area.data[SETTINGS_KEY] as LensSettings).sites).toEqual({})
   })
 
+  it('keeps the valid parts of stored settings from another schema version', async () => {
+    const older: Record<string, unknown> = {
+      ...ENABLED,
+      sites: { 'a.test': 'never' },
+      mode: 'sideways'
+    }
+    delete older.coldStartDone
+    const { router } = setup(undefined, memoryArea({ [SETTINGS_KEY]: older }))
+    expect(await router.handle({ type: 'lens.settings.get' }, sender)).toEqual({
+      ok: true,
+      value: { ...ENABLED, mode: DEFAULT_LENS_SETTINGS.mode, sites: { 'a.test': 'never' } }
+    })
+  })
+
   it('falls back to the defaults when stored settings are corrupt', async () => {
     const { router } = setup(undefined, memoryArea({ [SETTINGS_KEY]: { enabled: 'yes' } }))
     expect(await router.handle({ type: 'lens.settings.get' }, sender)).toEqual({

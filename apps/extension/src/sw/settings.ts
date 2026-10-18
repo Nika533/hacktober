@@ -1,5 +1,5 @@
 import { DEFAULT_SETTINGS, type LensSettings, type LensSettingsPatch } from '@hoot/core'
-import { LensSettingsSchema, applySettingsPatch } from '@hoot/core/schemas'
+import { LensSettingsSchema, applySettingsPatch, migrateSettings } from '@hoot/core/schemas'
 
 export const SETTINGS_KEY = 'lens.settings'
 
@@ -15,9 +15,10 @@ export interface SettingsStore {
 
 export function createSettingsStore(area: StorageArea, defaults: LensSettings): SettingsStore {
   async function get(): Promise<LensSettings> {
-    const stored = await area.get(SETTINGS_KEY)
-    const parsed = LensSettingsSchema.safeParse(stored[SETTINGS_KEY])
-    return parsed.success ? parsed.data : defaults
+    const stored = (await area.get(SETTINGS_KEY))[SETTINGS_KEY]
+    if (stored === undefined) return defaults
+    const parsed = LensSettingsSchema.safeParse(stored)
+    return parsed.success ? parsed.data : migrateSettings({ lens: stored }).lens
   }
 
   let queue: Promise<unknown> = Promise.resolve()
