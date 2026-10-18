@@ -24,6 +24,7 @@ import { useConfirm } from '../components/confirmContext'
 import { useToast } from '../components/toastContext'
 import { applyAccent, applyTheme, type ThemePreference } from '../theme'
 import { ChatDemo } from './ChatDemo'
+import { ShortcutsDemo } from './ShortcutsDemo'
 import './gallery.css'
 
 type ModelChoice = 'flash-lite' | 'flash' | 'argon'
@@ -360,6 +361,10 @@ export function Gallery({
               data-autofocus
             />
           </Dialog>
+        </Section>
+
+        <Section title="Shortcuts">
+          <ShortcutsDemo />
         </Section>
 
         <Section title="Keyboard">

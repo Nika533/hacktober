@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/explicit-function-return-type */
 // Browser check of pdf-view on the fixture: renders pages, verifies the text
 // layer is selectable and lines up with the canvas, zooms, switches to
 // reflow, runs axe on both modes and writes screenshots/*.png.

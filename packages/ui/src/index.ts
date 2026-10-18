@@ -53,3 +53,12 @@ export { Composer, type ComposerProps } from './chat/Composer'
 export { AttachmentsRow, type AttachmentsRowProps } from './chat/AttachmentsRow'
 export { QuickChips, type QuickChipsProps } from './chat/QuickChips'
 export { ClipboardChip, type ClipboardChipProps } from './chat/ClipboardChip'
+
+// Settings pieces (D3-12)
+export {
+  acceleratorFromEvent,
+  acceleratorKeys,
+  formatAccelerator,
+  type RecorderKeyEvent
+} from './settings/accelerator'
+export { HotkeyRecorder, type HotkeyRecorderProps } from './settings/HotkeyRecorder'
