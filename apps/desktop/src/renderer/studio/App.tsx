@@ -1,6 +1,6 @@
 import '@hoot/ui/styles.css'
 import './studio.css'
-import { DEFAULT_SUBSCRIPTIONS, type HootApi, type StudioView } from '@hoot/core'
+import { DEFAULT_SUBSCRIPTIONS, type ApiKeyResult, type HootApi, type StudioView } from '@hoot/core'
 import {
   applyAccent,
   applyTheme,
@@ -9,9 +9,11 @@ import {
   ClipboardChip,
   formatAccelerator,
   HootUIProvider,
+  OnboardingPane,
   Owl,
   QUICK_ACTION_CHIPS,
   QuickChips,
+  SettingsPane,
   StudioLayout,
   StudioSidebar,
   toAttachmentViews,
@@ -93,6 +95,30 @@ function Studio({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
   const view: StudioView = state.studio.view
   const hint = state.chat.clipboardHint
   const settings = state.settings.settings
+  const hotkeyErrors = hotkeyErrorsByShortcut(state.settings.hotkeyErrors)
+  const saveKey = (key: string): Promise<ApiKeyResult> =>
+    hoot ? hoot.settings.setApiKey(key) : Promise.resolve({ ok: false, reason: 'unreachable' })
+
+  // First run fills the window: no sidebar until there's something to put in it.
+  if (view === 'onboarding') {
+    return (
+      <OnboardingPane
+        step={state.studio.onboardingStep}
+        summonHotkey={settings.summonHotkey}
+        captureHotkey={settings.captureHotkey}
+        hasApiKey={state.settings.hasApiKey}
+        keyStorage={state.settings.keyStorage}
+        hotkeyErrors={hotkeyErrors}
+        onStep={(step) => run((h) => h.onboarding.setStep(step))}
+        onFinish={() => run((h) => h.onboarding.finish())}
+        onUpdate={(patch) => run((h) => h.settings.update(patch))}
+        onSaveKey={saveKey}
+        onOpenLink={(url) => run((h) => h.app.openExternal(url))}
+        onRecordingChange={(on) => suspendHotkeys(hoot, on)}
+        lens={state.lens}
+      />
+    )
+  }
 
   return (
     <StudioLayout
@@ -160,6 +186,22 @@ function Studio({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
             </>
           }
         />
+      ) : view === 'settings' ? (
+        <SettingsPane
+          settings={settings}
+          hasApiKey={state.settings.hasApiKey}
+          keyStorage={state.settings.keyStorage}
+          hotkeyErrors={hotkeyErrors}
+          version={state.system?.version}
+          onUpdate={(patch) => run((h) => h.settings.update(patch))}
+          onSaveKey={saveKey}
+          onClearKey={() => (hoot ? hoot.settings.clearApiKey() : Promise.resolve())}
+          onClearChats={() => (hoot ? hoot.sessions.clearAll() : Promise.resolve())}
+          onResetAnchor={() => (hoot ? hoot.settings.resetAnchor() : Promise.resolve())}
+          onOpenLink={(url) => run((h) => h.app.openExternal(url))}
+          onRecordingChange={(on) => suspendHotkeys(hoot, on)}
+          onBack={() => run((h) => h.windows.openStudio('chat'))}
+        />
       ) : (
         <NotYet view={view} onBack={() => run((h) => h.windows.openStudio('chat'))} />
       )}
@@ -184,22 +226,44 @@ function Connecting({ failed }: { failed: boolean }): React.JSX.Element {
   )
 }
 
-const VIEW_NAMES: Record<Exclude<StudioView, 'chat'>, string> = {
-  settings: 'Settings',
-  onboarding: 'Welcome',
+/**
+ * Hotkey registration errors, keyed by shortcut. Accepts both the current
+ * string[] (today) and the structured { which, message } from contract PR #19.
+ */
+function hotkeyErrorsByShortcut(errors: readonly unknown[]): {
+  summonHotkey?: string
+  captureHotkey?: string
+} {
+  const out: { summonHotkey?: string; captureHotkey?: string } = {}
+  for (const e of errors) {
+    if (typeof e === 'string') {
+      if (/summon/i.test(e)) out.summonHotkey ??= e
+      else if (/circle|capture/i.test(e)) out.captureHotkey ??= e
+    } else if (e && typeof e === 'object' && 'which' in e && 'message' in e) {
+      const { which, message } = e as { which: unknown; message: unknown }
+      if ((which === 'summonHotkey' || which === 'captureHotkey') && typeof message === 'string')
+        out[which] ??= message
+    }
+  }
+  return out
+}
+
+/** Pauses global shortcuts while recording, once main offers it (contract PR #19). */
+function suspendHotkeys(hoot: HootApi | undefined, on: boolean): void {
+  const settings = hoot?.settings as { suspendHotkeys?: (on: boolean) => Promise<void> } | undefined
+  void settings?.suspendHotkeys?.(on).catch(() => undefined)
+}
+
+type LaterView = Exclude<StudioView, 'chat' | 'settings' | 'onboarding'>
+
+const VIEW_NAMES: Record<LaterView, string> = {
   reading: 'Reading',
   profile: 'What Hoot knows about you',
   glossary: 'My glossary'
 }
 
-/** Views that land in later tasks (D3-12, D3-13, D3-20, D3-21). */
-function NotYet({
-  view,
-  onBack
-}: {
-  view: Exclude<StudioView, 'chat'>
-  onBack: () => void
-}): React.JSX.Element {
+/** Views that land in later tasks (D3-20, D3-21). */
+function NotYet({ view, onBack }: { view: LaterView; onBack: () => void }): React.JSX.Element {
   return (
     <section className="studio-status" aria-labelledby="studio-notyet">
       <h1 id="studio-notyet">{VIEW_NAMES[view]}</h1>

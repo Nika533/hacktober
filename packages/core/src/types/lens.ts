@@ -155,6 +155,11 @@ export interface LensEvent {
   p: number
   difficulty: number | null
   latencyMs: number
+  /**
+   * `RewriteResult.cacheKey` of the change this event is about. Links
+   * shown/kept events to the rewrite for Recent changes and the glossary.
+   */
+  cacheKey?: string
 }
 
 export type TermState = 'known' | 'learning' | 'unknown'

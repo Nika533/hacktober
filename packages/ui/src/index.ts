@@ -73,3 +73,13 @@ export { StudioSidebar, type StudioSidebarProps } from './studio/StudioSidebar'
 export { StudioLayout, type StudioLayoutProps } from './studio/StudioLayout'
 export { ChatPane, type ChatPaneProps } from './studio/ChatPane'
 export { QUICK_ACTION_CHIPS, toAttachmentViews, toMessageViews } from './chat/views'
+export { ApiKeyField, API_KEY_URL, type ApiKeyFieldProps } from './settings/ApiKeyField'
+export { SettingsPane, type SettingsPaneProps } from './settings/SettingsPane'
+export { ShortcutFields, type ShortcutFieldsProps } from './settings/ShortcutFields'
+
+// Onboarding (D3-13)
+export { OnboardingPane, type OnboardingPaneProps } from './onboarding/OnboardingPane'
+export { ONBOARDING_STEPS } from './onboarding/steps'
+
+// Lens (D3-13, D3-20)
+export { ExtensionStatus, type ExtensionStatusProps } from './lens/ExtensionStatus'

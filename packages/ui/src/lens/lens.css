@@ -1,0 +1,73 @@
+/* ---- extension status ---- */
+.hoot-extstatus {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-1);
+  text-align: start;
+}
+.hoot-extstatus__icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-sm);
+  background: var(--fill-sunken);
+  color: var(--text-2);
+  transition:
+    background-color var(--dur-base) var(--ease-out),
+    color var(--dur-base) var(--ease-out);
+}
+.hoot-extstatus__icon > svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+.hoot-extstatus[data-state='connected'] .hoot-extstatus__icon {
+  background: color-mix(in srgb, var(--success) 16%, transparent);
+  color: var(--success);
+}
+/* The moment it connects: the check settles in (scale only, so reduced
+   motion still gets the colour change). */
+.hoot-extstatus[data-state='connected'] .hoot-extstatus__icon > svg {
+  animation: hoot-extstatus-in calc(var(--dur-slow) * var(--motion)) var(--ease-spring);
+}
+.hoot-extstatus[data-state='stopped'] .hoot-extstatus__icon {
+  background: color-mix(in srgb, var(--warning) 18%, transparent);
+  color: var(--warning);
+}
+.hoot-extstatus__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+  min-width: 0;
+}
+.hoot-extstatus__title {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+}
+.hoot-extstatus__body {
+  font-family: var(--font-small);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--text-2);
+}
+
+@keyframes hoot-extstatus-in {
+  from {
+    transform: scale(0.6);
+  }
+}
+
+@media (forced-colors: active) {
+  .hoot-extstatus {
+    border: 1px solid CanvasText;
+  }
+  .hoot-extstatus__icon {
+    color: CanvasText;
+  }
+}

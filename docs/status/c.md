@@ -4,24 +4,38 @@ Only C edits this file. Update it with every PR.
 
 ## Now
 
-- **M0 foundation, PR #6** (`c/m0-foundation`): monorepo (C-01), core
-  contracts (C-02), Gemini provider (C-03), ownership check (C-04), stable
-  extension ID (C-05). Contains PR #1's commit (the Gemini switch).
-- The CI workflow file is ready locally but **not pushed**: the pushing token
-  lacks GitHub's `workflow` scope. It lands as one commit once the scope is
-  granted.
+- **#7** C-04 CI: green on Ubuntu and Windows, including e2e; waiting for a merge.
+- **#10** C-11 guardrails + C-12 prompts and profile summary (core).
+- **C-10 + C-14 PR** (stacked on #10): `LensService` in `apps/desktop/src/main/lens`:
+  engine, cache, profile store, history, and handlers for every `lens:*` channel.
 
 ## Next
 
-- After PR #6 merges: tag `scaffold-ready` on `main`, then review and land
-  d3's stack (#3 → #4 → #5) and d1's #2 against it.
-- M1: C-10 Lens engine, C-11 guardrails, C-12 prompts + profile summary,
-  C-13 fake protocol server, C-14 Lens IPC.
+- C-13: shared bridge connection handler + `createFakeLensServer` (dev
+  WebSocket) for d2's extension e2e.
+- M2: C-20 pipe server, C-21 hoot-bridge, C-22 scorer, C-23 risk classifier.
 
 ## Blocked on
 
-- A human merge of PR #6 (merging is review-gated for C).
-- `workflow` token scope for `.github/workflows/ci.yml`.
+- Merges are review-gated for C: #7, #10, and the C-10/C-14 PR need a human merge.
+
+## For d1: wiring Lens into main (after D1-10)
+
+```ts
+import { createLensService, createLensHandlers, createFsLensStorage } from './lens'
+const lens = await createLensService({
+  storage: createFsLensStorage(join(userData, 'hoot', 'lens')),
+  getLensSettings: () => state.settings.settings.lens,
+  getProvider: async () => (fakeAi ? createFakeProvider() : key ? createGeminiProvider(key) : null),
+  fake: process.env.HOOT_FAKE_LENS === '1',
+  onExplain: (message, ctx) => chat.startExplain(message), // D1-23: open the card, send right away
+  chooseExportPath: (name) => dialog.showSaveDialog({ defaultPath: name }).then((r) => r.filePath ?? null)
+})
+for (const [ch, fn] of Object.entries(createLensHandlers(lens)))
+  ipcMain.handle(ch, (_e, ...args) => fn(...parseInvokeArgs(ch, args)))
+lens.onProfile((snap) => broadcast('lens:profileChanged', snap))
+// before-quit: await lens.flush()
+```
 
 ## Requests
 
@@ -40,6 +54,10 @@ Only C edits this file. Update it with every PR.
 | d3 | `@hoot/ui` scripts and the styles.css rule in AGENTS.md | AGENTS.md Conventions (PR #6) |
 | d3 | Reader CSP `worker-src` for PDF.js | AGENTS.md Windows facts (CSP); d1 implements the headers in D1-12 |
 | d3 | 7-day package age | Adopted repo-wide. `@google/genai` → 2.28.0, `zod` → 4.6.5 |
+
+| #9 review | Log `shown` / Recent changes only when lens-dom renders | Already the design: `LensEvent.cacheKey` links shown/kept events to the cached rewrite (#10) |
+| #9 review | "Explain more" auto-streams with a compact line + full context | `buildExplainMore()` in core; `LensServiceDeps.onExplain(message)` gives d1 `{ text, sentText }` |
+| #9 review | Tighter inline replace (≤1.15× length, ≤7-word gloss) | Not adopted: it overrides spec §7.1, and a gloss block shifts layout too. Limits stay constants in `TRANSFORM_RULES` / guardrails; revisit with C-31 eval data |
 
 ## Notes
 

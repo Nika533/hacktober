@@ -43,6 +43,10 @@ async function axe(page, label) {
   }
 }
 
+// A gallery section by its own title (Settings has h2 group headings of its own).
+const gallerySection = (page, title) =>
+  page.locator(`.gallery__section:has(> h2:text-is("${title}"))`)
+
 try {
   for (const v of variants) {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
@@ -57,17 +61,61 @@ try {
 
     if (v.axe) {
       // Studio frame: sidebar + chat pane.
-      const studio = page.locator('section', {
-        has: page.getByRole('heading', { name: 'Studio', exact: true })
-      })
+      const studio = gallerySection(page, 'Studio')
       await studio
         .locator('.gallery__studio')
         .screenshot({ path: resolve(out, `studio-${v.name}.png`) })
 
-      // Chat: the resting conversation, then a fresh question mid-stream.
-      const chat = page.locator('section', {
-        has: page.getByRole('heading', { name: 'Chat', exact: true })
+      // Settings: at rest, then a rejected key with Argon picked, then the clear confirm.
+      const settings = page.locator('.gallery__settings')
+      await settings.scrollIntoViewIfNeeded()
+      await settings.screenshot({ path: resolve(out, `settings-${v.name}.png`) })
+      await settings.getByRole('textbox', { name: 'Gemini API key' }).fill('bad-key')
+      await settings.getByRole('button', { name: 'Check and save' }).click()
+      await settings.getByText('Google rejected this key').waitFor()
+      await settings.getByText('Argon', { exact: true }).click()
+      await settings.getByText('Argon needs a paid-tier').waitFor()
+      await settings.screenshot({ path: resolve(out, `settings-error-${v.name}.png`) })
+      await axe(page, `${v.name} + settings error`)
+      await settings.getByRole('button', { name: 'Clear all chats…' }).click()
+      await page.getByRole('alertdialog').waitFor()
+      await page.waitForTimeout(400)
+      await page.screenshot({ path: resolve(out, `settings-clear-${v.name}.png`) })
+      await axe(page, `${v.name} + settings confirm`)
+      await page.keyboard.press('Escape')
+      await page.getByRole('alertdialog').waitFor({ state: 'hidden' })
+
+      // Onboarding: every step, saving a key on the way, then back to the start.
+      const onb = page.locator('.gallery__onboarding')
+      await onb.scrollIntoViewIfNeeded()
+      const onbStep = async (n, title) => {
+        await onb.locator(`[data-step="${n}"] h1`, { hasText: title }).waitFor()
+        await page.waitForTimeout(450) // let the slide settle
+        await onb.screenshot({ path: resolve(out, `onboarding-${n}-${v.name}.png`) })
+      }
+      await onbStep(0, 'Hi, I’m Hoot')
+      await axe(page, `${v.name} + onboarding`)
+      await onb.getByRole('button', { name: 'Get started' }).click()
+      await onbStep(1, 'Connect Gemini')
+      await onb.getByRole('textbox', { name: 'Gemini API key' }).fill('AIza-demo')
+      await onb.getByRole('button', { name: 'Check and save' }).click()
+      await onb.getByRole('button', { name: 'Continue' }).click()
+      await onbStep(2, 'Your shortcuts')
+      await axe(page, `${v.name} + onboarding shortcuts`)
+      await onb.getByRole('button', { name: 'Continue' }).click()
+      await onbStep(3, 'You’re all set')
+      await onb.getByText('Hoot Lens is connected').waitFor()
+      await page.waitForTimeout(450)
+      await onb.screenshot({ path: resolve(out, `onboarding-3-connected-${v.name}.png`) })
+      await axe(page, `${v.name} + onboarding connected`)
+      await onb.getByRole('button', { name: 'Start using Hoot' }).click()
+
+      await gallerySection(page, 'Hoot Lens').screenshot({
+        path: resolve(out, `lens-status-${v.name}.png`)
       })
+
+      // Chat: the resting conversation, then a fresh question mid-stream.
+      const chat = gallerySection(page, 'Chat')
       await chat.screenshot({ path: resolve(out, `chat-${v.name}.png`) })
       const box = chat.getByRole('textbox', { name: 'Message Hoot' })
       await box.fill('Why the dip in Q3?')
@@ -75,12 +123,12 @@ try {
       await page.waitForTimeout(700)
       await chat.screenshot({ path: resolve(out, `chat-streaming-${v.name}.png`) })
       await axe(page, `${v.name} + streaming`)
-      await chat.getByRole('button', { name: 'Stop answering' }).click()
+      // The fake stream may already have finished during the axe pass.
+      const stop = chat.getByRole('button', { name: 'Stop answering' })
+      if (await stop.isVisible()) await stop.click()
 
       // Shortcuts: at rest (one with a host error), then mid-recording.
-      const shortcuts = page.locator('section', {
-        has: page.getByRole('heading', { name: 'Shortcuts', exact: true })
-      })
+      const shortcuts = gallerySection(page, 'Shortcuts')
       await shortcuts.screenshot({ path: resolve(out, `shortcuts-${v.name}.png`) })
       await shortcuts.locator('.hoot-hotkey__field').first().click()
       await page.keyboard.down('Control')
@@ -94,9 +142,7 @@ try {
 
       // Overlays: keyboard tooltip, then the destructive confirm.
       // Tab from the previous button so focus is keyboard focus (:focus-visible).
-      const section = page.locator('section', {
-        has: page.getByRole('heading', { name: 'Icon buttons' })
-      })
+      const section = gallerySection(page, 'Icon buttons')
       await section.getByRole('button', { name: 'New chat' }).focus()
       await page.keyboard.press('Tab')
       await page.locator('.hoot-tooltip').waitFor({ timeout: 3000 })
