@@ -86,7 +86,7 @@ const siteNames = (): string[] =>
 describe('normalizeSite', () => {
   it('turns URLs and hostnames into the site key the content script uses', () => {
     expect(normalizeSite('  https://www.Example.com/a?b#c ')).toBe('example.com')
-    expect(normalizeSite('news.example.co.uk')).toBe('news.example.co.uk')
+    expect(normalizeSite('news.example.co.uk')).toBe('example.co.uk')
     expect(normalizeSite('localhost:4510')).toBe('localhost')
     expect(normalizeSite('http://127.0.0.1:4510/article.html')).toBe('127.0.0.1')
   })

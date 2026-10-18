@@ -48,7 +48,7 @@ ${TOKENS_CSS}
   transform: scale(0.97);
 }
 .btn:focus-visible {
-  outline: 2px solid var(--hl-accent);
+  outline: 2px solid var(--hl-accent-text);
   outline-offset: 2px;
 }
 .btn.primary {
