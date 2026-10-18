@@ -20,6 +20,8 @@ export interface RouterOptions {
   status?: (connect: boolean) => Promise<BridgeStatus>
   /** A page asked for settings, i.e. it just loaded. */
   warm?: () => void
+  /** The PDF viewer hands one URL back to the browser's own viewer. */
+  allowNativePdf?: (url: string) => void
 }
 
 export interface Router {
@@ -73,6 +75,10 @@ export function createRouter(options: RouterOptions): Router {
           return ok(await options.settings.patch(message.patch))
         case 'lens.profile.get':
           return ok(await (options.profile?.() ?? upstream.getProfile()))
+        case 'lens.pdf.native':
+          if (!ownPage(sender)) return fail('unauthorized')
+          options.allowNativePdf?.(message.url)
+          return ok(null)
         case 'lens.status':
           return ok(
             (await options.status?.(ownPage(sender))) ?? { state: 'idle', appVersion: null }

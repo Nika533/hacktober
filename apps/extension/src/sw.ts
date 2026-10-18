@@ -6,6 +6,7 @@ import { DEFAULT_LENS_SETTINGS, type Browser, type LensSettings } from '@hoot/co
 import { LensSettingsSchema } from '@hoot/core/schemas'
 import type { PushMessage } from './messages'
 import { TransportError, createBridgeClient, type Connect } from './sw/bridge'
+import { FILE_ASKED_KEY, PDF_ENABLED_KEY, createPdfRouter } from './sw/pdf'
 import { createRouter } from './sw/router'
 import { SETTINGS_KEY, createSettingsStore } from './sw/settings'
 import { createLensSync } from './sw/sync'
@@ -64,13 +65,33 @@ bridge.subscribe((event) => {
     broadcast({ type: 'lens.status.changed', status: event.status }, false)
 })
 
+const stored = async (key: string): Promise<unknown> => (await chrome.storage.local.get(key))[key]
+
+const pdf = createPdfRouter({
+  base: chrome.runtime.getURL(''),
+  enabled: async () => (await stored(PDF_ENABLED_KEY)) !== false,
+  fileAccess: () => chrome.extension.isAllowedFileSchemeAccess(),
+  fileAsked: async () => (await stored(FILE_ASKED_KEY)) === true,
+  redirect: (tabId, url) => void chrome.tabs.update(tabId, { url })
+})
+
+chrome.webRequest.onHeadersReceived.addListener(
+  (details) => void pdf.onResponse(details),
+  { urls: ['http://*/*', 'https://*/*'], types: ['main_frame'] },
+  ['responseHeaders']
+)
+chrome.webNavigation.onBeforeNavigate.addListener((details) => void pdf.onNavigation(details), {
+  url: [{ schemes: ['file'] }]
+})
+
 const router = createRouter({
   extensionId: chrome.runtime.id,
   upstream: () => bridge,
   settings: sync.settings,
   profile: () => sync.profile(),
   status: (connectNow) => sync.status(connectNow),
-  warm: () => sync.warm()
+  warm: () => sync.warm(),
+  allowNativePdf: (url) => pdf.allowNative(url)
 })
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

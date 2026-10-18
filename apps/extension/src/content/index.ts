@@ -4,23 +4,11 @@
  */
 import { createLens, type Lens } from '@hoot/lens-dom'
 import { ExtensionBackend } from './backend'
-import { pageHost, pageOrigin, pageSite, urlHash } from './page'
+import { installSalt, pageHost, pageOrigin, pageSite, urlHash } from './page'
 
 const LOADED = Symbol.for('hoot.lens.content')
-const SALT_KEY = 'lens.salt'
 
 type Scope = typeof globalThis & { [LOADED]?: Lens }
-
-async function salt(): Promise<string> {
-  const stored = await chrome.storage.local.get(SALT_KEY)
-  const existing = stored[SALT_KEY]
-  if (typeof existing === 'string' && existing) return existing
-  const fresh = Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
-    byte.toString(16).padStart(2, '0')
-  ).join('')
-  await chrome.storage.local.set({ [SALT_KEY]: fresh })
-  return fresh
-}
 
 async function main(): Promise<void> {
   const scope = globalThis as Scope
@@ -32,7 +20,7 @@ async function main(): Promise<void> {
     backend,
     site: pageSite(location, origin),
     hostname: pageHost(location, origin),
-    urlHash: urlHash({ origin, pathname: location.pathname }, await salt().catch(() => '')),
+    urlHash: urlHash({ origin, pathname: location.pathname }, await installSalt().catch(() => '')),
     shadowMode: __HOOT_E2E__ ? 'open' : 'closed',
     onError: () => {
       if (backend.connected) return
