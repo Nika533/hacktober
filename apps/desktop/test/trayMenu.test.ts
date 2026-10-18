@@ -43,11 +43,13 @@ describe('buildTrayTemplate', () => {
       'toggleNotes',
       undefined,
       'openStudio',
+      'openReader',
       'openSettings',
       undefined,
       'quit'
     ])
     expect(item('openStudio')?.label).toBe('Open Studio')
+    expect(item('openReader')?.label).toBe('Open in Hoot Reader…')
     expect(item('openSettings')?.label).toBe('Settings…')
     expect(item('quit')?.label).toBe('Quit')
   })
