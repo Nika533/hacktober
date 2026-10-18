@@ -20,7 +20,7 @@
       "match_origin_as_fallback": true
     }
   ],
-  "permissions": ["storage", "nativeMessaging", "scripting", "webNavigation", "webRequest"],
+  "permissions": ["storage", "nativeMessaging", "webNavigation", "webRequest"],
   "host_permissions": ["<all_urls>"],
   "options_page": "options.html",
   "action": {
