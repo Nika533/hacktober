@@ -49,6 +49,30 @@ describe('service worker router', () => {
       ok: false,
       error: { code: 'bad_request' }
     })
+    expect(
+      await router.handle({ type: 'lens.settings.get' }, { id: 'ext-id', url: 'https://x.test/' })
+    ).toMatchObject({ ok: false, error: { code: 'unauthorized' } })
+  })
+
+  it('answers our own extension pages, such as the options page', async () => {
+    const { router } = setup()
+    const page = { id: 'ext-id', url: 'chrome-extension://ext-id/options.html' }
+    expect(await router.handle({ type: 'lens.settings.get' }, page)).toEqual({
+      ok: true,
+      value: ENABLED
+    })
+  })
+
+  it('applies concurrent settings patches one after another', async () => {
+    const { router, area } = setup()
+    await Promise.all([
+      router.handle({ type: 'lens.settings.patch', patch: { mode: 'gloss' } }, sender),
+      router.handle(
+        { type: 'lens.settings.patch', patch: { sites: { 'a.test': 'never' } } },
+        sender
+      )
+    ])
+    expect(area.data[SETTINGS_KEY]).toMatchObject({ mode: 'gloss', sites: { 'a.test': 'never' } })
   })
 
   it('routes a rewrite through the upstream', async () => {

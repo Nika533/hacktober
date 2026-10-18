@@ -66,6 +66,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
   const parsed = LensSettingsSchema.safeParse(change.newValue)
   if (!parsed.success) return
   const push: PushMessage = { type: 'lens.settings.changed', lens: parsed.data }
+  chrome.runtime.sendMessage(push).catch(() => undefined)
   void chrome.tabs.query({}).then((tabs) => {
     for (const tab of tabs) {
       if (tab.id !== undefined) chrome.tabs.sendMessage(tab.id, push).catch(() => undefined)

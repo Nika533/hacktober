@@ -20,13 +20,22 @@ export function createSettingsStore(area: StorageArea, defaults: LensSettings): 
     return parsed.success ? parsed.data : defaults
   }
 
+  let queue: Promise<unknown> = Promise.resolve()
+
   return {
     get,
-    async patch(patch) {
-      const current = await get()
-      const next = applySettingsPatch({ ...DEFAULT_SETTINGS, lens: current }, { lens: patch }).lens
-      await area.set({ [SETTINGS_KEY]: next })
-      return next
+    patch(patch) {
+      const run = queue.then(async () => {
+        const current = await get()
+        const next = applySettingsPatch(
+          { ...DEFAULT_SETTINGS, lens: current },
+          { lens: patch }
+        ).lens
+        await area.set({ [SETTINGS_KEY]: next })
+        return next
+      })
+      queue = run.catch(() => undefined)
+      return run
     }
   }
 }
