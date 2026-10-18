@@ -10,6 +10,14 @@ import type {
   RewriteRequest
 } from '@hoot/core'
 
+export type BridgeState =
+  'idle' | 'connecting' | 'connected' | 'not_running' | 'not_installed' | 'version_mismatch'
+
+export interface BridgeStatus {
+  state: BridgeState
+  appVersion: string | null
+}
+
 export type ContentMessage =
   | { type: 'lens.settings.get' }
   | { type: 'lens.settings.patch'; patch: LensSettingsPatch }
@@ -19,6 +27,7 @@ export type ContentMessage =
   | { type: 'lens.cancel'; reqId: string }
   | { type: 'lens.feedback'; event: LensEvent }
   | { type: 'lens.explain'; ctx: LensContext }
+  | { type: 'lens.status' }
 
 export interface ReplyValues {
   'lens.settings.get': LensSettings
@@ -29,22 +38,28 @@ export interface ReplyValues {
   'lens.cancel': null
   'lens.feedback': null
   'lens.explain': null
+  'lens.status': BridgeStatus
 }
 
 export type PushMessage =
   | { type: 'lens.settings.changed'; lens: LensSettings }
   | { type: 'lens.profile.changed'; profile: ProfileSnapshot }
+  | { type: 'lens.status.changed'; status: BridgeStatus }
 
 export type Reply<T = unknown> =
   { ok: true; value: T } | { ok: false; error: { code: BridgeErrorCode; message: string } }
 
-const PUSH_TYPES = new Set<PushMessage['type']>(['lens.settings.changed', 'lens.profile.changed'])
+const PAYLOAD: Record<PushMessage['type'], string> = {
+  'lens.settings.changed': 'lens',
+  'lens.profile.changed': 'profile',
+  'lens.status.changed': 'status'
+}
 
 export function isPush(raw: unknown): raw is PushMessage {
   if (typeof raw !== 'object' || raw === null) return false
-  const message = raw as { type?: unknown; lens?: unknown; profile?: unknown }
-  if (!PUSH_TYPES.has(message.type as PushMessage['type'])) return false
-  const payload = message.type === 'lens.settings.changed' ? message.lens : message.profile
+  const message = raw as Record<string, unknown>
+  const key = PAYLOAD[message.type as PushMessage['type']] as string | undefined
+  const payload = key ? message[key] : undefined
   return typeof payload === 'object' && payload !== null
 }
 
