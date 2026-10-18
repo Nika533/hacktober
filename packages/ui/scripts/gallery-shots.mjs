@@ -85,6 +85,27 @@ try {
       await page.keyboard.press('Escape')
       await page.getByRole('alertdialog').waitFor({ state: 'hidden' })
 
+      // Onboarding: every step, saving a key on the way, then back to the start.
+      const onb = page.locator('.gallery__onboarding')
+      await onb.scrollIntoViewIfNeeded()
+      const onbStep = async (n, title) => {
+        await onb.locator(`[data-step="${n}"] h1`, { hasText: title }).waitFor()
+        await page.waitForTimeout(450) // let the slide settle
+        await onb.screenshot({ path: resolve(out, `onboarding-${n}-${v.name}.png`) })
+      }
+      await onbStep(0, 'Hi, I’m Hoot')
+      await axe(page, `${v.name} + onboarding`)
+      await onb.getByRole('button', { name: 'Get started' }).click()
+      await onbStep(1, 'Connect Gemini')
+      await onb.getByRole('textbox', { name: 'Gemini API key' }).fill('AIza-demo')
+      await onb.getByRole('button', { name: 'Check and save' }).click()
+      await onb.getByRole('button', { name: 'Continue' }).click()
+      await onbStep(2, 'Your shortcuts')
+      await axe(page, `${v.name} + onboarding shortcuts`)
+      await onb.getByRole('button', { name: 'Continue' }).click()
+      await onbStep(3, 'You’re all set')
+      await onb.getByRole('button', { name: 'Start using Hoot' }).click()
+
       // Chat: the resting conversation, then a fresh question mid-stream.
       const chat = gallerySection(page, 'Chat')
       await chat.screenshot({ path: resolve(out, `chat-${v.name}.png`) })

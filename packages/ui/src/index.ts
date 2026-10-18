@@ -75,3 +75,8 @@ export { ChatPane, type ChatPaneProps } from './studio/ChatPane'
 export { QUICK_ACTION_CHIPS, toAttachmentViews, toMessageViews } from './chat/views'
 export { ApiKeyField, API_KEY_URL, type ApiKeyFieldProps } from './settings/ApiKeyField'
 export { SettingsPane, type SettingsPaneProps } from './settings/SettingsPane'
+export { ShortcutFields, type ShortcutFieldsProps } from './settings/ShortcutFields'
+
+// Onboarding (D3-13)
+export { OnboardingPane, type OnboardingPaneProps } from './onboarding/OnboardingPane'
+export { ONBOARDING_STEPS } from './onboarding/steps'

@@ -1,6 +1,5 @@
 import {
   CHAT_MODELS,
-  DEFAULT_SETTINGS,
   type ApiKeyResult,
   type ChatModelId,
   type Settings,
@@ -15,9 +14,8 @@ import { Segmented } from '../components/Segmented'
 import { Switch } from '../components/Switch'
 import { TextField } from '../components/TextField'
 import { useToast } from '../components/toastContext'
-import { formatAccelerator } from './accelerator'
 import { ApiKeyField } from './ApiKeyField'
-import { HotkeyRecorder } from './HotkeyRecorder'
+import { ShortcutFields } from './ShortcutFields'
 
 export interface SettingsPaneProps {
   settings: Settings
@@ -66,9 +64,6 @@ export function SettingsPane({
   const toast = useToast()
   const [translateTo, setTranslateTo] = useState(s.translateTo)
   const paid = CHAT_MODELS.find((m) => m.id === s.model)?.paidOnly ?? false
-
-  const taken = (other: string, what: string) => (acc: string) =>
-    acc === other ? `${formatAccelerator(acc)} already ${what}.` : null
 
   const commitTranslate = (): void => {
     const v = translateTo.trim()
@@ -135,24 +130,11 @@ export function SettingsPane({
         </Group>
 
         <Group title="Shortcuts">
-          <HotkeyRecorder
-            label="Summon Hoot"
-            description="Opens the owl from anywhere."
-            value={s.summonHotkey}
-            defaultValue={DEFAULT_SETTINGS.summonHotkey}
-            onChange={(summonHotkey) => onUpdate({ summonHotkey })}
-            validate={taken(s.captureHotkey, 'starts Circle anything')}
-            error={hotkeyErrors?.summonHotkey}
-            onRecordingChange={onRecordingChange}
-          />
-          <HotkeyRecorder
-            label="Circle anything"
-            description="Starts a screen capture to ask about."
-            value={s.captureHotkey}
-            defaultValue={DEFAULT_SETTINGS.captureHotkey}
-            onChange={(captureHotkey) => onUpdate({ captureHotkey })}
-            validate={taken(s.summonHotkey, 'summons Hoot')}
-            error={hotkeyErrors?.captureHotkey}
+          <ShortcutFields
+            summonHotkey={s.summonHotkey}
+            captureHotkey={s.captureHotkey}
+            errors={hotkeyErrors}
+            onUpdate={onUpdate}
             onRecordingChange={onRecordingChange}
           />
         </Group>
