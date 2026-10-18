@@ -1,6 +1,8 @@
 import {
   TRANSFORMS,
+  classifySite,
   countWords,
+  isDeniedHost,
   type DomainRisk,
   type LensBackend,
   type LensContext,
@@ -35,6 +37,8 @@ export interface CreateLensOptions {
   document: Document
   backend: LensBackend
   site: string
+  /** Full hostname for the deny list and risk classification; defaults to `site`. */
+  hostname?: string
   urlHash?: string
   surface?: LensSurface
   shadowMode?: ShadowRootMode
@@ -65,8 +69,6 @@ interface Applied {
   term: string | null
 }
 
-const NORMAL_PAGE: PageClassification = { siteCategory: 'general', risk: 'normal' }
-
 export function pageBlockReason(doc: Document): 'password-field' | null {
   return doc.querySelector('input[type="password" i]') ? 'password-field' : null
 }
@@ -92,11 +94,23 @@ export function createLens(options: CreateLensOptions): Lens {
   const doc = options.document
   const backend = options.backend
   const site = options.site
+  const hostname = options.hostname ?? site
+  const denied = isDeniedHost(hostname)
   const urlHash = options.urlHash ?? ''
   const surface = options.surface ?? 'html'
   const ids = options.ids ?? defaultIds()
   const now = options.now ?? (() => Date.now())
-  const classify = options.classify ?? (() => NORMAL_PAGE)
+  const classify =
+    options.classify ??
+    ((page: PageContext): PageClassification => {
+      const { category, risk } = classifySite({
+        hostname,
+        title: page.title,
+        headings: page.headingPath,
+        overrides: settings?.riskOverrides
+      })
+      return { siteCategory: category, risk }
+    })
   const animate = options.animate ?? true
   const shadowMode = options.shadowMode ?? 'closed'
   const root: UiRoot = createUiRoot({ document: doc, shadowMode })
@@ -119,7 +133,12 @@ export function createLens(options: CreateLensOptions): Lens {
   const rule = (): string | undefined => settings?.sites[site]
   const paused = (): boolean => rule() === 'paused'
   const active = (): boolean =>
-    !destroyed && !!settings?.enabled && !paused() && rule() !== 'never' && !pageBlockReason(doc)
+    !destroyed &&
+    !!settings?.enabled &&
+    !paused() &&
+    rule() !== 'never' &&
+    (rule() === 'always' || !denied) &&
+    !pageBlockReason(doc)
 
   const sync = (): void => ui.setCount(applied.size, paused())
 

@@ -1,10 +1,19 @@
+import { registrableDomain } from '@hoot/core'
+
 const SITE_PATTERN = /^([a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*)?$/
 
-export function pageSite(location: Pick<Location, 'protocol' | 'hostname'>, origin = ''): string {
+/** The page's full hostname, or '' for files and hosts a site rule can't name. */
+export function pageHost(location: Pick<Location, 'protocol' | 'hostname'>, origin = ''): string {
   if (location.protocol === 'file:') return ''
   const hostname = location.protocol === 'about:' ? hostnameOf(origin) : location.hostname
-  const host = hostname.toLowerCase().replace(/^www\./, '')
+  const host = hostname.toLowerCase().replace(/\.$/, '')
   return SITE_PATTERN.test(host) && host.length <= 253 ? host : ''
+}
+
+/** The key for site rules and events: the registrable domain ("news.bbc.co.uk" → "bbc.co.uk"). */
+export function pageSite(location: Pick<Location, 'protocol' | 'hostname'>, origin = ''): string {
+  const host = pageHost(location, origin)
+  return host && registrableDomain(host)
 }
 
 function hostnameOf(origin: string): string {

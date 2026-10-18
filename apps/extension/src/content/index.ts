@@ -4,7 +4,7 @@
  */
 import { createLens, type Lens } from '@hoot/lens-dom'
 import { ExtensionBackend } from './backend'
-import { pageOrigin, pageSite, urlHash } from './page'
+import { pageHost, pageOrigin, pageSite, urlHash } from './page'
 
 const LOADED = Symbol.for('hoot.lens.content')
 const SALT_KEY = 'lens.salt'
@@ -31,6 +31,7 @@ async function main(): Promise<void> {
     document,
     backend,
     site: pageSite(location, origin),
+    hostname: pageHost(location, origin),
     urlHash: urlHash({ origin, pathname: location.pathname }, await salt().catch(() => '')),
     shadowMode: __HOOT_E2E__ ? 'open' : 'closed',
     onError: () => {

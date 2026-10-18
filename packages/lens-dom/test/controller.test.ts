@@ -218,6 +218,38 @@ describe('createLens with @hoot/core fakes', () => {
     expect(chip().hidden).toBe(true)
   })
 
+  it('stays off on deny-listed hosts unless the site is set to always', async () => {
+    await start({ site: 'google.com', hostname: 'mail.google.com' })
+    select('heteroscedasticity')
+    expect(chip().hidden).toBe(true)
+    lens!.destroy()
+
+    backend = createFakeLensBackend({ settings: { ...ENABLED, sites: { 'google.com': 'always' } } })
+    await start({ site: 'google.com', hostname: 'mail.google.com' })
+    select('heteroscedasticity')
+    expect(chip().hidden).toBe(false)
+  })
+
+  it('classifies the site with core: high-stakes hosts get glosses, overrides win', async () => {
+    const rewrite = vi.spyOn(backend, 'rewrite')
+    await start({ site: 'nih.gov', hostname: 'www.nih.gov' })
+    select('heteroscedasticity')
+    expect((await ask())?.spec.action).toBe('gloss')
+    expect(rewrite.mock.calls[0]?.[0]).toMatchObject({
+      risk: 'high',
+      ctx: { siteCategory: 'medical' }
+    })
+    lens!.destroy()
+
+    article = loadArticle()
+    backend = createFakeLensBackend({
+      settings: { ...ENABLED, riskOverrides: { 'nih.gov': 'normal' } }
+    })
+    await start({ site: 'nih.gov', hostname: 'www.nih.gov' })
+    select('heteroscedasticity')
+    expect((await ask())?.spec.action).toBe('replace')
+  })
+
   it('restores everything when settings turn Lens off', async () => {
     const html = article.innerHTML
     await start()
