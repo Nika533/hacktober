@@ -60,6 +60,9 @@ import { createStudioWindow, type StudioWindow } from './windows/studio'
 import { watchPower } from './powerWatch'
 import { createTextAccess, type TextAccess } from './textAccess'
 
+/** The live overlay reads VS Code if it was in front this recently (a click on Hoot blurs it). */
+const CODE_FOCUS_GRACE_MS = 5000
+
 export interface AppContext {
   env: AppEnv
   paths: { userData: string; hootDir: string }
@@ -191,6 +194,28 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
   const textAccess = createTextAccess({ log, enabled: !env.test && process.platform === 'win32' })
   flush.add('textAccess', async () => textAccess.dispose())
 
+  // The code link: the Hoot VS Code extension hands over the code on screen as
+  // text (no screenshots) and applies the edits the user accepts. Its own pipe
+  // and per-launch token, next to the Lens bridge's. Started in start().
+  const code = createCodeService({
+    store,
+    log,
+    createServer: (hooks) =>
+      createCodeLinkServer({
+        pipePath: codeLinkPipePath(
+          process.platform as Platform,
+          os.userInfo().username,
+          os.tmpdir()
+        ),
+        tokenPath: codeLinkTokenPath(process.platform as Platform, process.env as BridgeEnv),
+        platform: process.platform as Platform,
+        appVersion: app.getVersion(),
+        log: (m) => log.info(m),
+        ...hooks
+      })
+  })
+  flush.add('code', () => code.stop())
+
   // A file dropped on any Hoot surface opens in the Reader (F-D1-6). ctx is
   // assigned below; the guard can't fire before a page loads anyway.
   const onFileDrop = (p: string): void => ctx.hooks.openInReader(p)
@@ -317,8 +342,15 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     log,
     getProvider: async () => ai.createProvider(),
     takeClipboardSelection: () => ctx.hooks.takeClipboardSelection(),
-    // The live capture overlay sends the current screen with every message.
-    beforeSend: () => capture.attachLiveScreen(),
+    // The live capture overlay sends the current screen (or VS Code's code)
+    // with every message; any other chat gets VS Code's code when that was
+    // the app the user was just in.
+    beforeSend: async () => {
+      const live = await capture.attachLiveScreen()
+      if (live !== null || (capture.isCapturing() && !capture.isMinimized())) return live
+      const window = code.chatWindow()
+      return window ? code.note(window) : null
+    },
     onActivity: (a) => applyChatActivity(store, a),
     openPath: (p) => shell.openPath(p).then(() => undefined)
   })
@@ -384,6 +416,9 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     clickScreen: (at) => textAccess.click(at),
     onScreenClick: (l) => textAccess.onClick(l),
     owlAnchor: () => buddy.anchor(),
+    // Starting a capture from Hoot's own UI blurs VS Code a moment earlier.
+    codeWindow: () => code.focusedWindow(CODE_FOCUS_GRACE_MS),
+    codeNote: (id) => code.note(id),
     surfaces: {
       hide: () => buddy.hide(),
       restore: (added) => buddy.request(added ? 'card' : 'pill'),
@@ -476,6 +511,7 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     reader,
     textAccess,
     anywhere,
+    code,
     hooks: {
       explain(message) {
         ctx.hooks.showChatSurface()
@@ -530,6 +566,11 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
           e instanceof AnotherInstanceError ? 'another Hoot owns the bridge pipe' : String(e)
         log.warn(`bridge not started: ${lastError}`)
         store.set('lens', { bridge: 'stopped', clients: 0, lastError })
+      }
+      // e2e runs never open the per-user code pipe (a real Hoot may own it).
+      if (!env.test) {
+        code.onChange(() => broadcaster.emit(HOOT_API_ROUTES.code.onChange.channel, undefined))
+        void code.start()
       }
       installTestHooks(ctx)
       // Sticky notes are the user's pins, not the app's windows — they
