@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { AppToExtSchema, BridgeAuthSchema, ExtToAppSchema } from '../src/protocol/bridge'
-import { bridgePipePath, extensionOrigin, DEV_EXTENSION_ID } from '../src/protocol/constants'
+import {
+  allowedBridgeOrigins,
+  bridgePipePath,
+  extensionOrigin,
+  DEV_EXTENSION_ID,
+  VSCODE_EXTENSION_ORIGIN
+} from '../src/protocol/constants'
 import { fakeRewrite, FAKE_PROFILE_SNAPSHOT } from '../src/testing/fakeLens'
 import { DEFAULT_LENS_SETTINGS } from '../src/types/settings'
 import { sampleContext } from './fixtures'
@@ -97,6 +103,15 @@ describe('constants', () => {
 
   it('pins a well-formed dev extension id', () => {
     expect(DEV_EXTENSION_ID).toMatch(/^[a-p]{32}$/)
+  })
+
+  it('accepts the browser extension and VS Code origins on the pipe', () => {
+    expect(allowedBridgeOrigins()).toEqual([
+      extensionOrigin(DEV_EXTENSION_ID),
+      'vscode-extension://hoot.hoot-lens/'
+    ])
+    const auth = { type: 'bridge.auth', token: 'a'.repeat(64), origin: VSCODE_EXTENSION_ORIGIN }
+    expect(BridgeAuthSchema.safeParse(auth).success).toBe(true)
   })
 })
 

@@ -108,6 +108,41 @@ describe('buildMessages', () => {
     const blocks = out[0].content as { type: string; text?: string }[]
     expect(blocks[blocks.length - 1].text).toBe('Explain this capture.')
   })
+
+  it('drops superseded full-screen frames from earlier live-screen turns, keeping the circled crop', () => {
+    const s = session(
+      [
+        msg({
+          role: 'user',
+          text: 'How do I bookmark this?',
+          sentText:
+            'How do I bookmark this?\n\n[Live screen attached: the last image is my whole screen right now.]',
+          attachmentIds: ['crop', 'screen1']
+        }),
+        msg({ role: 'assistant', text: 'Click the star.\n[[action: 900, 80, 920, 100, "Star"]]' }),
+        msg({
+          role: 'user',
+          text: 'I clicked that.',
+          sentText:
+            'I clicked that.\n\n[Live screen attached: the last image is my whole screen right now.]',
+          attachmentIds: ['screen2']
+        })
+      ],
+      { crop: att('crop'), screen1: att('screen1'), screen2: att('screen2') }
+    )
+    const out = buildMessages(s, resolver)
+    const first = out[0]!.content as { type: string; source?: { data: string }; text?: string }[]
+    expect(first).toEqual([
+      { type: 'image', source: { type: 'base64', media_type: 'image/png', data: 'PNG:crop' } },
+      { type: 'text', text: '[Earlier capture omitted to save space]' },
+      { type: 'text', text: s.messages[0]!.sentText }
+    ])
+    const third = out[2]!.content as { type: string; source?: { data: string } }[]
+    expect(third[0]).toEqual({
+      type: 'image',
+      source: { type: 'base64', media_type: 'image/png', data: 'PNG:screen2' }
+    })
+  })
 })
 
 describe('titleFrom', () => {

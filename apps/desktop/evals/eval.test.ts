@@ -1,17 +1,17 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { createGeminiProvider } from '../src/main/ai'
+import { createAiProvider } from '../src/main/ai'
 import { compare, loadCases, reportMarkdown, runEval, type EvalMetrics } from './harness'
 
 /**
- * `npm run eval` (repo root): real Gemini with GEMINI_API_KEY, or a dry run of
+ * `npm run eval` (repo root): real Claude with ANTHROPIC_API_KEY, or a dry run of
  * the harness with EVAL_FAKE=1. Writes evals/reports/<time>.{json,md}.
  * `EVAL_UPDATE_BASELINE=1` saves this run's metrics as evals/baseline.json.
  * `EVAL_GRADER_MODEL=<id>` grades with another model (default: the strong Lens
  * model); the report names the grader, and ungraded rewrites fail the run.
  */
-const key = process.env['GEMINI_API_KEY'] ?? ''
+const key = process.env['ANTHROPIC_API_KEY'] ?? ''
 const fake = process.env['EVAL_FAKE'] === '1'
 const dir = import.meta.dirname
 
@@ -20,7 +20,7 @@ describe.skipIf(!key && !fake)('Lens rewrite quality', () => {
     const cases = loadCases()
     const run = await runEval({
       cases,
-      provider: key ? createGeminiProvider(key) : null,
+      provider: key ? createAiProvider(key) : null,
       fake,
       graderModel: process.env['EVAL_GRADER_MODEL'] || undefined
     })

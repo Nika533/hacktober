@@ -1,4 +1,13 @@
-import { app, dialog, powerMonitor, safeStorage, screen, shell } from 'electron'
+import {
+  app,
+  clipboard,
+  dialog,
+  Notification,
+  powerMonitor,
+  safeStorage,
+  screen,
+  shell
+} from 'electron'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, stat } from 'node:fs/promises'
@@ -7,6 +16,7 @@ import { join } from 'node:path'
 import {
   bridgePipePath,
   HOOT_API_ROUTES,
+  voiceNote,
   type BridgeEnv,
   type ExplainMoreMessage,
   type LensContext,
@@ -14,8 +24,11 @@ import {
   type Point,
   type Unsubscribe
 } from '@hoot/core'
+import { codeLinkPipePath, codeLinkTokenPath } from '@hoot/core/code'
 import type { AiProvider } from './ai'
-import { createFakeProvider, createGeminiProvider } from './ai'
+import { createAiProvider, createFakeProvider } from './ai'
+import { createAgentsService, createAgentWindows, placeCard, type AgentsService } from './agents'
+import { createAnywhereService, createBubbleWindow, type AnywhereService } from './anywhere'
 import { AnotherInstanceError, createBridgeServer, type BridgeServer } from './bridge'
 import { applyChatActivity } from './buddy/activity'
 import { createBuddyWindow, type BuddyWindow } from './buddy/window'
@@ -28,6 +41,7 @@ import {
 } from './capture'
 import { createChatService, type ChatService } from './chat'
 import { createClipboardWatcher, readClipboardImage, type ClipboardWatcher } from './clipboardWatch'
+import { createCodeLinkServer, createCodeService, type CodeService } from './code'
 import type { AppEnv } from './env'
 import { createHotkeys, type Hotkeys } from './hotkeys'
 import { handleInvoke } from './ipc/handle'
@@ -38,6 +52,7 @@ import { createFsLensStorage, createLensService, type LensService } from './lens
 import { createFlushRegistry, type FlushRegistry } from './lifecycle'
 import { reconcileLoginItem } from './login'
 import { createLogger, type Logger } from './log'
+import { createPageService, type PageService } from './page'
 import { createNoteWindows, createPinsService, type NoteWindows, type PinsService } from './pins'
 import { createReaderService, type ReaderService } from './services/reader'
 import { createSecretStore, type SecretStore } from './secrets'
@@ -61,6 +76,30 @@ import { fileArgFromArgv } from './windows/drop'
 import { createReaderWindow } from './windows/reader'
 import { createStudioWindow, type StudioWindow } from './windows/studio'
 import { watchPower } from './powerWatch'
+import { createTextAccess, type TextAccess } from './textAccess'
+import {
+  createFakeSpeechEngine,
+  createVoiceService,
+  unavailableEngine,
+  type VoiceService
+} from './voice'
+
+/** The live overlay reads VS Code if it was in front this recently (a click on Hoot blurs it). */
+const CODE_FOCUS_GRACE_MS = 5000
+/** How long the overlay waits for Windows to say which app is in front (or under a shape). */
+const APP_PROBE_MS = 400
+const BROWSER_PROCESS = /^(chrome|msedge|brave|vivaldi|opera|chromium)$/i
+
+const within = <T>(p: Promise<T | null>, ms: number): Promise<T | null> =>
+  Promise.race([p, new Promise<null>((resolve) => setTimeout(resolve, ms, null))])
+
+/** Normalized window title so a dirty dot ("● ") or tab badge ("(2) ") doesn't count as a new tab. */
+const normTitle = (title: string): string =>
+  title
+    .replace(/^[●•*]\s+/, '')
+    .replace(/^\(\d+\)\s+/, '')
+    .trim()
+    .toLowerCase()
 
 export interface AppContext {
   env: AppEnv
@@ -75,7 +114,7 @@ export interface AppContext {
   secrets: SecretStore
   studio: StudioWindow
   buddy: BuddyWindow
-  /** Chat provider: fake under HOOT_FAKE_AI, Gemini when a key exists, else null. */
+  /** Chat provider: fake under HOOT_FAKE_AI, Claude when a key exists, else null. */
   ai: { createProvider(): AiProvider | null }
   lens: LensService
   bridge: BridgeServer
@@ -87,6 +126,18 @@ export interface AppContext {
   tray: TrayHandle
   clipboard: ClipboardWatcher
   reader: ReaderService
+  /** Text in other desktop apps (UI Automation + clipboard fallback). */
+  textAccess: TextAccess
+  /** Lens anywhere: the Lens hotkey's bubble over any app. */
+  anywhere: AnywhereService
+  /** The code link: VS Code's code as text instead of screenshots, highlights and edits back. */
+  code: CodeService
+  /** The page link: the browser page in front as text (the extension), highlights back. */
+  pages: PageService
+  /** The voice chat: Windows speech in and out, driving the active chat. */
+  voice: VoiceService
+  /** Agents: extra chats in their own windows, each minimizing into an owl of its own colour. */
+  agents: AgentsService
   /**
    * Feature seams later PRs reassign (finish-plan §2): kept mutable on
    * purpose so late-landing features can re-point them.
@@ -141,9 +192,10 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     }
   })
   const secrets = createSecretStore({
-    file: join(hootDir, 'gemini-key.bin'),
+    // A new file name: a Gemini key saved before the move to Claude is left behind.
+    file: join(hootDir, 'claude-key.bin'),
     safeStorage,
-    envKey: process.env['GEMINI_API_KEY'],
+    envKey: process.env['ANTHROPIC_API_KEY'],
     log
   })
   const flush = createFlushRegistry(log)
@@ -198,6 +250,50 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
       return true
     }
   })
+  const textAccess = createTextAccess({ log, enabled: !env.test && process.platform === 'win32' })
+  flush.add('textAccess', async () => textAccess.dispose())
+
+  // The code link: the Hoot VS Code extension hands over the code on screen as
+  // text (no screenshots) and applies the edits the user accepts. Its own pipe
+  // and per-launch token, next to the Lens bridge's. Started in start().
+  const code = createCodeService({
+    store,
+    log,
+    createServer: (hooks) =>
+      createCodeLinkServer({
+        pipePath: codeLinkPipePath(
+          process.platform as Platform,
+          os.userInfo().username,
+          os.tmpdir()
+        ),
+        tokenPath: codeLinkTokenPath(process.platform as Platform, process.env as BridgeEnv),
+        platform: process.platform as Platform,
+        appVersion: app.getVersion(),
+        log: (m) => log.info(m),
+        ...hooks
+      })
+  })
+  flush.add('code', () => code.stop())
+
+  // The page link: the browser extension (over the Lens bridge) hands over the
+  // page in front as text when the user chats right after being in the
+  // browser, and highlights the passages an answer points at. A question
+  // asked from the extension's popup lands in the chat (aloud when spoken).
+  const pages = createPageService({
+    store,
+    log,
+    onAsk: async ({ text, sameChat, note }) => {
+      if (!sameChat) {
+        await chat.stop()
+        clipboardWatcher.dismiss()
+        await chat.newChat()
+      }
+      ctx.hooks.showChatSurface()
+      const notes = [note()].filter((n) => n !== null)
+      await chat.send({ text }, { context: false, notes })
+    }
+  })
+  flush.add('pages', async () => pages.stop())
 
   // A file dropped on any Hoot surface opens in the Reader (F-D1-6). ctx is
   // assigned below; the guard can't fire before a page loads anyway.
@@ -250,7 +346,11 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     log,
     enabled: !env.test,
     onSummon: onSummonHotkey,
-    onCapture: () => ctx.hooks.startCapture()
+    onCapture: () => ctx.hooks.startCapture(),
+    onLens: () =>
+      void ctx.anywhere
+        .trigger()
+        .catch((e: unknown) => log.warn(`lens anywhere failed: ${String(e)}`))
   })
   flush.add('hotkeys', async () => hotkeys.dispose())
 
@@ -293,7 +393,7 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     createProvider() {
       if (env.fakeAi) return createFakeProvider()
       const key = secrets.get()
-      return key ? createGeminiProvider(key) : null
+      return key ? createAiProvider(key) : null
     }
   }
 
@@ -321,10 +421,56 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     log,
     getProvider: async () => ai.createProvider(),
     takeClipboardSelection: () => ctx.hooks.takeClipboardSelection(),
+    // The live capture overlay sends the current screen (or VS Code's code)
+    // with every message; any other chat gets VS Code's code or the browser's
+    // page, whichever app the user was just in.
+    beforeSend: async () => {
+      const live = await capture.attachLiveScreen()
+      if (live !== null || (capture.isCapturing() && !capture.isMinimized())) return live
+      const window = code.chatWindow()
+      const browser = pages.activePeer()
+      if (window && (!browser || code.activeAt(window) >= pages.activeAt(browser.id))) {
+        return code.note(window)
+      }
+      return browser ? pages.note(browser.id) : null
+    },
     onActivity: (a) => applyChatActivity(store, a),
     openPath: (p) => shell.openPath(p).then(() => undefined)
   })
   flush.add('chat', () => chat.flush())
+
+  const voice = createVoiceService({
+    store,
+    log,
+    engine: env.fakeVoice ? createFakeSpeechEngine() : unavailableEngine,
+    send: (text) =>
+      chat.send({ text }, { notes: [voiceNote(store.get('settings').settings.voiceReplies)] }),
+    stopAnswer: () => chat.stop()
+  })
+  flush.add('voice', async () => voice.dispose())
+
+  // Agents: more chats at once, each in its own window by the owl, with VS
+  // Code's code like the owl's chat. Their chats are saved like any other.
+  const agentWindows = createAgentWindows({
+    rendererUrl: rendererUrlFor,
+    onClosed: (id) => agents.closed(id),
+    onFileDrop
+  })
+  const agents = createAgentsService({
+    store,
+    persistence,
+    writer,
+    log,
+    getProvider: async () => ai.createProvider(),
+    windows: agentWindows,
+    placement: (index) => {
+      const anchor = buddy.anchor()
+      return placeCard(anchor, index, screen.getDisplayNearestPoint(anchor).workArea)
+    },
+    codeLink: (source) => code.forChat(source),
+    notify: (body) => new Notification({ title: 'Hoot', body }).show()
+  })
+  flush.add('agents', () => agents.flush())
 
   // notes before pins (pins needs the windows), pins inside the callbacks
   // (notes need the service) — the reference resolves at call time.
@@ -344,17 +490,104 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     }
   })
 
+  // Lens anywhere: the bubble window is created on the first Lens hotkey.
+  const anywhere = createAnywhereService({
+    readSelection: () => textAccess.selection(),
+    lens,
+    bubble: createBubbleWindow({ windows, onDismiss: () => anywhere.dismissed() }),
+    settings: () => store.get('settings').settings,
+    cursor: () => screen.getCursorScreenPoint(),
+    workArea: (rect) => screen.getDisplayMatching(rect).workArea,
+    writeClipboard: (text) => clipboard.writeText(text),
+    pin: (text) => pins.createFromText(text),
+    openStudio: (view) => {
+      studio.open(view)
+      buddy.hide()
+    },
+    log
+  })
+  flush.add('anywhere', async () => anywhere.dispose())
+
   // Capture (d2 skeleton #60, overlay lands in F-D2-3): hides our surfaces
-  // before the grab; a composer-bound capture returns to the card.
+  // before the grab; a composer-bound capture returns to the card. Outside
+  // tests the overlay is live: it stays open over the real screen and the
+  // user chats about what they circled right there.
   const capture = createCaptureService({
     store,
     windows,
     studio,
     persistence,
     log,
+    live: !env.test,
+    // A new shape: stop an answer still streaming, and drop an armed clipboard
+    // snapshot, so nothing unseen goes with the first message about it.
+    newChat: async () => {
+      await chat.stop()
+      clipboardWatcher.dismiss()
+      await chat.newChat()
+    },
+    // HOOT_NO_CAPTURE_EXCLUDE=1 for a recorded demo (each grab would blank the overlay).
+    excludeFromGrabs: process.env['HOOT_NO_CAPTURE_EXCLUDE'] !== '1',
+    readScreenText: (rect) => textAccess.textInRect(rect),
+    clickScreen: (at) => textAccess.click(at),
+    onScreenClick: (l) => textAccess.onClick(l),
+    owlAnchor: () => buddy.anchor(),
+    // Starting a capture from Hoot's own UI blurs VS Code a moment earlier;
+    // failing that, Windows says which window is in front.
+    codeWindow: async () =>
+      code.focusedWindow(CODE_FOCUS_GRACE_MS) ??
+      code.windowFor(await within(textAccess.foreground(), APP_PROBE_MS)),
+    // Each shape reads (and locks to) the app and tab it was drawn on:
+    // switching to another tab or app minimizes the overlay into the owl.
+    appAt: async (region) => {
+      const app = await within(
+        textAccess.windowAt({ x: region.x + region.width / 2, y: region.y + region.height / 2 }),
+        APP_PROBE_MS
+      )
+      if (!app) return undefined
+      const base = `${app.process.toLowerCase()}:${normTitle(app.title)}`
+      const window = code.windowFor(app)
+      if (window) {
+        const file = code.focusedFile(window.id)
+        return { code: window, page: null, lock: `code:${window.id}:${file ?? base}` }
+      }
+      const browser = BROWSER_PROCESS.test(app.process)
+        ? pages.activePeer(Number.POSITIVE_INFINITY)
+        : null
+      const page = browser?.page ?? null
+      return {
+        code: null,
+        page: page ? { id: browser!.id, title: page.title } : null,
+        lock: page ? `page:${browser!.id}:${page.tab}:${base}` : `win:${base}`
+      }
+    },
+    onTargetChange: (listener) => {
+      const offCode = code.onChange(listener)
+      const offPage = pages.onChange(listener)
+      return () => {
+        offCode()
+        offPage()
+      }
+    },
+    codeNote: (id) => code.note(id),
+    browserPage: () => {
+      const browser = pages.activePeer(CODE_FOCUS_GRACE_MS)
+      return browser?.page ? { id: browser.id, title: browser.page.title } : null
+    },
+    pageNote: (id) => pages.note(id),
     surfaces: {
       hide: () => buddy.hide(),
-      restore: (added) => buddy.request(added ? 'card' : 'pill')
+      restore: (added) => buddy.request(added ? 'card' : 'pill'),
+      // The chat shrinks into the owl: just the owl (with its badge), no greeting pop.
+      minimize: () => {
+        buddy.request('dot')
+        buddy.dismissGreeting()
+      },
+      // Coming back out: the owl steps aside; the answer is on screen again.
+      unminimize: () => {
+        buddy.hide()
+        store.update('buddy', { answerReady: false })
+      }
     }
   })
 
@@ -392,7 +625,8 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
         }
       : null,
     onStatus: (s) => store.set('lens', s),
-    log: (m) => log.info(m)
+    log: (m) => log.info(m),
+    pages
   })
   flush.add('bridge', () => bridge.stop())
 
@@ -432,6 +666,12 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     tray,
     clipboard: clipboardWatcher,
     reader,
+    textAccess,
+    anywhere,
+    code,
+    pages,
+    voice,
+    agents,
     hooks: {
       explain(message) {
         ctx.hooks.showChatSurface()
@@ -472,6 +712,7 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
       unwatchSystem = watchSystem(store)
       unwatchPersist = watchPersistence(store, persistence, writer)
       unwatchLens = watchLensSettings(store, bridge)
+      pages.start()
       lens.onProfile((snap) =>
         broadcaster.emit(HOOT_API_ROUTES.lens.onProfile.channel, snap, 'lens')
       )
@@ -487,6 +728,11 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
         log.warn(`bridge not started: ${lastError}`)
         store.set('lens', { bridge: 'stopped', clients: 0, lastError })
       }
+      // e2e runs never open the per-user code pipe (a real Hoot may own it).
+      if (!env.test) {
+        code.onChange(() => broadcaster.emit(HOOT_API_ROUTES.code.onChange.channel, undefined))
+        void code.start()
+      }
       installTestHooks(ctx)
       // Sticky notes are the user's pins, not the app's windows — they
       // come back even on a hidden (launch-at-login) start.
@@ -501,6 +747,7 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
       hotkeys.apply()
       // The first desktopCapturer grab takes ~3 s cold — warm it once idle.
       capture.prewarm()
+      textAccess.prewarm()
       // --hidden opens nothing (launch-at-login must never pop a window);
       // first run goes to onboarding, returning users get the owl — or the
       // document they launched us with ("Open with Hoot" / `hoot doc.pdf`).

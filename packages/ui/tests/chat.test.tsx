@@ -34,11 +34,31 @@ describe('describeChatError', () => {
       action: 'add-key',
       actionLabel: 'Add API key'
     })
-    expect(describeChatError('auth')).toMatchObject({ action: 'open-settings' })
-    expect(describeChatError('auth').message).toContain('paid-tier')
+    expect(describeChatError('no_key').message).toBe(
+      'Hoot needs a Claude API key before it can answer.'
+    )
+    expect(describeChatError('auth')).toMatchObject({
+      action: 'open-settings',
+      message: 'Anthropic rejected the API key. Check it in Settings.'
+    })
     for (const c of ['rate_limited', 'busy', 'network'])
       expect(describeChatError(c).action).toBe('retry')
     expect(describeChatError('blocked')).toMatchObject({ action: null, actionLabel: null })
+  })
+
+  it('names Claude and Anthropic in the copy', () => {
+    expect(describeChatError('rate_limited').message).toBe(
+      'Claude’s rate limit was reached. Wait a moment, then retry.'
+    )
+    expect(describeChatError('busy').message).toBe(
+      'Claude is busy right now. Retry in a few seconds.'
+    )
+    expect(describeChatError('network').message).toBe(
+      'Hoot couldn’t reach Claude. Check your connection, then retry.'
+    )
+    expect(describeChatError('blocked').message).toBe(
+      'Claude declined to answer this. Try asking in a different way.'
+    )
   })
 
   it('treats unknown or missing codes as a retryable failure', () => {
@@ -83,7 +103,7 @@ describe('Markdown', () => {
       <Markdown
         text={
           '<img src=x onerror="alert(1)"><script>alert(1)</script>\n\n' +
-          '[bad](javascript:alert(1)) [ok](https://ai.google.dev) ![chart](https://example.com/c.png)'
+          '[bad](javascript:alert(1)) [ok](https://docs.claude.com) ![chart](https://example.com/c.png)'
         }
       />
     )
@@ -92,7 +112,7 @@ describe('Markdown', () => {
     const links = [...container.querySelectorAll('a')]
     expect(links.map((a) => a.getAttribute('href'))).toEqual([
       null,
-      'https://ai.google.dev',
+      'https://docs.claude.com',
       'https://example.com/c.png'
     ])
     expect(links[2]?.textContent).toBe('chart')
@@ -102,7 +122,7 @@ describe('Markdown', () => {
   it('hands links to onOpenLink instead of navigating', () => {
     const onOpenLink = vi.fn()
     const { container } = render(
-      <Markdown text="[docs](https://ai.google.dev/gemini-api)" onOpenLink={onOpenLink} />
+      <Markdown text="[docs](https://docs.claude.com/en/api)" onOpenLink={onOpenLink} />
     )
     const a = container.querySelector('a')!
     const e = new MouseEvent('click', { bubbles: true, cancelable: true })
@@ -110,7 +130,7 @@ describe('Markdown', () => {
       a.dispatchEvent(e)
     })
     expect(e.defaultPrevented).toBe(true)
-    expect(onOpenLink).toHaveBeenCalledWith('https://ai.google.dev/gemini-api')
+    expect(onOpenLink).toHaveBeenCalledWith('https://docs.claude.com/en/api')
   })
 
   it('wraps GFM tables in a focusable scroller', () => {
@@ -199,7 +219,7 @@ describe('Transcript', () => {
     expect(onAddKey).toHaveBeenCalledTimes(1)
 
     rerender(<Transcript messages={failed('busy')} onAddKey={onAddKey} onRetry={onRetry} />)
-    expect(container.textContent).toContain('Gemini is busy')
+    expect(container.textContent).toContain('Claude is busy')
     click(byName(container, 'button', 'Retry'))
     expect(onRetry).toHaveBeenCalledTimes(1)
 

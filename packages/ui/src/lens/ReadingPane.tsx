@@ -21,7 +21,7 @@ import type { ColdStartSetup } from './coldStartSetup'
 import { ExtensionStatus } from './ExtensionStatus'
 import {
   COMMON_LANGUAGES,
-  GEMINI_TERMS_URL,
+  ANTHROPIC_TERMS_URL,
   languageName,
   siteFromInput,
   siteLabel,
@@ -215,11 +215,11 @@ export function ReadingPane({
   )
 }
 
-/* Consent and data copy (hoot-lens.md §11), checked by C against the Gemini API terms. */
+/* Consent and data copy (hoot-lens.md §11), checked by C against Anthropic's commercial terms. */
 function DataTerms({ onOpenLink }: { onOpenLink: (url: string) => void }): React.JSX.Element {
   return (
     <dl className="hoot-reading__terms">
-      <dt>Sent to Google Gemini</dt>
+      <dt>Sent to Anthropic (Claude)</dt>
       <dd>
         The text you selected, its paragraph, the page title and headings, and a short summary of
         your reading profile: terms on this page you know or find hard, and your languages and
@@ -245,19 +245,18 @@ function DataTerms({ onOpenLink }: { onOpenLink: (url: string) => void }): React
         Your full reading profile, your glossary and the list of recent changes. Only the short
         summary above goes with a request.
       </dd>
-      <dt>How Google uses it</dt>
+      <dt>How Anthropic uses it</dt>
       <dd>
-        With a free Gemini API key, Google may use what Lens sends to improve its products, and
-        people at Google may read it. With billing turned on, it doesn’t, and keeps requests only
-        briefly to detect abuse.{' '}
+        Anthropic doesn’t train its models on what Hoot sends with your API key, and deletes it
+        within 30 days (longer only if it’s flagged under Anthropic’s Usage Policy).{' '}
         <a
-          href={GEMINI_TERMS_URL}
+          href={ANTHROPIC_TERMS_URL}
           onClick={(e) => {
             e.preventDefault()
-            onOpenLink(GEMINI_TERMS_URL)
+            onOpenLink(ANTHROPIC_TERMS_URL)
           }}
         >
-          Gemini API terms
+          Anthropic’s terms
         </a>
       </dd>
     </dl>

@@ -1,0 +1,319 @@
+/* Lens anywhere: a glass bubble on a transparent window, under a selection in any app. */
+html,
+body,
+#root {
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+/* The padding is the window's transparent edge (BUBBLE_MARGIN) the glow draws into. */
+.anywhere {
+  padding: 12px;
+  box-sizing: border-box;
+  --glow: #38bdf8;
+  --glow-soft: #5cc8ff;
+}
+
+/* The live capture chat's glass, so both feel like one product. Fixed dark: it sits over any app. */
+.anywhere__card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* BUBBLE_MAX_HEIGHT − 2 × BUBBLE_MARGIN; fixed, so the reported height never depends on the window's. */
+  max-height: 336px;
+  padding: 8px 10px 12px 12px;
+  box-sizing: border-box;
+  border-radius: 16px;
+  border: 1px solid rgba(92, 200, 255, 0.6);
+  background: rgba(10, 20, 36, 0.82);
+  backdrop-filter: blur(18px) saturate(140%);
+  box-shadow:
+    0 0 0 1px rgba(56, 189, 248, 0.22),
+    0 0 10px rgba(56, 189, 248, 0.35),
+    0 4px 10px rgba(0, 0, 0, 0.3);
+  color: #f0f9ff;
+  font-size: 14px;
+  line-height: 1.45;
+  --text-1: #f0f9ff;
+  --text-2: #bae6fd;
+  --text-3: #93c5fd;
+  --stroke: rgba(148, 197, 255, 0.28);
+  transform-origin: top left;
+  animation: anywhere-in var(--dur-base, 250ms) var(--ease-spring, ease-out) both;
+}
+
+/* Enters from the selection's side. */
+.anywhere__card[data-side='above'] {
+  transform-origin: bottom left;
+  animation-name: anywhere-in-above;
+}
+
+@keyframes anywhere-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+}
+
+@keyframes anywhere-in-above {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.97);
+  }
+}
+
+.anywhere__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.anywhere__dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--glow);
+  box-shadow: 0 0 8px var(--glow);
+}
+
+.anywhere__title {
+  flex: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #e0f2fe;
+}
+
+.anywhere__app {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: #93c5fd;
+}
+
+.anywhere__app::before {
+  content: '· ';
+}
+
+.anywhere__icon {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #e0f2fe;
+  cursor: pointer;
+}
+
+.anywhere__icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.anywhere__close {
+  margin-left: auto;
+}
+
+.anywhere__icon:hover,
+.anywhere__icon:focus-visible {
+  border-color: rgba(92, 200, 255, 0.5);
+  background: rgba(56, 189, 248, 0.14);
+  outline: none;
+}
+
+.anywhere__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 197, 255, 0.35) transparent;
+}
+
+.anywhere__label-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.anywhere__label {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #7dd3fc;
+}
+
+.anywhere__label svg {
+  width: 13px;
+  height: 13px;
+}
+
+.anywhere__rewrite {
+  margin: 0;
+  font-size: 14.5px;
+  color: #f8fcff;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.anywhere__message {
+  margin: 0;
+  color: #e0f2fe;
+}
+
+.anywhere__original {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  margin: 0;
+  padding-left: 8px;
+  border-left: 2px solid rgba(148, 197, 255, 0.3);
+  font-size: 12px;
+  line-height: 1.4;
+  color: #93c5fd;
+  overflow-wrap: anywhere;
+}
+
+.anywhere__shimmer {
+  display: grid;
+  gap: 7px;
+  padding: 4px 0 2px;
+}
+
+.anywhere__shimmer span {
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(
+    90deg,
+    rgba(148, 197, 255, 0.12) 0%,
+    rgba(148, 197, 255, 0.34) 50%,
+    rgba(148, 197, 255, 0.12) 100%
+  );
+  background-size: 200% 100%;
+  animation: anywhere-shimmer 1.4s linear infinite;
+}
+
+.anywhere__shimmer span:last-child {
+  width: 62%;
+}
+
+@keyframes anywhere-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+.anywhere__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.anywhere__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(92, 200, 255, 0.5);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e0f2fe;
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.anywhere__pill svg {
+  width: 13px;
+  height: 13px;
+}
+
+.anywhere__pill:hover,
+.anywhere__pill:focus-visible {
+  border-color: var(--glow-soft);
+  background: rgba(56, 189, 248, 0.2);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.35);
+  outline: none;
+}
+
+.anywhere__pill--primary {
+  border-color: var(--glow);
+  background: rgba(56, 189, 248, 0.3);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.anywhere__link {
+  margin-left: auto;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: #bae6fd;
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.anywhere__link:hover,
+.anywhere__link:focus-visible {
+  color: #ffffff;
+  text-decoration: underline;
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anywhere__card,
+  .anywhere__shimmer span {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .anywhere__card {
+    background: rgb(10, 20, 36);
+    backdrop-filter: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .anywhere__card {
+    border-color: CanvasText;
+    background: Canvas;
+    color: CanvasText;
+  }
+
+  .anywhere__pill,
+  .anywhere__icon:hover,
+  .anywhere__icon:focus-visible {
+    border-color: ButtonText;
+  }
+
+  .anywhere__original {
+    border-left-color: CanvasText;
+  }
+
+  .anywhere__shimmer span,
+  .anywhere__dot {
+    background: CanvasText;
+  }
+}

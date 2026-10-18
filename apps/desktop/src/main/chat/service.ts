@@ -27,11 +27,17 @@ export interface ChatDeps {
   broadcaster: Broadcaster
   persistence: Persistence
   writer: DebouncedWriter
-  /** Null when no Gemini key is configured (the answer then shows "Add your key"). */
+  /** Null when no Claude key is configured (the answer then shows "Add your key"). */
   getProvider(): Promise<AiProvider | null>
   log: Logger
   /** Armed clipboard text from the clipboard chip (d1); returned once, then cleared. */
   takeClipboardSelection?(): string | null
+  /**
+   * Runs right before a send composes its message: the live capture overlay
+   * attaches a fresh full-screen frame to `pendingAttachments` here and
+   * returns a note for the model (appended to what's sent, never shown).
+   */
+  beforeSend?(): Promise<string | null | void>
   /** Stream lifecycle, for owl moods and `answerReady` (d1 maps it onto the buddy slice). */
   onActivity?(activity: ChatActivity): void
   /** Opens a saved attachment (shell.openPath in production). */
@@ -44,8 +50,16 @@ export interface ChatDeps {
   checkpointMs?: number
 }
 
+/** Main-side extras for a send (renderers only ever send a SendPayload). */
+export interface SendOptions {
+  /** Appended to what's sent (never shown), after the `beforeSend` note. */
+  notes?: string[]
+  /** false: skip `beforeSend`, the caller attached the context itself. */
+  context?: boolean
+}
+
 export interface ChatService {
-  send(payload: SendPayload): Promise<void>
+  send(payload: SendPayload, opts?: SendOptions): Promise<void>
   stop(): Promise<void>
   regenerate(): Promise<void>
   newChat(): Promise<void>
@@ -101,6 +115,8 @@ export function createChatService(deps: ChatDeps): ChatService {
   /** Sessions touched this run, so a non-persisted session can still be reopened. */
   const loaded = new Map<string, Session>()
   let active: ActiveStream | null = null
+  /** A send is awaiting `beforeSend` (it sets `active` right after). */
+  let preparing = false
   let pendingDelete: {
     meta: SessionMeta
     session: Session | null
@@ -147,9 +163,8 @@ export function createChatService(deps: ChatDeps): ChatService {
     messages: s.messages.map((m) => (m.id === id ? update(m) : m))
   })
 
-  async function readImages(s: Session): Promise<Map<string, string>> {
+  async function readImages(ids: ReadonlySet<string>): Promise<Map<string, string>> {
     const out = new Map<string, string>()
-    const ids = new Set(s.messages.flatMap((m) => m.attachmentIds))
     await Promise.all(
       [...ids].map(async (id) => {
         const png = await persistence.readAttachment(id)
@@ -190,13 +205,22 @@ export function createChatService(deps: ChatDeps): ChatService {
       const provider = await deps.getProvider()
       if (stream.abort.signal.aborted) return finish('stopped')
       if (!provider) return finish('error', 'no_key')
-      const images = await readImages(latest())
-      if (stream.abort.signal.aborted) return finish('stopped')
       const snapshot = latest()
-      const messages = buildMessages(
-        { ...snapshot, messages: snapshot.messages.filter((m) => m.id !== stream.messageId) },
-        (id) => ({ base64: images.get(id) ?? '', mediaType: 'image/png' })
-      )
+      const history = {
+        ...snapshot,
+        messages: snapshot.messages.filter((m) => m.id !== stream.messageId)
+      }
+      const needed = new Set<string>()
+      buildMessages(history, (id) => {
+        needed.add(id)
+        return { base64: '', mediaType: 'image/png' }
+      })
+      const images = await readImages(needed)
+      if (stream.abort.signal.aborted) return finish('stopped')
+      const messages = buildMessages(history, (id) => ({
+        base64: images.get(id) ?? '',
+        mediaType: 'image/png'
+      }))
       let first = true
       await provider.stream(
         {
@@ -317,10 +341,21 @@ export function createChatService(deps: ChatDeps): ChatService {
   }
 
   return {
-    async send(payload) {
-      // Ignored while an answer streams; return before taking the armed
-      // clipboard text, or it would be cleared without ever being sent.
-      if (active) return
+    async send(payload, opts = {}) {
+      // One stream at a time, and one send being prepared: a double click must
+      // not grab a second frame that would be left pending. Returning here is
+      // also before taking the armed clipboard text, so it's never lost.
+      if (active || preparing) return
+      preparing = true
+      let found: string | null = null
+      try {
+        if (opts.context !== false) found = (await deps.beforeSend?.()) ?? null
+      } catch (e) {
+        log.warn(`chat: beforeSend failed: ${e instanceof Error ? e.message : String(e)}`)
+      } finally {
+        preparing = false
+      }
+      const note = [found, ...(opts.notes ?? [])].filter(Boolean).join('\n\n') || null
       const settings = store.get('settings').settings
       let display = payload.text?.trim() ?? ''
       let sent: string | undefined
@@ -336,11 +371,15 @@ export function createChatService(deps: ChatDeps): ChatService {
         sent = `${clipboardTextBlock(clip)}\n\n${ask}`
         if (!display) display = 'Explain this briefly.'
       }
+      if (note) sent = `${sent ?? display}\n\n${note}`
       sendInternal(display, sent)
     },
 
     async stop() {
-      active?.abort.abort()
+      // Resolves once the stopped answer is written, so a send right after isn't refused as busy.
+      const running = active
+      running?.abort.abort()
+      await running?.done
     },
 
     async regenerate() {
@@ -352,7 +391,14 @@ export function createChatService(deps: ChatDeps): ChatService {
     },
 
     async newChat() {
+      const dropped = store.get('chat').pendingAttachments
       store.update('chat', { session: null, pendingAttachments: [], clipboardHint: null })
+      // Unsent captures belong to no chat: their files go too.
+      for (const a of dropped) {
+        void persistence
+          .deleteAttachment(a.id)
+          .catch((e: unknown) => log.warn(`chat: dropping ${a.id} failed: ${String(e)}`))
+      }
     },
 
     async openSession(id) {

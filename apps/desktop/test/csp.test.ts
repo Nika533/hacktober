@@ -40,7 +40,7 @@ describe('cspFor', () => {
   })
 
   it('no mode ever allows unsafe-eval', () => {
-    for (const kind of ['buddy', 'studio', 'capture', 'note', 'reader'] as const) {
+    for (const kind of ['buddy', 'studio', 'capture', 'note', 'reader', 'anywhere'] as const) {
       expect(cspFor(kind, 'prod')).not.toContain('unsafe-eval')
       expect(cspFor(kind, 'dev', DEV)).not.toContain('unsafe-eval')
     }
@@ -51,6 +51,7 @@ describe('kindFromHtmlPath', () => {
   it('maps html basenames to window kinds', () => {
     expect(kindFromHtmlPath('/studio.html')).toBe('studio')
     expect(kindFromHtmlPath('/reader.html')).toBe('reader')
+    expect(kindFromHtmlPath('/anywhere.html')).toBe('anywhere')
     expect(kindFromHtmlPath('/assets/x.js')).toBeNull()
     expect(kindFromHtmlPath('/bogus.html')).toBeNull()
   })

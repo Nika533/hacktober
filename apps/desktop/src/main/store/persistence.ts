@@ -27,7 +27,7 @@ import { backupCorrupt, readJson, writeBinaryAtomic, writeJsonAtomic } from './f
  *   pins.json                Pin[]
  *   ui-state.json            { onboardingStep } — setup state, not history
  *   attachments/<id>.png
- *   gemini-key.bin           (owned by secrets.ts)
+ *   claude-key.bin           (owned by secrets.ts)
  */
 
 export class PersistenceError extends Error {

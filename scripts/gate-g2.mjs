@@ -5,9 +5,9 @@
  *
  *   npm run build:e2e -w @hoot/desktop
  *   node scripts/gate-g2.mjs                 # fakes, no key, no network
- *   node scripts/gate-g2.mjs --live --runs 2 # real Gemini (GEMINI_API_KEY)
+ *   node scripts/gate-g2.mjs --live --runs 2 # real Claude (ANTHROPIC_API_KEY)
  *
- * 1. Onboarding takes a Gemini key (validated through settings.setApiKey),
+ * 1. Onboarding takes a Claude API key (validated through settings.setApiKey),
  *    then the owl is summoned.
  * 2. A rectangle drawn on the capture overlay (a generated bar chart stands
  *    in for the screen) becomes an attachment; Explain streams an answer
@@ -26,9 +26,9 @@ import { _electron as electron } from '@playwright/test'
 const live = process.argv.includes('--live')
 const runsArg = process.argv.indexOf('--runs')
 const runs = runsArg >= 0 ? Number(process.argv[runsArg + 1]) : 1
-const key = live ? (process.env.GEMINI_API_KEY ?? '') : 'fake-g2-key'
+const key = live ? (process.env.ANTHROPIC_API_KEY ?? '') : 'fake-g2-key'
 if (live && !key) {
-  console.error('--live needs GEMINI_API_KEY in the environment.')
+  console.error('--live needs ANTHROPIC_API_KEY in the environment.')
   process.exit(1)
 }
 
@@ -56,7 +56,7 @@ for (let run = 1; run <= runs; run++) await gate(run)
 
 const failed = results.filter((r) => !r.ok).length
 console.log(
-  `G2 desktop (${live ? 'live Gemini' : 'fakes'}, ${runs} run(s)): ${failed ? `${failed} check(s) failed` : 'passed'}`
+  `G2 desktop (${live ? 'live Claude' : 'fakes'}, ${runs} run(s)): ${failed ? `${failed} check(s) failed` : 'passed'}`
 )
 process.exit(failed ? 1 : 0)
 
@@ -72,7 +72,7 @@ async function gate(run) {
     ...(live ? {} : { HOOT_FAKE_AI: '1', HOOT_FAKE_LENS: '1' })
   }
   delete env.ELECTRON_RUN_AS_NODE
-  delete env.GEMINI_API_KEY // the key must come through onboarding, like a fresh install
+  delete env.ANTHROPIC_API_KEY // the key must come through onboarding, like a fresh install
   const app = await electron.launch({
     executablePath: electronPath,
     args: [join(desktop, 'out/main/index.js')],
@@ -95,7 +95,7 @@ async function gate(run) {
       run,
       1,
       saved?.ok === true,
-      `the Gemini key is accepted${saved?.ok ? '' : ` (${saved?.reason ?? 'no reply'})`}`
+      `the Claude API key is accepted${saved?.ok ? '' : ` (${saved?.reason ?? 'no reply'})`}`
     )
     await app.evaluate(() => globalThis.__hoot.finishOnboarding())
     await app.evaluate(() => globalThis.__hoot.summon())

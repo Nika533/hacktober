@@ -1,5 +1,5 @@
 import { LensBackendError, type BridgeErrorCode, type ProfileSnapshot } from '@hoot/core'
-import type { BridgeStatus, Reply } from '../messages'
+import type { BridgeStatus, CurrentPage, Reply } from '../messages'
 import type { SettingsStore } from './settings'
 import type { Upstream } from './upstream'
 import { parseContentMessage } from './validate'
@@ -22,6 +22,9 @@ export interface RouterOptions {
   warm?: () => void
   /** The PDF viewer hands one URL back to the browser's own viewer. */
   allowNativePdf?: (url: string) => void
+  /** The popup asks Hoot about the page in front (the page link). */
+  pageAsk?: (text: string, voice: boolean) => Promise<void>
+  pageCurrent?: () => Promise<CurrentPage | null>
   now?: () => number
 }
 
@@ -122,6 +125,13 @@ export function createRouter(options: RouterOptions): Router {
         case 'lens.explain':
           await upstream.explainMore(message.ctx)
           return ok(null)
+        case 'page.ask':
+          if (!ownPage(sender) || !options.pageAsk) return fail('unauthorized')
+          await options.pageAsk(message.text, message.voice)
+          return ok(null)
+        case 'page.current':
+          if (!ownPage(sender)) return fail('unauthorized')
+          return ok((await options.pageCurrent?.()) ?? null)
       }
     } catch (error) {
       if (error instanceof LensBackendError) return fail(error.code, error.message)

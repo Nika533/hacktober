@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { CHAT_MODEL_IDS } from '../models'
+import { CHAT_MODEL_IDS, LEGACY_CHAT_MODELS } from '../models'
 import {
   DEFAULT_SETTINGS,
   SETTINGS_SCHEMA_VERSION,
@@ -7,6 +7,7 @@ import {
   type Settings,
   type SettingsPatch
 } from '../types/settings'
+import { VOICE_RATES } from '../types/voice'
 import { LangSchema, PointSchema, RectSchema, SiteSchema, TimestampSchema } from './common'
 
 export const SiteRuleSchema = z.enum(['always', 'paused', 'never'])
@@ -43,12 +44,15 @@ export const SettingsSchema = z.object({
   model: z.enum(CHAT_MODEL_IDS),
   summonHotkey: HotkeySchema,
   captureHotkey: HotkeySchema,
+  lensHotkey: HotkeySchema,
   launchAtLogin: z.boolean(),
   saveHistory: z.boolean(),
   restorePins: z.boolean(),
   clipboardHint: z.boolean(),
   translateTo: z.string().trim().min(1).max(40),
   collapseToDotAfterMs: z.number().int().min(0).max(600_000),
+  voiceReplies: z.boolean(),
+  voiceRate: z.number().int().min(VOICE_RATES.min).max(VOICE_RATES.max),
   pillAnchor: PointSchema.nullable(),
   studioBounds: RectSchema.nullable(),
   onboardingDone: z.boolean(),
@@ -79,12 +83,15 @@ export const SettingsPatchSchema = z.strictObject({
   model: SettingsSchema.shape.model.optional(),
   summonHotkey: HotkeySchema.optional(),
   captureHotkey: HotkeySchema.optional(),
+  lensHotkey: HotkeySchema.optional(),
   launchAtLogin: z.boolean().optional(),
   saveHistory: z.boolean().optional(),
   restorePins: z.boolean().optional(),
   clipboardHint: z.boolean().optional(),
   translateTo: SettingsSchema.shape.translateTo.optional(),
   collapseToDotAfterMs: SettingsSchema.shape.collapseToDotAfterMs.optional(),
+  voiceReplies: z.boolean().optional(),
+  voiceRate: SettingsSchema.shape.voiceRate.optional(),
   lens: LensSettingsPatchSchema.optional()
 })
 
@@ -112,10 +119,14 @@ function salvage<T extends object>(
 
 /**
  * Read settings.json of any version. Invalid fields fall back to their
- * defaults one by one, so one bad value never resets everything. A legacy
- * (v1) file names a Claude model, which falls back to the default model.
+ * defaults one by one, so one bad value never resets everything. A Gemini
+ * model from before the move to Claude becomes the Claude model with the same
+ * role; an older Claude model name falls back to the default model.
  */
 export function migrateSettings(raw: unknown): Settings {
+  if (isRecord(raw) && typeof raw.model === 'string' && raw.model in LEGACY_CHAT_MODELS) {
+    raw = { ...raw, model: LEGACY_CHAT_MODELS[raw.model] }
+  }
   const lens = salvage<LensSettings>(
     isRecord(raw) ? raw.lens : undefined,
     LensSettingsSchema.shape,

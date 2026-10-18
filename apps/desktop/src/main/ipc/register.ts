@@ -1,10 +1,14 @@
 import type { InvokeChannel, InvokeResult, SendChannel } from '@hoot/core'
 import type { InvokeArgs, SendArgs } from '@hoot/core/schemas'
 import type { AppContext } from '../context'
+import { createAgentsHandlers } from '../agents'
+import { createAnywhereHandlers } from '../anywhere'
 import { createCaptureHandlers } from '../capture'
 import { createChatHandlers } from '../chat'
+import { createCodeHandlers } from '../code'
 import { createLensHandlers } from '../lens'
 import { createPinsHandlers } from '../pins'
+import { createVoiceHandlers } from '../voice'
 import { registerAppIpc } from './app'
 import { registerBuddyIpc } from './buddy'
 import { registerClipboardIpc } from './clipboard'
@@ -95,7 +99,15 @@ export function registerDomains(ctx: AppContext): void {
   registerHandlerMap(createLensHandlers(ctx.lens))
   registerHandlerMap(createChatHandlers(ctx.chat))
   registerHandlerMap(createCaptureHandlers(ctx.capture))
+  registerHandlerMap(createCodeHandlers(ctx.code))
+  registerHandlerMap(createVoiceHandlers(ctx.voice))
   const pinsHandlers = createPinsHandlers(ctx.pins)
   registerSenderHandlerMap(pinsHandlers.invoke)
   registerSenderSendMap(pinsHandlers.send)
+  const anywhereHandlers = createAnywhereHandlers(ctx.anywhere)
+  registerSenderHandlerMap(anywhereHandlers.invoke)
+  registerSenderSendMap(anywhereHandlers.send)
+  const agentsHandlers = createAgentsHandlers(ctx.agents)
+  registerSenderHandlerMap(agentsHandlers.invoke)
+  registerSenderSendMap(agentsHandlers.send)
 }

@@ -1,3 +1,4 @@
+import { CHAT_MODELS, DEFAULT_CHAT_MODEL, type ChatModelId } from '@hoot/core'
 import {
   ClipboardCopy,
   KeyRound,
@@ -34,7 +35,6 @@ import { ShortcutsDemo } from './ShortcutsDemo'
 import { StudioDemo } from './StudioDemo'
 import './gallery.css'
 
-type ModelChoice = 'flash-lite' | 'flash' | 'argon'
 type AccentChoice = 'default' | '0078d4' | 'ca5010' | '107c10' | '9a0089'
 
 const ACCENTS: { value: AccentChoice; label: string }[] = [
@@ -84,11 +84,11 @@ export function Gallery({
   const [accent, setAccent] = useState<AccentChoice>(
     ACCENTS.some((a) => a.value === initialAccent) ? (initialAccent as AccentChoice) : 'default'
   )
-  const [model, setModel] = useState<ModelChoice>('flash')
+  const [model, setModel] = useState<ChatModelId>(DEFAULT_CHAT_MODEL)
   const [launchAtLogin, setLaunchAtLogin] = useState(false)
   const [saveHistory, setSaveHistory] = useState(true)
   const [clipHint, setClipHint] = useState(true)
-  const [key, setKey] = useState('AIzaSy-not-a-real-key')
+  const [key, setKey] = useState('sk-ant-not-a-real-key')
   const [showKey, setShowKey] = useState(false)
   const [validating, setValidating] = useState(false)
   const [sensitivity, setSensitivity] = useState(50)
@@ -256,11 +256,7 @@ export function Gallery({
             label="Model"
             value={model}
             onChange={setModel}
-            options={[
-              { value: 'flash-lite', label: 'Flash-Lite', hint: 'fastest' },
-              { value: 'flash', label: 'Flash' },
-              { value: 'argon', label: 'Argon', hint: 'paid tier' }
-            ]}
+            options={CHAT_MODELS.map((m) => ({ value: m.id, label: m.label, hint: m.sub }))}
           />
           <Segmented
             label="History retention"
@@ -296,13 +292,13 @@ export function Gallery({
 
         <Section title="Text fields">
           <TextField
-            label="Gemini API key"
+            label="Claude API key"
             type={showKey ? 'text' : 'password'}
             value={key}
             onChange={(e) => setKey(e.currentTarget.value)}
             autoComplete="off"
             spellCheck={false}
-            description="Get a free key at aistudio.google.com/apikey. It's stored encrypted on this PC."
+            description="Get one at console.anthropic.com. It's stored encrypted on this PC."
             trailing={
               <Button size="sm" variant="ghost" onClick={() => setShowKey((s) => !s)}>
                 {showKey ? 'Hide' : 'Show'}
@@ -310,9 +306,9 @@ export function Gallery({
             }
           />
           <TextField
-            label="Gemini API key (rejected)"
-            defaultValue="AIzaSy-expired"
-            error="Google rejected this key. Check it was copied in full, or create a new one."
+            label="Claude API key (rejected)"
+            defaultValue="sk-ant-expired"
+            error="Anthropic rejected this key. Check it was copied in full, or create a new one."
           />
           <TextField
             label="Search chats"
@@ -359,7 +355,7 @@ export function Gallery({
               onClick={() =>
                 toast.show({
                   tone: 'danger',
-                  message: "Couldn't reach Gemini. Check your connection and try again."
+                  message: "Couldn't reach Claude. Check your connection and try again."
                 })
               }
             >
@@ -446,7 +442,7 @@ export function Gallery({
             <p className="hoot-t-subtitle">What can I help with?</p>
             <p className="hoot-t-body-lg">Circle anything on screen and ask about it.</p>
             <p className="hoot-t-body">
-              Answers stream in as Gemini writes them. Select any of this text to copy it.
+              Answers stream in as Claude writes them. Select any of this text to copy it.
             </p>
             <p className="hoot-t-caption hoot-t-secondary">Updated 2 minutes ago</p>
             <p className="hoot-t-mono">const owl = await hoot.summon()</p>

@@ -4,7 +4,7 @@ import { act, useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { HootUIProvider } from '../src/components/HootUIProvider'
 import { ReadingPane } from '../src/lens/ReadingPane'
-import { GEMINI_TERMS_URL, languageName, siteFromInput } from '../src/lens/sites'
+import { ANTHROPIC_TERMS_URL, languageName, siteFromInput } from '../src/lens/sites'
 import { byName, click, render } from './render'
 
 function typeInto(el: HTMLInputElement, value: string): void {
@@ -78,7 +78,7 @@ describe('ReadingPane', () => {
   it('keeps Lens off until the user turns it on after reading what is sent', () => {
     const { container, patches } = setup()
     expect(container.querySelector('[role="switch"]')).toBeNull()
-    expect(container.textContent).toContain('Sent to Google Gemini')
+    expect(container.textContent).toContain('Sent to Anthropic (Claude)')
     click(byName(container, 'button', 'Turn on Hoot Lens'))
     expect(patches).toEqual([{ enabled: true, consentedAt: 1_700_000_000_000 }])
     const sw = container.querySelector<HTMLInputElement>('[role="switch"]')
@@ -87,16 +87,22 @@ describe('ReadingPane', () => {
     expect(patches.at(-1)).toEqual({ enabled: false })
   })
 
-  it('says the profile summary is sent and how a free key differs, linking the terms', () => {
+  it('says the profile summary is sent and how Anthropic uses it, linking the terms', () => {
     const { container, onOpenLink } = setup()
     const terms = container.querySelector('.hoot-reading__terms')!
     expect(terms.textContent).toContain('a short summary of your reading profile')
     expect(terms.textContent).toContain(
       'In Auto mode, also to check whether a selection needs help'
     )
-    expect(terms.textContent).toContain('With a free Gemini API key')
-    click(terms.querySelector('a'))
-    expect(onOpenLink).toHaveBeenCalledWith(GEMINI_TERMS_URL)
+    expect(terms.textContent).toContain('How Anthropic uses it')
+    expect(terms.textContent).toContain(
+      'Anthropic doesn’t train its models on what Hoot sends with your API key, and deletes it ' +
+        'within 30 days (longer only if it’s flagged under Anthropic’s Usage Policy).'
+    )
+    const link = terms.querySelector('a')
+    expect(link?.textContent).toBe('Anthropic’s terms')
+    click(link)
+    expect(onOpenLink).toHaveBeenCalledWith(ANTHROPIC_TERMS_URL)
   })
 
   it('saves mode, high-stakes, copy behaviour and retention as they change', () => {

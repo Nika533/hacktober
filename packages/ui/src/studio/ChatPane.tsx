@@ -1,4 +1,4 @@
-import { Minimize2, Plus } from 'lucide-react'
+import { Bot, Minimize2, Plus } from 'lucide-react'
 import { useId, type ReactNode, type Ref } from 'react'
 import { Composer } from '../chat/Composer'
 import { Transcript, type TranscriptProps } from '../chat/Transcript'
@@ -12,12 +12,16 @@ export interface ChatPaneProps extends Omit<TranscriptProps, 'empty' | 'label' |
   onSend: (text: string) => void
   onStop: () => void
   onNewChat: () => void
+  /** Call another agent: a chat of its own that works at the same time. */
+  onNewAgent?: () => void
   /** Back to the Buddy card (Ctrl+L). */
   onLock: () => void
   /** Allows an empty send (pending captures → Explain). */
   onEmptySend?: () => void
   /** Chips, attachments, clipboard suggestion: shown above the composer. */
   composerTop?: ReactNode
+  /** Extra buttons left of Send (the mic). */
+  composerActions?: ReactNode
   /** Remount key for the composer (to pre-fill it, e.g. Explain more). */
   composerKey?: string
   composerSeed?: string
@@ -33,9 +37,11 @@ export function ChatPane({
   onSend,
   onStop,
   onNewChat,
+  onNewAgent,
   onLock,
   onEmptySend,
   composerTop,
+  composerActions,
   composerKey,
   composerSeed,
   composerRef,
@@ -54,6 +60,11 @@ export function ChatPane({
           <IconButton label="New chat" shortcut="Ctrl+N" onClick={onNewChat}>
             <Plus />
           </IconButton>
+          {onNewAgent && (
+            <IconButton label="New agent, working alongside this chat" onClick={onNewAgent}>
+              <Bot />
+            </IconButton>
+          )}
           <IconButton label="Back to the card" shortcut="Ctrl+L" onClick={onLock}>
             <Minimize2 />
           </IconButton>
@@ -83,6 +94,7 @@ export function ChatPane({
           onSend={onSend}
           onStop={onStop}
           onEmptySend={onEmptySend}
+          actions={composerActions}
         />
       </div>
     </section>

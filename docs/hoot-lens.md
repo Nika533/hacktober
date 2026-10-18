@@ -95,7 +95,7 @@ with the page, scroll with it, or survive layout changes. The app is the right
 
 - **Extension = eyes and hands** — watches selections, scores signals, rewrites
   the DOM / PDF text layer, draws markers, handles undo.
-- **Hoot app = brain** — owns the API key, calls Gemini, stores the reader
+- **Hoot app = brain** — owns the API key, calls Claude, stores the reader
   profile and event log, provides settings and the "what Hoot knows about me" UI.
 - **Hoot Reader (inside the app)** — a PDF.js-based reader window for local PDFs
   and HTML files, using the same engine in-process.
@@ -285,16 +285,19 @@ high-stakes → only gloss-type output).
 
 ### 7.2 Models, latency, cost
 
-- **Provider:** Google Gemini via `@google/genai`, called only from the app's
-  main process.
-- **Gray-zone difficulty check:** `gemini-3.5-flash-lite` (fastest, cheapest).
-- **Rewrites:** `gemini-3.5-flash-lite` by default for `define`/`expand`/`translate`;
-  `gemini-3.8-flash` for `simplify`/`unpack` on longer spans (configurable).
-- **Thinking:** lowest thinking level the model accepts. Gemini counts thinking
-  tokens against `maxOutputTokens`, so caps must leave headroom.
-- **Structured output:** `responseMimeType: "application/json"` plus
-  `responseJsonSchema` set to the schemas in section 7.3, so replies parse
-  without prompt-only coaxing.
+- **Provider:** Anthropic Claude through the Messages API, called only from the
+  app's main process with the user's own key.
+- **Gray-zone difficulty check:** Claude Haiku 5.5 (`claude-haiku-5-5`; fastest,
+  cheapest).
+- **Rewrites:** Haiku 5.5 by default for `define`/`expand`/`translate`/`example`
+  and short spans; Claude Sonnet 5.5 (`claude-sonnet-5-5`) for `simplify`/`unpack`
+  on longer spans (`LENS_MODELS` and `STRONG_REWRITE_MIN_WORDS` in `@hoot/core`).
+- **Thinking:** kept as low as the model allows; outputs are short and latency
+  matters. Thinking tokens count against `max_tokens`, so caps must leave headroom.
+- **Structured output:** a tool call. The schema from section 7.3 is the only
+  tool's `input_schema` (forced with `tool_choice` on Haiku 5.5; Sonnet 5.5 rejects
+  a forced choice, so the prompt names the tool), and the tool input is validated
+  with the same zod schema, so replies parse without prompt-only coaxing.
 - **Latency targets:** first visible change p50 under 700ms, p95 under 1.5s for
   spans of 40 words or fewer.
 - **No streaming into the page.** Outputs are short; partial swaps would flicker.
@@ -303,7 +306,7 @@ high-stakes → only gloss-type output).
   Cache in the app (persisted) and the extension (session). Same page revisited
   → instant.
 - **Cost:** a typical request is a few hundred input tokens and under 100 output
-  tokens on Flash-Lite — a tiny fraction of a cent per change.
+  tokens on Haiku 5.5 — a tiny fraction of a cent per change.
 
 ### 7.3 Prompts (draft)
 
@@ -552,7 +555,7 @@ script only where host permissions allow.
 │  │ rewrite,      │  │ summary for      │  │ retention             │  │ routing       │ │
 │  │ guardrails    │  │ prompts          │  │                       │  │               │ │
 │  └──────┬────────┘  └──────────────────┘  └───────────────────────┘  └───────────────┘ │
-│         │ existing: ai/client.ts (Gemini), store/persistence.ts, prompts.ts, ipc.ts    │
+│         │ existing: ai/claude.ts (Claude), store/persistence.ts, prompts.ts, ipc.ts    │
 │  renderer windows: Buddy (card) · Studio (Reading settings, profile, glossary) ·       │
 │                    Reader (PDF.js, local files) · Notes                                │
 └────────────────────────────────────────────────────────────────────────────────────────┘
@@ -651,6 +654,12 @@ extension/
 - **Local by default:** profile, events, cache, and glossary live in `%APPDATA%\hoot`.
   The API key stays encrypted (DPAPI via `safeStorage`) in the app, never in the
   extension.
+- **One provider: Anthropic (Claude).** What Lens sends goes from the app to
+  Anthropic's Claude API with the user's own key, and nowhere else. Anthropic
+  doesn't train its models on what Hoot sends with your API key, and deletes it
+  within 30 days (longer only if it's flagged under Anthropic's Usage Policy). The
+  consent screen says so and links to
+  [Anthropic's terms](https://www.anthropic.com/legal/commercial-terms).
 - **Transparency:** every change is marked; Studio shows "Recent changes" with
   the original and rewrite; the profile is fully viewable, editable, exportable,
   and resettable.
@@ -706,7 +715,7 @@ extension/
 | A rewrite changes the meaning | Meaning self-check + local invariant check + confidence floor; gloss-only on high-stakes; always reversible; "Recent changes" audit |
 | Feels creepy / unwanted | Off by default; visible marks; page pill with Undo all and Pause; adaptive threshold; Ask-first mode |
 | Breaks pages | Overlay mode for dynamic apps; shadow DOM UI; never touch editable or code content; MutationObserver fallback |
-| Latency makes it jarring | Local-first detection; Flash-Lite; caching; no animation for late results |
+| Latency makes it jarring | Local-first detection; Haiku 5.5; caching; no animation for late results |
 | Cost at scale | Most selections never call the model; gray-zone only; caching; short outputs |
 | Privacy concerns | Minimal context, local storage, deny list, consent screen, no raw URLs |
 | Store review / policy | No remote code; clear single purpose; permission justifications; privacy policy |

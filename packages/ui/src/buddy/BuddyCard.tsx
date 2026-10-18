@@ -1,8 +1,9 @@
-import type { Greeting, ModeLayout, StateSlices } from '@hoot/core'
-import { Maximize2, PencilLine, Plus, X } from 'lucide-react'
+import { type Greeting, type ModeLayout, type StateSlices } from '@hoot/core'
+import { Bot, Maximize2, PencilLine, Plus, X } from 'lucide-react'
 import { useId, useMemo } from 'react'
 import { AttachmentsRow } from '../chat/AttachmentsRow'
 import { ClipboardChip } from '../chat/ClipboardChip'
+import { codeChangesFor } from '../chat/codeChangesFor'
 import { Composer } from '../chat/Composer'
 import { QuickChips } from '../chat/QuickChips'
 import { Transcript } from '../chat/Transcript'
@@ -15,6 +16,8 @@ export interface BuddyCardProps {
   host: BuddyHost
   layout: ModeLayout
   chat: StateSlices['chat']
+  /** The voice chat; off when the window doesn't subscribe to it. */
+  voice?: StateSlices['voice']
   greeting: Greeting | null
   /** Display form, e.g. 'Ctrl+Alt+Space'. */
   captureShortcut: string
@@ -69,6 +72,12 @@ export function BuddyCard({
             <Plus />
           </IconButton>
           <IconButton
+            label="New agent, working alongside this chat"
+            onClick={() => fire(host.agents.create())}
+          >
+            <Bot />
+          </IconButton>
+          <IconButton
             label="Open in Studio"
             shortcut="Ctrl+L"
             onClick={() => fire(host.windows.openStudio('chat'))}
@@ -90,6 +99,7 @@ export function BuddyCard({
         onOpenLink={(href) => fire(host.app.openExternal(href))}
         onAddKey={() => fire(host.windows.openStudio('settings'))}
         onOpenSettings={() => fire(host.windows.openStudio('settings'))}
+        answerFooter={codeChangesFor(host.code, session)}
         empty={
           latest ? (
             <div className="hoot-buddy-card__empty">

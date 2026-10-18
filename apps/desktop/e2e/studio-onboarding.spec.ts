@@ -22,7 +22,7 @@ test('first run walks through onboarding, then hands over to the owl', async () 
   await expectAxeClean(page)
   await page.getByRole('button', { name: 'Get started' }).click()
 
-  await expect(step('Connect Gemini')).toBeVisible()
+  await expect(step('Connect Claude')).toBeVisible()
   await expectAxeClean(page)
   await page.getByRole('button', { name: 'Skip for now' }).click()
 
@@ -46,10 +46,10 @@ test('onboarding resumes on the step it was left on', async () => {
   test.fixme(true, 'studio.onboardingStep is not persisted yet (#70)')
   const page = await studioPage(app)
   await page.getByRole('button', { name: 'Get started' }).click()
-  await expect(page.getByRole('heading', { level: 1, name: 'Connect Gemini' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Connect Claude' })).toBeVisible()
   await app.close()
 
   app = await launch(profile)
   const again = await studioPage(app)
-  await expect(again.getByRole('heading', { level: 1, name: 'Connect Gemini' })).toBeVisible()
+  await expect(again.getByRole('heading', { level: 1, name: 'Connect Claude' })).toBeVisible()
 })

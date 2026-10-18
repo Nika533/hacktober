@@ -13,6 +13,8 @@ export interface AppEnv {
   fakeLens: boolean
   /** `HOOT_DEV_BRIDGE=1`: dev-only WebSocket bridge transport. */
   devBridge: boolean
+  /** `HOOT_FAKE_VOICE=1`: a scripted speech engine (hears set phrases, says nothing aloud). */
+  fakeVoice: boolean
   /** `HOOT_USER_DATA=<dir>`: redirects `app.getPath('userData')`. */
   userDataOverride: string | null
   /** Unpackaged and served from the electron-vite dev server. */
@@ -43,6 +45,7 @@ export function readEnv(
     fakeAi: on('HOOT_FAKE_AI'),
     fakeLens: on('HOOT_FAKE_LENS'),
     devBridge: on('HOOT_DEV_BRIDGE'),
+    fakeVoice: on('HOOT_FAKE_VOICE'),
     userDataOverride: env['HOOT_USER_DATA'] ?? null,
     isDev: !isPackaged && env['ELECTRON_RENDERER_URL'] !== undefined
   }

@@ -69,6 +69,18 @@ describe('argument validation', () => {
     expect(parseInvokeArgs('settings:suspendHotkeys', [true])).toEqual([true])
     const rect = { x: 0, y: 0, width: 40, height: 40 }
     expect(parseSendArgs('buddy:hitRegions', [[rect]])).toEqual([[rect]])
+    expect(parseInvokeArgs('anywhere:current', [])).toEqual([])
+    expect(parseInvokeArgs('anywhere:act', ['knewIt'])).toEqual(['knewIt'])
+    expect(parseInvokeArgs('anywhere:close', [])).toEqual([])
+    expect(parseSendArgs('anywhere:resize', [212.5])).toEqual([212.5])
+  })
+
+  it('rejects unknown Lens anywhere actions and bad sizes', () => {
+    expect(() => parseInvokeArgs('anywhere:act', ['format-disk'])).toThrow(IpcValidationError)
+    expect(() => parseInvokeArgs('anywhere:act', [])).toThrow(IpcValidationError)
+    expect(() => parseInvokeArgs('anywhere:close', ['now'])).toThrow(IpcValidationError)
+    expect(() => parseSendArgs('anywhere:resize', [-1])).toThrow(IpcValidationError)
+    expect(() => parseSendArgs('anywhere:resize', ['tall'])).toThrow(IpcValidationError)
   })
 
   it('rejects path traversal, unknown quick actions, bad URLs and extra args', () => {
@@ -99,6 +111,9 @@ describe('types', () => {
     >()
     expectTypeOf<z.output<(typeof SEND_ARGS)['buddy:dragEnd']>>().toEqualTypeOf<
       Parameters<HootApi['buddy']['dragEnd']>
+    >()
+    expectTypeOf<z.output<(typeof INVOKE_ARGS)['anywhere:act']>>().toEqualTypeOf<
+      Parameters<HootApi['anywhere']['act']>
     >()
   })
 

@@ -22,7 +22,7 @@ test('Reading keeps Lens off until consent, then saves Lens settings', async () 
   await expect(page.getByRole('heading', { level: 1, name: 'Reading' })).toBeVisible()
 
   // Consent first: no switch until the user has read what is sent.
-  await expect(page.getByText('Sent to Google Gemini')).toBeVisible()
+  await expect(page.getByText('Sent to Anthropic (Claude)')).toBeVisible()
   await expect(page.getByRole('switch', { name: 'Hoot Lens' })).toHaveCount(0)
   await expectAxeClean(page)
   await page.getByRole('button', { name: 'Turn on Hoot Lens' }).click()

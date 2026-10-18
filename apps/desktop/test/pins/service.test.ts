@@ -106,6 +106,18 @@ describe('pins service', () => {
     expect(windows.opened).toEqual(['p1', 'p1'])
   })
 
+  it('pins a live-overlay answer without its on-screen tags', async () => {
+    const { store, pins } = setup()
+    const tagged = {
+      ...session.messages[1]!,
+      id: 'a3',
+      text: 'Click **Save**.\n[[point: 120, 40, "Save"]]\nThen close it.'
+    }
+    store.update('chat', { session: { ...session, messages: [...session.messages, tagged] } })
+    await pins.create('a3')
+    expect(store.get('pins').pins[0]?.text).toBe('Click **Save**.\nThen close it.')
+  })
+
   it('refuses streaming answers, user turns and unknown messages', async () => {
     const { pins, store } = setup()
     await expect(pins.create('a2')).rejects.toThrow()

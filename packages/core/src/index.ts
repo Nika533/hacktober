@@ -11,16 +11,22 @@
  * helpers (the content script) stay small.
  */
 
+export * from './types/agents'
+export * from './types/anywhere'
 export * from './types/app'
 export * from './types/chat'
 export * from './types/lens'
 export * from './types/settings'
 export * from './types/state'
+export * from './types/voice'
 export * from './models'
 
 export * from './chat/conversation'
 export * from './chat/prompts'
 export * from './chat/sessions'
+export * from './chat/speech'
+
+export * from './page'
 
 export * from './util/accelerator'
 export * from './util/clipboard'

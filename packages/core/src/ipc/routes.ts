@@ -51,8 +51,12 @@ export const HOOT_API_ROUTES = {
     getInit: invoke('capture:getInit'),
     commit: invoke('capture:commit'),
     cancel: invoke('capture:cancel'),
+    click: invoke('capture:click'),
+    minimize: invoke('capture:minimize'),
     onOpen: event('capture:open'),
-    onClosed: event('capture:closed')
+    onClosed: event('capture:closed'),
+    onUserClick: event('capture:userClick'),
+    onRestore: event('capture:restore')
   },
   pins: {
     create: invoke('pins:create'),
@@ -94,6 +98,37 @@ export const HOOT_API_ROUTES = {
     recentChanges: invoke('lens:recentChanges'),
     glossary: invoke('lens:glossary'),
     onProfile: event('lens:profileChanged')
+  },
+  anywhere: {
+    current: invoke('anywhere:current'),
+    onUpdate: event('anywhere:update'),
+    resize: send('anywhere:resize'),
+    act: invoke('anywhere:act'),
+    close: invoke('anywhere:close')
+  },
+  code: {
+    apply: invoke('code:apply'),
+    reveal: invoke('code:reveal'),
+    tagStates: invoke('code:tagStates'),
+    onChange: event('code:changed')
+  },
+  voice: {
+    start: invoke('voice:start'),
+    finish: invoke('voice:finish'),
+    stop: invoke('voice:stop'),
+    speak: invoke('voice:speak')
+  },
+  agents: {
+    create: invoke('agents:create'),
+    send: invoke('agents:send'),
+    stop: invoke('agents:stop'),
+    regenerate: invoke('agents:regenerate'),
+    minimize: invoke('agents:minimize'),
+    restore: invoke('agents:restore'),
+    close: invoke('agents:close'),
+    dragStart: send('agents:dragStart'),
+    dragMove: send('agents:dragMove'),
+    dragEnd: send('agents:dragEnd')
   },
   app: { openExternal: invoke('app:openExternal') }
 } as const satisfies { [N in keyof HootApi]: { [M in keyof HootApi[N]]-?: Route } }

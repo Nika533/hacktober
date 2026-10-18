@@ -14,7 +14,7 @@ import { join } from 'node:path'
  * Demo screenshots for the README and pitch (D3-40), off by default:
  *
  *   HOOT_DEMO_SHOTS=1 npx playwright test studio-demo        (fakes)
- *   HOOT_DEMO_SHOTS=1 HOOT_DEMO_REAL=1 GEMINI_API_KEY=… npx playwright test studio-demo
+ *   HOOT_DEMO_SHOTS=1 HOOT_DEMO_REAL=1 ANTHROPIC_API_KEY=… npx playwright test studio-demo
  *
  * With fakes it skips anything that would show fake model text. Studio is
  * grabbed from the desktop so Mica shows; the buddy is shot with a

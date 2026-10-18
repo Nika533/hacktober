@@ -104,15 +104,15 @@ describe('IconButton', () => {
 
 describe('Segmented', () => {
   const options = [
-    { value: 'flash-lite', label: 'Flash-Lite' },
-    { value: 'flash', label: 'Flash' },
-    { value: 'argon', label: 'Argon', hint: 'paid tier' }
+    { value: 'claude-haiku-5-5', label: 'Haiku' },
+    { value: 'claude-sonnet-5-5', label: 'Sonnet' },
+    { value: 'claude-opus-5-5', label: 'Opus', hint: 'smartest' }
   ] as const
 
   it('is a labelled radiogroup of native radios', () => {
     const onChange = vi.fn()
     const { container } = render(
-      <Segmented label="Model" value="flash" options={options} onChange={onChange} />
+      <Segmented label="Model" value="claude-sonnet-5-5" options={options} onChange={onChange} />
     )
     const group = container.querySelector('[role="radiogroup"]')!
     const labelId = group.getAttribute('aria-labelledby')!
@@ -120,10 +120,10 @@ describe('Segmented', () => {
     const radios = [...group.querySelectorAll<HTMLInputElement>('input[type="radio"]')]
     expect(radios.map((r) => r.checked)).toEqual([false, true, false])
     expect(new Set(radios.map((r) => r.name)).size).toBe(1)
-    expect(group.textContent).toContain('paid tier')
+    expect(group.textContent).toContain('smartest')
 
     click(radios[2]!)
-    expect(onChange).toHaveBeenCalledWith('argon')
+    expect(onChange).toHaveBeenCalledWith('claude-opus-5-5')
   })
 
   it('disables single options and the whole group', () => {
@@ -177,9 +177,9 @@ describe('TextField', () => {
   it('links label, description and error to the input', () => {
     const { container } = render(
       <TextField
-        label="Gemini API key"
+        label="Claude API key"
         description="Stored encrypted."
-        error="Google rejected this key."
+        error="Anthropic rejected this key."
         defaultValue="x"
       />
     )
@@ -191,7 +191,7 @@ describe('TextField', () => {
       .getAttribute('aria-describedby')!
       .split(' ')
       .map((id) => document.getElementById(id)?.textContent)
-    expect(described).toEqual(['Stored encrypted.', 'Google rejected this key.'])
+    expect(described).toEqual(['Stored encrypted.', 'Anthropic rejected this key.'])
   })
 
   it('passes input props through and is valid without an error', () => {

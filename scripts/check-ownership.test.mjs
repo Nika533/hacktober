@@ -17,7 +17,7 @@ describe('globToRegExp', () => {
   it('lets the last matching pattern win', () => {
     const p = ['src/main/**', '!src/main/ai/**']
     expect(isAllowed('src/main/index.ts', p)).toBe(true)
-    expect(isAllowed('src/main/ai/gemini.ts', p)).toBe(false)
+    expect(isAllowed('src/main/ai/claude.ts', p)).toBe(false)
   })
 })
 
@@ -33,7 +33,7 @@ describe('ownership rules', () => {
 
   it('gives each builder its folders and nothing else', () => {
     expect(owns('d1', 'apps/desktop/src/main/windows/buddy.ts')).toBe(true)
-    expect(owns('d1', 'apps/desktop/src/main/ai/gemini.ts')).toBe(false)
+    expect(owns('d1', 'apps/desktop/src/main/ai/claude.ts')).toBe(false)
     expect(owns('d1', 'apps/desktop/src/main/context.ts')).toBe(true)
     expect(owns('d1', 'apps/desktop/src/renderer/buddy/Card.tsx')).toBe(false)
     expect(owns('d1', 'apps/desktop/src/renderer/studio/App.tsx')).toBe(false)
@@ -73,7 +73,13 @@ describe('ownership rules', () => {
     expect(owns('d3', 'apps/desktop/src/renderer/buddy/App.tsx')).toBe(true)
     expect(owns('d3', 'apps/desktop/e2e/card-stream.spec.ts')).toBe(true)
     expect(owns('d1', 'apps/desktop/e2e/buddy-modes.spec.ts')).toBe(true)
-    expect(owns('c', 'apps/desktop/src/main/context.ts')).toBe(false)
+    // Live capture overlay (hackathon reassignment): C also owns capture and
+    // context.ts (d2 keeps capture; d1 keeps the rest of main).
+    expect(owns('c', 'apps/desktop/src/main/context.ts')).toBe(true)
+    expect(owns('c', 'apps/desktop/src/main/capture/service.ts')).toBe(true)
+    expect(owns('c', 'apps/desktop/src/renderer/capture/App.tsx')).toBe(true)
+    expect(owns('d1', 'apps/desktop/src/main/context.ts')).toBe(true)
+    expect(owns('c', 'apps/desktop/src/main/ipc/settings.ts')).toBe(false)
     for (const b of ['c', 'd1']) expect(owns(b, 'apps/desktop/electron-builder.yml')).toBe(true)
   })
 

@@ -4,7 +4,8 @@ export {
   createCaptureService,
   type CaptureDeps,
   type CaptureService,
-  type CaptureSurfaces
+  type CaptureSurfaces,
+  type ShapeApp
 } from './service'
 export { createCaptureHandlers, type CaptureChannel, type CaptureHandlers } from './ipc'
 export { addImageAttachment, type AttachmentDeps } from './attachments'

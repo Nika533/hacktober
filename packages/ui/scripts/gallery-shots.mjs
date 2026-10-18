@@ -91,15 +91,17 @@ try {
         .locator('.gallery__studio')
         .screenshot({ path: resolve(out, `studio-${v.name}.png`) })
 
-      // Settings: at rest, then a rejected key with Argon picked, then the clear confirm.
+      // Settings: at rest, then a rejected key with Opus picked, then the clear confirm.
       const settings = page.locator('.gallery__settings')
       await settings.scrollIntoViewIfNeeded()
       await settings.screenshot({ path: resolve(out, `settings-${v.name}.png`) })
-      await settings.getByRole('textbox', { name: 'Gemini API key' }).fill('bad-key')
+      await settings.getByRole('textbox', { name: 'Claude API key' }).fill('bad-key')
       await settings.getByRole('button', { name: 'Check and save' }).click()
-      await settings.getByText('Google rejected this key').waitFor()
-      await settings.getByText('Argon', { exact: true }).click()
-      await settings.getByText('Argon needs a paid-tier').waitFor()
+      await settings.getByText('Anthropic rejected this key').waitFor()
+      await settings.getByText('Opus', { exact: true }).click()
+      await settings
+        .locator('input[type="radio"][value="claude-opus-5-5"]:checked')
+        .waitFor({ state: 'attached' })
       await settings.screenshot({ path: resolve(out, `settings-error-${v.name}.png`) })
       await axe(page, `${v.name} + settings error`)
       await settings.getByRole('button', { name: 'Clear all chats…' }).click()
@@ -156,8 +158,8 @@ try {
       await onbStep(0, 'Hi, I’m Hoot')
       await axe(page, `${v.name} + onboarding`)
       await onb.getByRole('button', { name: 'Get started' }).click()
-      await onbStep(1, 'Connect Gemini')
-      await onb.getByRole('textbox', { name: 'Gemini API key' }).fill('AIza-demo')
+      await onbStep(1, 'Connect Claude')
+      await onb.getByRole('textbox', { name: 'Claude API key' }).fill('sk-ant-demo')
       await onb.getByRole('button', { name: 'Check and save' }).click()
       await onb.getByRole('button', { name: 'Continue' }).click()
       await onbStep(2, 'Your shortcuts')

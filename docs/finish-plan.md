@@ -12,7 +12,7 @@ for a phase to end before starting their next task.
 
 | | Done (on `main`) | Open | Left |
 |---|---|---|---|
-| **C** (Pera08) | Monorepo, contracts, Gemini provider, CI, Lens engine + guardrails + prompts, Lens IPC, bridge server, hoot-bridge native host, scorer, risk, learning rules | #31 evals, #35 contracts doc | Docs, latency check, plus the slices moved to C below |
+| **C** (Pera08) | Monorepo, contracts, AI provider (now Claude), CI, Lens engine + guardrails + prompts, Lens IPC, bridge server, hoot-bridge native host, scorer, risk, learning rules | #31 evals, #35 contracts doc | Docs, latency check, plus the slices moved to C below |
 | **d1** (Nika533) | Windows spikes, main foundation (store, lifecycle, broadcast), persistence v2 | #30 window security + core IPC domains + Studio window | Buddy mode machine, hotkeys/tray, Lens + bridge wiring, Explain more, Reader main side, Windows polish |
 | **d2** (andria0506) | Every lens-dom renderer, Lens UI, selection, fixtures, MV3 extension, options page, Auto mode (D2-30) | – | Bridge client, connection status, e2e, PDF viewer, zip, plus capture (moved to d2) |
 | **d3** (vakopr) | Design system, chat UI, Studio, Settings, onboarding, extension status, pdf-view + PDF overlay | – | Lens consent/Reading, Lens pages, cold start, Studio e2e, Reader, visual QA, polish, plus the Buddy renderer (moved to d3) |
@@ -27,7 +27,7 @@ don't redesign.
 
 ## 1. What "hackathon ready" means (the finish line)
 
-1. **The demo script works** (rebuild-plan §10, steps 1–5) with real Gemini, **three runs in
+1. **The demo script works** (rebuild-plan §10, steps 1–5) with real Claude, **three runs in
    a row** from a fresh profile (`HOOT_USER_DATA=<new dir>`) on the demo machine.
    Step 6 (auto-trigger, translation, PDF) is in the demo only if it works every time.
 2. **An offline fallback works:** the same script with `HOOT_FAKE_AI=1 HOOT_FAKE_LENS=1` and no
@@ -118,12 +118,12 @@ C runs the gate and posts the result on the tracking issue (§5).
 
 | Who | Task |
 |---|---|
-| **C** | **Pins + sticky notes:** port legacy `pins.ts` and the note window on `@hoot/ui`, including `pins.createFromText` for glossary pins. Then a **live Gemini check** (`npm run test:live`; a human supplies the key). |
+| **C** | **Pins + sticky notes:** port legacy `pins.ts` and the note window on `@hoot/ui`, including `pins.createFromText` for glossary pins. Then a **live Claude check** (`npm run test:live`; a human supplies the key). |
 | **d2** | **Capture overlay:** port legacy `capture.ts` + overlay. The guard is set synchronously. Lasso, rect and full. Crop pipeline per the D1-00 `desktopCapturer` facts (the ratio comes from `image.width / display.bounds.width`, and getSources is pre-warmed). Up to 4 pending; quick chips. Then **D2-22 e2e** against C-13's fake server, plus one full-stack test with the app in `HOOT_FAKE_LENS` mode. |
 | **d1** | **Explain more** (D1-23): Lens `onExplain` → the chat service → open the card pre-filled and send. **Reader main side:** `reader.pickFile/current/onDocument`, the Reader window, and the CSP with `worker-src 'self' blob:`. Then **e2e** for buddy modes + chat streaming with the fake AI (`e2e/buddy-*`). |
 | **d3** | **D3-21 Lens pages** ("What Hoot knows about me": edit, export, reset; Recent changes; My glossary with pin-as-note through `pins.createFromText`). **D3-22 cold start.** **D3-23 Studio e2e + axe** (onboarding, settings persistence, Lens pages with the fake Lens). |
 
-**Gate G2 (the demo cut):** demo script steps 1–5 with real Gemini, twice in a row from a
+**Gate G2 (the demo cut):** demo script steps 1–5 with real Claude, twice in a row from a
 fresh profile, then once more with the fakes and no network. Every failure becomes a
 `blocker` issue. **After G2: no new features.** Only the Phase 3 stretch items and fixes.
 
@@ -169,7 +169,7 @@ moves the next unblocked task to whoever is free.
 Mark progress in your status file using these IDs.
 
 **C (Pera08):** F-C0 merge #31/#35, contract audit, chat + pins skeletons → F-C1 chat
-service → F-C2 pins + notes → F-C3 live Gemini check, G1/G2 runs → F-C4 eval report +
+service → F-C2 pins + notes → F-C3 live Claude check, G1/G2 runs → F-C4 eval report +
 latency → F-C5 installer + packaged smoke → F-C6 README/docs → tag.
 
 **d1 (Nika533):** F-D1-0 land #30, wiring PR (chat, pins, capture, Lens, bridge) → F-D1-1
@@ -210,8 +210,8 @@ pass + demo screenshots.
       `checks (ubuntu-latest)`, `checks (windows-latest)`, `e2e`, `ui-shots`; code-owner
       review; no bypass); secret scanning + push protection.
 - [x] Open and pin the "Finish plan" tracking issue (#49).
-- [ ] A Gemini API key (environment variable only) on C's machine and the demo machine.
-      Flash is enough; Argon needs a paid tier.
+- [ ] A Claude API key (`ANTHROPIC_API_KEY`, environment variable only) on C's machine and
+      the demo machine. Get one at [console.anthropic.com](https://console.anthropic.com/settings/keys).
 - [ ] Demo machine: Windows 11, Chrome, one 1080p+ monitor. Run the dev or unpacked build
       (Smart App Control can block an unsigned installer).
 - [x] C: set `git config user.email` to the GitHub noreply address.

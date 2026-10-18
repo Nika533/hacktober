@@ -68,9 +68,10 @@ const flush = async (): Promise<void> => {
 
 const SUMMON = DEFAULT_SETTINGS.summonHotkey
 const CAPTURE = DEFAULT_SETTINGS.captureHotkey
+const LENS = DEFAULT_SETTINGS.lensHotkey
 
 describe('createHotkeys', () => {
-  it('registers both accelerators and reports no errors', () => {
+  it('registers all three accelerators and reports no errors', () => {
     const store = makeStore()
     const shortcuts = fakeShortcuts()
     const hk = createHotkeys({
@@ -79,11 +80,70 @@ describe('createHotkeys', () => {
       enabled: true,
       onSummon: () => {},
       onCapture: () => {},
+      onLens: () => {},
       shortcuts
     })
     hk.apply()
-    expect([...shortcuts.registered.keys()].sort()).toEqual([CAPTURE, SUMMON].sort())
+    expect(LENS).toBe('CommandOrControl+Alt+L')
+    expect([...shortcuts.registered.keys()].sort()).toEqual([CAPTURE, LENS, SUMMON].sort())
     expect(store.get('settings').hotkeyErrors).toEqual([])
+  })
+
+  it('routes each accelerator to its own callback', () => {
+    const calls: string[] = []
+    const shortcuts = fakeShortcuts()
+    createHotkeys({
+      store: makeStore(),
+      log,
+      enabled: true,
+      onSummon: () => calls.push('summon'),
+      onCapture: () => calls.push('capture'),
+      onLens: () => calls.push('lens'),
+      shortcuts
+    }).apply()
+    for (const acc of [LENS, SUMMON, CAPTURE]) shortcuts.registered.get(acc)?.()
+    expect(calls).toEqual(['lens', 'summon', 'capture'])
+  })
+
+  it('reports a taken Lens hotkey on the lensHotkey row', () => {
+    const store = makeStore()
+    const shortcuts = fakeShortcuts([LENS])
+    createHotkeys({
+      store,
+      log,
+      enabled: true,
+      onSummon: () => {},
+      onCapture: () => {},
+      onLens: () => {},
+      shortcuts
+    }).apply()
+    expect(store.get('settings').hotkeyErrors).toEqual([
+      {
+        which: 'lensHotkey',
+        accelerator: LENS,
+        message: `"${LENS}" is already taken by another app`
+      }
+    ])
+    expect([...shortcuts.registered.keys()].sort()).toEqual([CAPTURE, SUMMON].sort())
+  })
+
+  it('re-applies when only the Lens hotkey changes', async () => {
+    const store = makeStore()
+    const shortcuts = fakeShortcuts()
+    createHotkeys({
+      store,
+      log,
+      enabled: true,
+      onSummon: () => {},
+      onCapture: () => {},
+      onLens: () => {},
+      shortcuts
+    }).apply()
+    const settings = store.get('settings').settings
+    store.update('settings', { settings: { ...settings, lensHotkey: 'Alt+Shift+E' } })
+    await flush()
+    expect(shortcuts.registered.has(LENS)).toBe(false)
+    expect(shortcuts.registered.has('Alt+Shift+E')).toBe(true)
   })
 
   it('reports a structured HotkeyError when a registration fails', () => {
@@ -95,6 +155,7 @@ describe('createHotkeys', () => {
       enabled: true,
       onSummon: () => {},
       onCapture: () => {},
+      onLens: () => {},
       shortcuts
     }).apply()
     expect(store.get('settings').hotkeyErrors).toEqual([
@@ -116,6 +177,7 @@ describe('createHotkeys', () => {
       enabled: true,
       onSummon: () => {},
       onCapture: () => {},
+      onLens: () => {},
       shortcuts
     })
     hk.apply()
@@ -136,6 +198,7 @@ describe('createHotkeys', () => {
       enabled: true,
       onSummon: () => {},
       onCapture: () => {},
+      onLens: () => {},
       shortcuts,
       timers
     })
@@ -144,7 +207,7 @@ describe('createHotkeys', () => {
     expect(shortcuts.registered.size).toBe(0)
     expect(timers.pending()).toBe(1)
     timers.fire() // 60 s elapsed
-    expect(shortcuts.registered.size).toBe(2)
+    expect(shortcuts.registered.size).toBe(3)
   })
 
   it('suspend(false) resumes immediately', () => {
@@ -156,13 +219,14 @@ describe('createHotkeys', () => {
       enabled: true,
       onSummon: () => {},
       onCapture: () => {},
+      onLens: () => {},
       shortcuts
     })
     hk.apply()
     hk.suspend(true, 7)
     expect(shortcuts.registered.size).toBe(0)
     hk.suspend(false)
-    expect(shortcuts.registered.size).toBe(2)
+    expect(shortcuts.registered.size).toBe(3)
   })
 
   it('settings changes during suspend apply on resume', () => {
@@ -175,6 +239,7 @@ describe('createHotkeys', () => {
       enabled: true,
       onSummon: () => {},
       onCapture: () => {},
+      onLens: () => {},
       shortcuts,
       timers
     })
@@ -184,7 +249,7 @@ describe('createHotkeys', () => {
     store.update('settings', { settings: { ...settings, summonHotkey: 'Ctrl+Shift+J' } })
     expect(shortcuts.registered.size).toBe(0)
     timers.fire()
-    expect([...shortcuts.registered.keys()].sort()).toEqual(['Ctrl+Shift+J', CAPTURE].sort())
+    expect([...shortcuts.registered.keys()].sort()).toEqual(['Ctrl+Shift+J', CAPTURE, LENS].sort())
   })
 
   it('enabled:false registers nothing and reports no errors', () => {
@@ -196,6 +261,7 @@ describe('createHotkeys', () => {
       enabled: false,
       onSummon: () => {},
       onCapture: () => {},
+      onLens: () => {},
       shortcuts
     }).apply()
     expect(shortcuts.registered.size).toBe(0)
@@ -211,6 +277,7 @@ describe('createHotkeys', () => {
       enabled: true,
       onSummon: () => {},
       onCapture: () => {},
+      onLens: () => {},
       shortcuts
     })
     hk.apply()

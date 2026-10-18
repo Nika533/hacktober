@@ -30,12 +30,18 @@ export interface Settings {
   model: ChatModelId
   summonHotkey: string
   captureHotkey: string
+  /** Lens anywhere: explain the text selected in any app. */
+  lensHotkey: string
   launchAtLogin: boolean
   saveHistory: boolean
   restorePins: boolean
   clipboardHint: boolean
   translateTo: string
   collapseToDotAfterMs: number
+  /** Voice chats: Hoot reads its answers aloud (off: it only listens). */
+  voiceReplies: boolean
+  /** Speaking speed, VOICE_RATES.min … max (0 is Windows' normal speed). */
+  voiceRate: number
   /** Managed by main (window placement); not renderer-editable. */
   pillAnchor: Point | null
   studioBounds: Rect | null
@@ -62,12 +68,15 @@ export const DEFAULT_SETTINGS: Settings = {
   model: DEFAULT_CHAT_MODEL,
   summonHotkey: 'CommandOrControl+Shift+Space',
   captureHotkey: 'CommandOrControl+Alt+Space',
+  lensHotkey: 'CommandOrControl+Alt+L',
   launchAtLogin: false,
   saveHistory: true,
   restorePins: true,
   clipboardHint: true,
   translateTo: 'English',
   collapseToDotAfterMs: 5000,
+  voiceReplies: true,
+  voiceRate: 1,
   pillAnchor: null,
   studioBounds: null,
   onboardingDone: false,
@@ -90,11 +99,14 @@ export type SettingsPatch = Partial<
     | 'model'
     | 'summonHotkey'
     | 'captureHotkey'
+    | 'lensHotkey'
     | 'launchAtLogin'
     | 'saveHistory'
     | 'restorePins'
     | 'clipboardHint'
     | 'translateTo'
     | 'collapseToDotAfterMs'
+    | 'voiceReplies'
+    | 'voiceRate'
   >
 > & { lens?: LensSettingsPatch }

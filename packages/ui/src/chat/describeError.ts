@@ -23,43 +23,42 @@ export function describeChatError(raw: AiErrorCode | string | undefined): ChatEr
     case 'no_key':
       return {
         code,
-        message: 'Hoot needs a Gemini API key before it can answer.',
+        message: 'Hoot needs a Claude API key before it can answer.',
         action: 'add-key',
         actionLabel: 'Add API key'
       }
     case 'auth':
       return {
         code,
-        message:
-          'Google rejected the API key. Check it in Settings. Argon also needs a paid-tier key.',
+        message: 'Anthropic rejected the API key. Check it in Settings.',
         action: 'open-settings',
         actionLabel: 'Open Settings'
       }
     case 'rate_limited':
       return {
         code,
-        message: 'Gemini’s rate limit was reached. Wait a moment, then retry.',
+        message: 'Claude’s rate limit was reached. Wait a moment, then retry.',
         action: 'retry',
         actionLabel: 'Retry'
       }
     case 'busy':
       return {
         code,
-        message: 'Gemini is busy right now. Retry in a few seconds.',
+        message: 'Claude is busy right now. Retry in a few seconds.',
         action: 'retry',
         actionLabel: 'Retry'
       }
     case 'network':
       return {
         code,
-        message: 'Hoot couldn’t reach Gemini. Check your connection, then retry.',
+        message: 'Hoot couldn’t reach Claude. Check your connection, then retry.',
         action: 'retry',
         actionLabel: 'Retry'
       }
     case 'blocked':
       return {
         code,
-        message: 'Gemini declined to answer this. Try asking in a different way.',
+        message: 'Claude declined to answer this. Try asking in a different way.',
         action: null,
         actionLabel: null
       }

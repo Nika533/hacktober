@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { groupSessions } from '../src/chat/sessions'
 import type { SessionMeta } from '../src/types/chat'
 
@@ -53,5 +53,29 @@ describe('groupSessions', () => {
 
   it('empty input → no groups', () => {
     expect(groupSessions([], NOW)).toEqual([])
+  })
+})
+
+describe('groupSessions across a daylight-saving change', () => {
+  const originalTz = process.env['TZ']
+  afterEach(() => {
+    if (originalTz === undefined) delete process.env['TZ']
+    else process.env['TZ'] = originalTz
+  })
+
+  it('a 23-hour day: late the evening before yesterday is not Yesterday', () => {
+    // New York sprang forward on Sunday 9 March 2025, so it lasted 23 hours.
+    process.env['TZ'] = 'America/New_York'
+    const now = new Date(2025, 2, 10, 12)
+    const g = groupSessions([meta('sat-late', new Date(2025, 2, 8, 23, 30).getTime())], now)
+    expect(g.map((x) => x.label)).toEqual(['Previous 7 days'])
+  })
+
+  it('a 25-hour day: just after midnight yesterday is Yesterday', () => {
+    // New York fell back on Sunday 2 November 2025, so it lasted 25 hours.
+    process.env['TZ'] = 'America/New_York'
+    const now = new Date(2025, 10, 3, 12)
+    const g = groupSessions([meta('sun-early', new Date(2025, 10, 2, 0, 30).getTime())], now)
+    expect(g.map((x) => x.label)).toEqual(['Yesterday'])
   })
 })

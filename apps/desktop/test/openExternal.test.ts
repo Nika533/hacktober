@@ -3,7 +3,7 @@ import { isAllowedExternal } from '../src/main/ipc/app'
 
 describe('isAllowedExternal', () => {
   it('allows any http(s) URL (links in model answers open through here)', () => {
-    expect(isAllowedExternal('https://aistudio.google.com/keys')).toBe(true)
+    expect(isAllowedExternal('https://console.anthropic.com/settings/keys')).toBe(true)
     expect(isAllowedExternal('https://github.com/Nika533/hacktober')).toBe(true)
     expect(isAllowedExternal('https://en.wikipedia.org/wiki/Owl')).toBe(true)
     expect(isAllowedExternal('http://example.com/plain')).toBe(true)

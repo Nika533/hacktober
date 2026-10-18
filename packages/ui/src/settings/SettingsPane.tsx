@@ -15,7 +15,7 @@ import { Switch } from '../components/Switch'
 import { TextField } from '../components/TextField'
 import { useToast } from '../components/toastContext'
 import { ApiKeyField } from './ApiKeyField'
-import { ShortcutFields } from './ShortcutFields'
+import { ShortcutFields, type ShortcutFieldsProps } from './ShortcutFields'
 import { SettingsGroup as Group } from './SettingsGroup'
 
 export interface SettingsPaneProps {
@@ -23,7 +23,7 @@ export interface SettingsPaneProps {
   hasApiKey: boolean
   keyStorage: 'os-encrypted' | 'memory'
   /** Registration problems per shortcut, already turned into sentences by the host. */
-  hotkeyErrors?: { summonHotkey?: string; captureHotkey?: string }
+  hotkeyErrors?: ShortcutFieldsProps['errors']
   /** App version for the About line. */
   version?: string
   onUpdate: (patch: SettingsPatch) => void
@@ -64,7 +64,6 @@ export function SettingsPane({
   const confirm = useConfirm()
   const toast = useToast()
   const [translateTo, setTranslateTo] = useState(s.translateTo)
-  const paid = CHAT_MODELS.find((m) => m.id === s.model)?.paidOnly ?? false
 
   const commitTranslate = (): void => {
     const v = translateTo.trim()
@@ -117,16 +116,10 @@ export function SettingsPane({
             hideLabel
             value={s.model}
             onChange={(model) => onUpdate({ model })}
-            options={CHAT_MODELS.map((m) => ({
-              value: m.id,
-              label: m.label,
-              hint: m.paidOnly ? 'paid tier' : m.sub
-            }))}
+            options={CHAT_MODELS.map((m) => ({ value: m.id, label: m.label, hint: m.sub }))}
           />
           <p className="hoot-settings__note">
-            {paid
-              ? 'Argon needs a paid-tier Gemini key. With a free key, answers fail with “Google rejected the API key”.'
-              : 'Flash is a good default. Flash-Lite answers fastest; Argon is the smartest but needs a paid-tier key.'}
+            Sonnet is a good default. Haiku answers fastest; Opus is the smartest.
           </p>
         </Group>
 
@@ -134,6 +127,7 @@ export function SettingsPane({
           <ShortcutFields
             summonHotkey={s.summonHotkey}
             captureHotkey={s.captureHotkey}
+            lensHotkey={s.lensHotkey}
             errors={hotkeyErrors}
             onUpdate={onUpdate}
             onRecordingChange={onRecordingChange}

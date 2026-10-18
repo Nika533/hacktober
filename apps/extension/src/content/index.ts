@@ -4,6 +4,7 @@
  */
 import { UI_TAG, createLens, type Lens } from '@hoot/lens-dom'
 import { ExtensionBackend } from './backend'
+import { listenForPageLink } from './pageLink'
 import { installSalt, pageHost, pageOrigin, pageSite, urlHash } from './page'
 
 const LOADED = Symbol.for('hoot.lens.content')
@@ -13,6 +14,8 @@ type Scope = typeof globalThis & { [LOADED]?: Lens }
 async function main(): Promise<void> {
   const scope = globalThis as Scope
   if (scope[LOADED] || document.contentType !== 'text/html' || !document.documentElement) return
+  // The page link (Hoot reads the page when asked, highlights passages): top frame only.
+  if (window.top === window) listenForPageLink(chrome.runtime, document, window)
   const backend = new ExtensionBackend(chrome.runtime)
   const origin = pageOrigin(location, globalThis.origin)
   const lens: Lens = createLens({

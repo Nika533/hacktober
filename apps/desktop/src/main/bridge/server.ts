@@ -5,10 +5,9 @@ import { dirname } from 'node:path'
 import {
   FrameDecoder,
   FrameError,
-  allowedExtensionIds,
+  allowedBridgeOrigins,
   bridgeTokenPath,
   encodeFrame,
-  extensionOrigin,
   type AppToExt,
   type BridgeEnv,
   type BridgeStatus,
@@ -20,6 +19,7 @@ import { BridgeAuthSchema } from '@hoot/core/schemas'
 import { createBridgeConnection, type BridgeApp, type BridgeConnection } from '@hoot/bridge'
 import { WebSocketServer } from 'ws'
 import type { LensService } from '../lens'
+import type { PageService } from '../page'
 
 export interface BridgeServerDeps {
   lens: LensService
@@ -37,6 +37,9 @@ export interface BridgeServerDeps {
   patchLensSettings(patch: LensSettingsPatch): Promise<LensSettings>
   /** HOOT_DEV_BRIDGE=1: also accept the protocol on a local WebSocket. */
   devWebSocket?: { port: number; pairingCode: string } | null
+  /** The page link: every connection is offered to it (VS Code's simply never speaks it). */
+  pages?: Pick<PageService, 'connect'>
+
   /** → the `lens` state slice */
   onStatus?(status: { bridge: BridgeStatus; clients: number; lastError: string | null }): void
   log?(message: string): void
@@ -88,14 +91,16 @@ function isLive(path: string): Promise<boolean> {
 
 /**
  * The app side of the extension bridge (hoot-lens.md §10, C-20). hoot-bridge
- * connects on the named pipe and must open with `bridge.auth` (token +
- * allowed extension origin); after that each connection speaks the protocol
- * through `createBridgeConnection`. Nothing binds until `start()`.
+ * and the VS Code extension connect on the named pipe and must open with
+ * `bridge.auth` (token + an `allowedBridgeOrigins()` origin); after that each
+ * connection speaks the protocol through `createBridgeConnection`. Nothing
+ * binds until `start()`.
  */
 export function createBridgeServer(deps: BridgeServerDeps): BridgeServer {
   const log = deps.log ?? (() => {})
   const tokenPath = bridgeTokenPath(deps.platform, deps.env)
   const conns = new Set<BridgeConnection>()
+  const pageLinks = new Map<BridgeConnection, { disconnect(): void }>()
   const sockets = new Set<{ destroy(): void }>()
   let token = ''
   let pipe: net.Server | null = null
@@ -127,14 +132,26 @@ export function createBridgeServer(deps: BridgeServerDeps): BridgeServer {
   }
 
   const attach = (send: (m: AppToExt) => void): BridgeConnection => {
+    let link: ReturnType<PageService['connect']> | null = null
     const conn = createBridgeConnection({
       app,
       send,
       onError: (e) => {
         lastError = e instanceof Error ? e.message : String(e)
         log(`bridge: ${lastError}`)
+      },
+      page: deps.pages && {
+        focus: (focused, page) => link?.hooks.focus(focused, page),
+        ask: async (text, voice, snapshot) => link?.hooks.ask(text, voice, snapshot)
       }
     })
+    link =
+      deps.pages?.connect({
+        browser: () => conn.browser,
+        read: (ms) => conn.readPage(ms),
+        mark: (tab, marks) => conn.pushMarks(tab, marks)
+      }) ?? null
+    if (link) pageLinks.set(conn, link)
     conns.add(conn)
     status()
     return conn
@@ -144,6 +161,8 @@ export function createBridgeServer(deps: BridgeServerDeps): BridgeServer {
     if (!conn) return
     conn.close()
     conns.delete(conn)
+    pageLinks.get(conn)?.disconnect()
+    pageLinks.delete(conn)
     status()
   }
 
@@ -173,9 +192,7 @@ export function createBridgeServer(deps: BridgeServerDeps): BridgeServer {
           continue
         }
         const auth = BridgeAuthSchema.safeParse(frame)
-        const originOk =
-          auth.success &&
-          allowedExtensionIds().some((id) => extensionOrigin(id) === auth.data.origin)
+        const originOk = auth.success && allowedBridgeOrigins().includes(auth.data.origin)
         if (!auth.success || !sameToken(auth.data.token, token) || !originOk) {
           clearTimeout(authTimer)
           refuse(
@@ -274,6 +291,8 @@ export function createBridgeServer(deps: BridgeServerDeps): BridgeServer {
       unsubscribeProfile = null
       for (const c of conns) c.close()
       conns.clear()
+      for (const l of pageLinks.values()) l.disconnect()
+      pageLinks.clear()
       for (const s of sockets) s.destroy()
       sockets.clear()
       const closing: Promise<void>[] = []

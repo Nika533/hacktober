@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
+  DEFAULT_CHAT_MODEL,
   DEFAULT_LENS_SETTINGS,
-  LENS_MODELS,
   TRANSFORMS,
   countWords,
   invariantsHold,
@@ -16,7 +16,7 @@ import { createLensService, createMemoryLensStorage } from '../src/main/lens'
 
 /**
  * Rewrite-quality evals (hoot-lens.md §13, C-31). Each case runs through
- * the real LensService (prompts, Gemini, guardrails); results are scored by
+ * the real LensService (prompts, Claude, guardrails); results are scored by
  * cheap local checks and a model-graded rubric, then compared with a
  * baseline so prompt or model changes can't silently regress.
  */
@@ -252,7 +252,8 @@ export async function runEval(opts: {
     getProvider: async () => opts.provider,
     fake: opts.fake
   })
-  const graderModel = opts.graderModel ?? LENS_MODELS.rewriteStrong
+  // The grader is the stronger model, not the one that wrote the rewrites.
+  const graderModel = opts.graderModel ?? DEFAULT_CHAT_MODEL
   const results: CaseResult[] = []
   for (const c of opts.cases) {
     const started = Date.now()
@@ -319,7 +320,7 @@ export function reportMarkdown(run: EvalRun, failures: string[]): string {
     '',
     failures.length ? `**FAILED**: ${failures.join('; ')}` : '**Passed** every gate.',
     '',
-    `Grader: ${run.graderModel === null ? 'fake' : `\`${run.graderModel ?? LENS_MODELS.rewriteStrong}\``}`,
+    `Grader: ${run.graderModel === null ? 'fake' : `\`${run.graderModel ?? DEFAULT_CHAT_MODEL}\``}`,
     '',
     '| Metric | Value |',
     '|---|---|',

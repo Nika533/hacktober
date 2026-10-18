@@ -37,6 +37,12 @@ export interface ConnectionSource {
   onStatus(cb: (status: BridgeStatus) => void): () => void
 }
 
+/** The page link switch (chrome.storage in the extension). */
+export interface PageLinkSetting {
+  get(): Promise<boolean>
+  set(on: boolean): Promise<void>
+}
+
 const CONNECTION: Record<BridgeState, { text: string; help?: string; tone: string }> = {
   idle: { text: 'Connecting to Hoot…', tone: 'pending' },
   connecting: { text: 'Connecting to Hoot…', tone: 'pending' },
@@ -79,10 +85,12 @@ const RULES: SegmentedOption<SiteRule>[] = [
 /** The extension's options page: Lens on/off, mode and the per-site rules (spec §5.6). */
 export function OptionsApp({
   source,
-  connection
+  connection,
+  pageLink
 }: {
   source: SettingsSource
   connection?: ConnectionSource
+  pageLink?: PageLinkSetting
 }): React.JSX.Element {
   const toast = useToast()
   const [settings, setSettings] = useState<LensSettings | null>(null)
@@ -136,6 +144,7 @@ export function OptionsApp({
         </div>
       </header>
       {connection && <Connection source={connection} />}
+      {pageLink && <PageLinkGroup setting={pageLink} />}
       {failed ? (
         <div role="alert" className="hoot-options__error">
           <p className="hoot-t-body">Couldn’t load your Lens settings.</p>
@@ -224,6 +233,31 @@ function Connection({ source }: { source: ConnectionSource }): React.JSX.Element
           </Button>
         </div>
       )}
+    </Group>
+  )
+}
+
+function PageLinkGroup({ setting }: { setting: PageLinkSetting }): React.JSX.Element {
+  const toast = useToast()
+  const [on, setOn] = useState<boolean | null>(null)
+  useEffect(() => {
+    void setting.get().then(setOn, () => setOn(true))
+  }, [setting])
+  return (
+    <Group title="Hoot reads the page">
+      <Switch
+        label="Let Hoot read the page you’re on"
+        description="When you chat with Hoot right after reading a page, or ask from the toolbar button, Hoot reads that page as text and can highlight passages on it. Banking, email, chat, password pages and sites set to Never are never read."
+        checked={on ?? true}
+        disabled={on === null}
+        onChange={(next) => {
+          setOn(next)
+          void setting.set(next).catch(() => {
+            setOn(!next)
+            toast.show({ message: 'Couldn’t save that change. Try again.', tone: 'danger' })
+          })
+        }}
+      />
     </Group>
   )
 }

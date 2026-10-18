@@ -1,7 +1,7 @@
 # Hoot
 
 **Hoot is an AI desktop buddy for Windows**: a little owl in your tray that
-floats on screen. Summon it, circle anything on your screen, and ask Gemini
+floats on screen. Summon it, circle anything on your screen, and ask Claude
 about it. It grows from a dot to a pill, a chat card and a full Studio.
 
 **Hoot Lens** is Hoot's reading aid. Select text you don't understand on a web
@@ -22,14 +22,15 @@ cd hacktober
 npm.cmd ci                                       # 1. install
 npm.cmd run build                                # 2. build every package, the app and the extension
 npm.cmd run register-host -w @hoot/bridge        # 3. let Chrome and Edge find the app
-$env:GEMINI_API_KEY = "<your key>"               # 4. optional: or paste it in onboarding
+$env:ANTHROPIC_API_KEY = "<your key>"            # 4. optional: or paste it in onboarding
 npm.cmd run dev                                  # 5. run Hoot
 ```
 
 6. Load the extension: open `chrome://extensions` (or `edge://extensions`), turn on
    **Developer mode**, choose **Load unpacked** and pick `apps\extension\dist`.
 
-Get a Gemini key at https://aistudio.google.com/apikey. Flash is enough.
+Get a Claude API key (it starts with `sk-ant-`) at
+[console.anthropic.com](https://console.anthropic.com/settings/keys).
 
 ### Offline fallback
 
@@ -51,7 +52,7 @@ block unsigned installers; the dev build above always works.
 
 ## Demo script
 
-1. Fresh install: onboarding asks for a **Gemini** key, then `Ctrl+Shift+Space`
+1. Fresh install: onboarding asks for a **Claude** key, then `Ctrl+Shift+Space`
    summons the owl.
 2. `Ctrl+Alt+Space`: circle a chart, choose **Explain**. The answer streams; pin
    it as a sticky note.
@@ -81,13 +82,13 @@ flowchart LR
     win["Windows<br/>Buddy, Studio, Reader,<br/>sticky notes, capture overlay"]
     main <-- "HootApi IPC, state patches,<br/>chat deltas" --> win
   end
-  gemini[("Google Gemini API")]
+  claude[("Anthropic Claude API")]
   sw <-- "stdio frames" --> host
   host <-- "named pipe + per-launch token" --> main
-  main -- "HTTPS, your key" --> gemini
+  main -- "HTTPS, your key" --> claude
 ```
 
-- **One brain:** the Lens engine, the reading profile and the Gemini key live in
+- **One brain:** the Lens engine, the reading profile and the Claude key live in
   the app's main process. The extension and the Reader are thin clients.
 - **One state:** main owns every state slice and pushes patches to the windows
   that subscribe to them. Renderers never write state directly.
@@ -112,16 +113,16 @@ flowchart LR
 | `npm.cmd test` | Unit tests (all packages) |
 | `npm.cmd run typecheck`, `npm.cmd run lint` | Type and lint checks |
 | `npm.cmd run e2e:desktop`, `npm.cmd run e2e:extension` | End-to-end tests on the fakes |
-| `npm.cmd run test:live` | Live Gemini checks (needs `GEMINI_API_KEY`) |
+| `npm.cmd run test:live` | Live Claude checks (needs `ANTHROPIC_API_KEY`) |
 | `npm.cmd run smoke:packaged` | Packaged smoke test (after `npm.cmd run build:unpack -w @hoot/desktop`) |
 
 ## Privacy
 
 Chats, captures, pins, settings and the Lens reading profile are stored
-**locally** under `%APPDATA%\Hoot`. The Gemini API key is encrypted at rest with
+**locally** under `%APPDATA%\Hoot`. The Claude API key is encrypted at rest with
 Windows DPAPI (Electron `safeStorage`) and never leaves the app.
 
-Text and images go to Google's Gemini API **only** when you send a message, or,
+Text and images go to Anthropic's Claude API **only** when you send a message, or,
 with Lens turned on, for text you select. Lens sends the selection, its
 paragraph, the page title and headings, and a short summary of your reading
 profile (terms on that page you know or find hard, your languages and style).
@@ -129,12 +130,7 @@ In Ask first mode nothing is sent until you click the chip. In Auto mode a
 selection may first be sent to check whether it needs help. Lens never runs on
 banking, health, email, password and private pages.
 
-**What Google does with it depends on your key** ([Gemini API
-terms](https://ai.google.dev/gemini-api/terms)):
-
-- **Free key:** Google may use what's sent to improve its products, and people
-  at Google may read it. Don't use Hoot on confidential material with a free key.
-- **Billing turned on:** Google doesn't use it for that, and logs requests only
-  for a limited time to detect abuse. In the EEA, Switzerland and the UK these
-  paid terms apply to every key.
-- Gemini API keys are for people **18 and over**.
+**What Anthropic does with it:** Anthropic doesn't train its models on what Hoot
+sends with your API key, and deletes it within 30 days (longer only if it's
+flagged under Anthropic's Usage Policy). See
+[Anthropic's terms](https://www.anthropic.com/legal/commercial-terms).

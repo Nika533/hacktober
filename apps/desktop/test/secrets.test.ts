@@ -23,7 +23,7 @@ let file: string
 
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), 'hoot-secrets-'))
-  file = join(dir, 'gemini-key.bin')
+  file = join(dir, 'claude-key.bin')
 })
 
 afterEach(async () => {
@@ -104,7 +104,7 @@ describe('SecretStore', () => {
     await store.load()
     expect(store.get()).toBeNull()
     expect(store.source).toBe('none')
-    const backups = (await readdir(dir)).filter((f) => f.startsWith('gemini-key.corrupt-'))
+    const backups = (await readdir(dir)).filter((f) => f.startsWith('claude-key.corrupt-'))
     expect(backups.length).toBe(1)
     expect(backups[0]).toMatch(/\.bin$/)
   })

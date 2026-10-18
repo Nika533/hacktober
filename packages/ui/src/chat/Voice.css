@@ -1,0 +1,134 @@
+/* ---- the mic ---- */
+.hoot-voice-btn {
+  position: relative;
+  isolation: isolate;
+}
+/* The ring follows the microphone level, 1:1 (no easing beyond one frame). */
+.hoot-voice-btn::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: -3px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-subtle);
+  opacity: 0;
+  transform: scale(1);
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    transform 90ms linear;
+  pointer-events: none;
+}
+.hoot-voice-btn[data-phase='listening']::before {
+  opacity: calc(0.6 + 0.4 * var(--hoot-voice-level, 0));
+  transform: scale(calc(1 + 0.55 * var(--hoot-voice-level, 0) * var(--motion, 1)));
+}
+.hoot-voice-btn[data-phase='speaking'],
+.hoot-voice-btn[data-phase='thinking'] {
+  color: var(--accent-text);
+}
+.hoot-voice-btn[data-phase='speaking']::before,
+.hoot-voice-btn[data-phase='thinking']::before {
+  opacity: 1;
+}
+.hoot-voice-btn[data-phase='starting'] > svg {
+  animation: hoot-voice-wait 1.2s var(--ease-out) infinite alternate;
+}
+@keyframes hoot-voice-wait {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.35;
+  }
+}
+
+/* ---- the status line above the composer ---- */
+.hoot-voice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2rem;
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-2-5);
+  border-radius: var(--radius-md);
+  background: var(--accent-subtle);
+  color: var(--text-1);
+}
+.hoot-voice--problem {
+  background: var(--danger-subtle);
+}
+.hoot-voice__text {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+.hoot-voice__text--heard {
+  color: var(--text-1);
+}
+.hoot-voice--problem .hoot-voice__text {
+  color: var(--text-1);
+}
+.hoot-voice__meter {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 0.875rem;
+  flex: none;
+}
+.hoot-voice__meter > span {
+  width: 3px;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--accent-text);
+  transform-origin: center;
+  transform: scaleY(0.3);
+  transition: transform 90ms linear;
+}
+.hoot-voice[data-phase='listening'] .hoot-voice__meter > span {
+  transform: scaleY(calc(0.3 + 0.7 * var(--hoot-voice-level, 0)));
+}
+.hoot-voice[data-phase='listening'] .hoot-voice__meter > span:nth-child(2) {
+  transform: scaleY(calc(0.3 + 0.7 * min(1, var(--hoot-voice-level, 0) * 1.5)));
+}
+.hoot-voice[data-phase='speaking'] .hoot-voice__meter > span {
+  animation: hoot-voice-talk 0.9s var(--ease-out) infinite alternate;
+}
+.hoot-voice[data-phase='speaking'] .hoot-voice__meter > span:nth-child(2) {
+  animation-delay: -0.3s;
+}
+.hoot-voice[data-phase='speaking'] .hoot-voice__meter > span:nth-child(3) {
+  animation-delay: -0.6s;
+}
+@keyframes hoot-voice-talk {
+  from {
+    transform: scaleY(0.3);
+  }
+  to {
+    transform: scaleY(0.9);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hoot-voice-btn[data-phase='starting'] > svg,
+  .hoot-voice[data-phase='speaking'] .hoot-voice__meter > span {
+    animation: none;
+  }
+  .hoot-voice[data-phase='speaking'] .hoot-voice__meter > span {
+    transform: scaleY(0.6);
+  }
+}
+
+@media (forced-colors: active) {
+  .hoot-voice {
+    border: 1px solid CanvasText;
+  }
+  .hoot-voice__meter > span {
+    background: Highlight;
+  }
+  .hoot-voice-btn[data-phase='listening']::before {
+    outline: 2px solid Highlight;
+  }
+}

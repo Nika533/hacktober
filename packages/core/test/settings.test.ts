@@ -37,6 +37,7 @@ describe('migrateSettings', () => {
     expect(s.translateTo).toBe('German')
     expect(s.pillAnchor).toEqual({ x: 10, y: 20 })
     expect(s.onboardingDone).toBe(true)
+    expect(s.lensHotkey).toBe('CommandOrControl+Alt+L')
     expect(s.lens).toEqual(DEFAULT_SETTINGS.lens)
     expect(SettingsSchema.safeParse(s).success).toBe(true)
   })
@@ -54,6 +55,28 @@ describe('migrateSettings', () => {
     expect(s.lens.enabled).toBe(true)
   })
 
+  it('moves a saved Gemini model to the Claude model with the same role', () => {
+    expect(migrateSettings({ ...DEFAULT_SETTINGS, model: 'gemini-3.5-flash-lite' }).model).toBe(
+      'claude-haiku-5-5'
+    )
+    expect(migrateSettings({ ...DEFAULT_SETTINGS, model: 'gemini-4-argon' }).model).toBe(
+      'claude-opus-5-5'
+    )
+    expect(migrateSettings({ ...DEFAULT_SETTINGS, model: 'claude-3-opus' }).model).toBe(
+      'claude-sonnet-5-5'
+    )
+  })
+
+  it('gives a v2 file from before Lens anywhere the default Lens hotkey, and keeps a saved one', () => {
+    const before: Record<string, unknown> = { ...DEFAULT_SETTINGS }
+    delete before.lensHotkey
+    expect(migrateSettings(before).lensHotkey).toBe(DEFAULT_SETTINGS.lensHotkey)
+    expect(migrateSettings({ ...before, lensHotkey: '' }).lensHotkey).toBe(
+      DEFAULT_SETTINGS.lensHotkey
+    )
+    expect(migrateSettings({ ...before, lensHotkey: 'Alt+Shift+E' }).lensHotkey).toBe('Alt+Shift+E')
+  })
+
   it('drops unknown keys', () => {
     const s = migrateSettings({ ...DEFAULT_SETTINGS, evil: true }) as unknown as Record<
       string,
@@ -66,7 +89,8 @@ describe('migrateSettings', () => {
 describe('SettingsPatchSchema', () => {
   it('accepts user-editable fields and nested lens changes', () => {
     const r = SettingsPatchSchema.safeParse({
-      model: 'gemini-4-argon',
+      model: 'claude-opus-5-5',
+      lensHotkey: 'CommandOrControl+Shift+L',
       lens: { mode: 'ask', sites: { 'example.com': 'paused', 'old.org': null } }
     })
     expect(r.success).toBe(true)
@@ -78,7 +102,7 @@ describe('SettingsPatchSchema', () => {
       { pillAnchor: { x: 1, y: 2 } },
       { schemaVersion: 3 },
       { lens: { surprise: 1 } },
-      { model: 'claude-opus-5-5' },
+      { model: 'gemini-4-argon' },
       { lens: { sites: { '../etc': 'never' } } }
     ]) {
       expect(SettingsPatchSchema.safeParse(bad).success, JSON.stringify(bad)).toBe(false)

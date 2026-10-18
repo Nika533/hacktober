@@ -35,7 +35,9 @@ export default defineConfig({
           studio: resolve('src/renderer/studio.html'),
           capture: resolve('src/renderer/capture.html'),
           note: resolve('src/renderer/note.html'),
-          reader: resolve('src/renderer/reader.html')
+          reader: resolve('src/renderer/reader.html'),
+          anywhere: resolve('src/renderer/anywhere.html'),
+          agent: resolve('src/renderer/agent.html')
         }
       }
     }

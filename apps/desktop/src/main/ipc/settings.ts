@@ -1,18 +1,18 @@
 import { app } from 'electron'
 import type { ApiKeyResult, SettingsPatch } from '@hoot/core'
 import { applySettingsPatch } from '@hoot/core/schemas'
-import { createGeminiProvider, mapAiError } from '../ai'
+import { createAiProvider, mapAiError } from '../ai'
 import type { AppContext } from '../context'
 import { loginItemArgs } from '../login'
 import type { SecretStore } from '../secrets'
 import type { Store } from '../store/store'
 import { handleInvoke } from './handle'
 
-/** Validate a key against Gemini (or accept obviously-fake keys under HOOT_FAKE_AI). */
+/** Validate a key against Anthropic (or accept obviously-fake keys under HOOT_FAKE_AI). */
 export function makeValidator(env: { fakeAi: boolean }): (key: string) => Promise<boolean> {
   return env.fakeAi
     ? async (key) => key.startsWith('fake-') || key.length >= 8
-    : (key) => createGeminiProvider(key).validateKey(key)
+    : (key) => createAiProvider(key).validateKey(key)
 }
 
 /** Pure-ish handler bodies (injected deps) so tests never import Electron. */

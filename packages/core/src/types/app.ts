@@ -46,6 +46,31 @@ export interface OverlayInit {
   mode: CaptureMode
   accentColor: string
   pendingCount: number
+  /**
+   * Live overlay: where the owl sits on this display (overlay-local DIP), so
+   * a minimized chat can shrink into it; absent when it's on another display.
+   */
+  owlAt?: Point | null
+  /**
+   * Live overlay: the current shape is over VS Code (or VS Code was in front
+   * when it opened), so Hoot reads the code from the editor instead of
+   * grabbing the screen (`name`: the workspace). Pull again after a commit.
+   */
+  code?: { name: string } | null
+  /**
+   * Live overlay: the current shape is over a browser with the Hoot extension
+   * (or one was in front when it opened), so each message also carries that
+   * page as text (`title`: the tab).
+   */
+  page?: { title: string } | null
+}
+
+/** Live overlay: a minimized chat comes back out of the owl. */
+export interface OverlayRestore {
+  /** Where the owl is now (overlay-local DIP), or null when it isn't on this display. */
+  owlAt: Point | null
+  /** Restored by "circle something": go straight back to drawing. */
+  draw: boolean
 }
 
 export type OverlayCommit =

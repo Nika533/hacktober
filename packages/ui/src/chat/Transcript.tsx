@@ -1,5 +1,5 @@
 import { useReducedMotion } from 'motion/react'
-import { ArrowDown, Check, Copy, Pin, RotateCcw } from 'lucide-react'
+import { ArrowDown, Check, Copy, Pin, RotateCcw, Volume2 } from 'lucide-react'
 import {
   useCallback,
   useEffect,
@@ -27,11 +27,15 @@ export interface TranscriptProps {
   onRegenerate?: () => void
   /** Pin an answer as a sticky note. */
   onPin?: (messageId: string) => void
+  /** Read an answer aloud. */
+  onSpeak?: (messageId: string) => void
   onAddKey?: () => void
   onOpenSettings?: () => void
   /** Copy for messages and code blocks; defaults to the Clipboard API. */
   onCopy?: CopyFn
   onOpenLink?: (href: string) => void
+  /** Shown under a finished answer, above its actions (e.g. its changes in VS Code). */
+  answerFooter?: (messageId: string) => ReactNode
   /** Shown when there are no messages. */
   empty?: ReactNode
   /** Accessible name of the scroll region. */
@@ -53,10 +57,12 @@ export function Transcript({
   onRetry,
   onRegenerate,
   onPin,
+  onSpeak,
   onAddKey,
   onOpenSettings,
   onCopy = copyText,
   onOpenLink,
+  answerFooter,
   empty,
   label = 'Conversation',
   className
@@ -178,6 +184,7 @@ export function Transcript({
                     {m.text && <Markdown text={m.text} onCopy={mdCopy} onOpenLink={mdOpenLink} />}
                     {!m.text && m.status === 'streaming' && <Thinking />}
                     {m.status === 'stopped' && <p className="hoot-msg__note">Stopped</p>}
+                    {m.status !== 'streaming' && m.status !== 'error' && answerFooter?.(m.id)}
                     {m.status === 'error' && (
                       <ErrorBody
                         code={m.error}
@@ -195,6 +202,11 @@ export function Transcript({
                             onClick={() => copy(m)}
                           >
                             {copiedId === m.id ? <Check /> : <Copy />}
+                          </IconButton>
+                        )}
+                        {onSpeak && m.text && (
+                          <IconButton size="sm" label="Read aloud" onClick={() => onSpeak(m.id)}>
+                            <Volume2 />
                           </IconButton>
                         )}
                         {onPin && m.text && (

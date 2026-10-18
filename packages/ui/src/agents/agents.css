@@ -1,0 +1,157 @@
+/*
+ * An agent's window: transparent and frameless, holding its chat card (with
+ * room for the shadow) or, minimized, just its owl. The owl sits at the same
+ * window spot either way (AGENT_OWL_AT), so it never jumps.
+ */
+.hoot-agent {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+/* Each agent's colour (its owl's plumage), for the touches that say whose window this is. */
+.hoot-agent[data-color='blue'] {
+  --agent-tint: #4a7cc4;
+}
+.hoot-agent[data-color='green'] {
+  --agent-tint: #4f9a68;
+}
+.hoot-agent[data-color='purple'] {
+  --agent-tint: #8a66c7;
+}
+.hoot-agent[data-color='pink'] {
+  --agent-tint: #cf6a93;
+}
+.hoot-agent[data-color='teal'] {
+  --agent-tint: #3a9a9a;
+}
+.hoot-agent[data-color='slate'] {
+  --agent-tint: #6b7a90;
+}
+
+/* ---- the minimized owl: a drag handle, a click opens the card ---- */
+.hoot-agent-owl {
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  box-shadow: var(--shadow-2);
+  cursor: grab;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.hoot-agent-owl:active {
+  cursor: grabbing;
+}
+.hoot-agent-owl .hoot-owl {
+  pointer-events: none;
+}
+.hoot-agent-owl__badge {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--agent-tint, var(--accent));
+  box-shadow: 0 0 0 2px var(--surface-base);
+}
+
+/* ---- the card ---- */
+.hoot-agent-card {
+  position: absolute;
+  inset: 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hoot-agent-card__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 48px;
+  flex: 0 0 auto;
+  /* The owl's centre lands on AGENT_OWL_AT: 8px card inset + 8px + half its 32px. */
+  padding-inline: 8px var(--space-2);
+  border-bottom: 1px solid color-mix(in srgb, var(--agent-tint, var(--accent)) 28%, transparent);
+  -webkit-app-region: drag;
+}
+.hoot-agent-card__owl {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+}
+.hoot-agent-card__heading {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.hoot-agent-card__title {
+  margin: 0;
+  overflow: hidden;
+  font-family: var(--font-text);
+  font-size: 0.875rem;
+  line-height: 1.125rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.hoot-agent-card__name {
+  margin: 0;
+  font-family: var(--font-small);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--text-2);
+}
+.hoot-agent-card__actions {
+  display: flex;
+  gap: var(--space-0-5);
+  -webkit-app-region: no-drag;
+}
+.hoot-agent-card__transcript .hoot-transcript__content {
+  padding-top: var(--space-3);
+}
+.hoot-agent-card__empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: auto 0;
+  padding: var(--space-6) var(--space-5);
+}
+.hoot-agent-card__empty-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  line-height: 1.625rem;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+}
+.hoot-agent-card__empty-hint {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-2);
+}
+.hoot-agent-card__bottom {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+}
+
+@media (forced-colors: active) {
+  .hoot-agent-owl {
+    border: 1px solid CanvasText;
+  }
+  .hoot-agent-owl__badge {
+    background: Highlight;
+  }
+  .hoot-agent-card__header {
+    border-bottom-color: CanvasText;
+  }
+}

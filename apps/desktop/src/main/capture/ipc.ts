@@ -21,6 +21,8 @@ export function createCaptureHandlers(capture: CaptureService): CaptureHandlers 
     'capture:start': (mode) => capture.start(mode),
     'capture:getInit': async () => capture.getInit(),
     'capture:commit': (commit) => capture.commit(commit),
-    'capture:cancel': () => capture.cancel()
+    'capture:cancel': () => capture.cancel(),
+    'capture:click': (at) => capture.click(at),
+    'capture:minimize': () => capture.minimize()
   }
 }

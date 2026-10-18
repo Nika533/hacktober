@@ -1,0 +1,10 @@
+/* Agent window: transparent and frameless; only the card (or the owl) paints. */
+html,
+body,
+#root {
+  position: relative;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+}
