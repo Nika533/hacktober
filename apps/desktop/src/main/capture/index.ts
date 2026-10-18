@@ -1,0 +1,9 @@
+/** Screen capture in the main process (owner: d2, docs/finish-plan.md §2). The rest of main imports only from here. */
+export {
+  MAX_PENDING,
+  createCaptureService,
+  type CaptureDeps,
+  type CaptureService,
+  type CaptureSurfaces
+} from './service'
+export { createCaptureHandlers, type CaptureChannel, type CaptureHandlers } from './ipc'
