@@ -1,15 +1,5 @@
 import { test } from '@playwright/test'
-import {
-  askAbout,
-  devLog,
-  expect,
-  launch,
-  matchesAboutBlank,
-  open,
-  shutdown,
-  ui,
-  type Harness
-} from './harness'
+import { askAbout, devLog, expect, launch, open, shutdown, ui, type Harness } from './harness'
 
 let harness: Harness
 
@@ -152,7 +142,6 @@ test('runs inside cross-origin frames', async () => {
 })
 
 test('runs inside srcdoc frames', async () => {
-  test.skip(!matchesAboutBlank(), 'needs match_about_blank in the manifest (c/d2-requests)')
   const { context, fixtures } = harness
   const page = await context.newPage()
   await page.goto(`${fixtures.url}/iframes.html`)
