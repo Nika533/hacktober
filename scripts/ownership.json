@@ -1,5 +1,5 @@
 {
-  "$comment": "Paths each builder may change (docs/rebuild-plan.md section 2). Gitignore-style: the last matching pattern wins, and a leading ! excludes. PRs from branches named <builder>/... are checked; the label ownership-override skips the check.",
+  "$comment": "Paths each builder may change (docs/rebuild-plan.md section 2, updated by docs/finish-plan.md section 2). Gitignore-style: the last matching pattern wins, and a leading ! excludes. PRs from branches named <builder>/... are checked; the label ownership-override skips the check.",
   "shared": ["package-lock.json"],
   "builders": {
     "c": [
@@ -24,25 +24,30 @@
       "apps/desktop/src/main/ai/**",
       "apps/desktop/src/main/lens/**",
       "apps/desktop/src/main/bridge/**",
+      "apps/desktop/src/main/{chat,pins}/**",
       "apps/desktop/src/renderer/env.d.ts",
-      "apps/desktop/test/{ai,lens,bridge}/**",
+      "apps/desktop/src/renderer/note/**",
+      "apps/desktop/src/renderer/note.html",
+      "apps/desktop/test/{ai,lens,bridge,chat,pins}/**",
+      "apps/desktop/e2e/{chat,pins}-*",
       "apps/desktop/test-live/**",
       "apps/desktop/evals/**",
       "apps/desktop/package.json",
       "apps/desktop/electron.vite.config.ts",
+      "apps/desktop/electron-builder.yml",
+      "apps/desktop/build/**",
+      "apps/desktop/resources/**",
       "apps/desktop/tsconfig.*.json",
       "apps/desktop/vitest.*",
       "apps/extension/static/manifest.json"
     ],
     "d1": [
       "apps/desktop/src/main/**",
-      "!apps/desktop/src/main/{ai,lens,bridge}/**",
+      "!apps/desktop/src/main/{ai,lens,bridge,chat,pins,capture}/**",
       "apps/desktop/src/preload/**",
-      "apps/desktop/src/renderer/{buddy,capture,note}/**",
-      "apps/desktop/src/renderer/{buddy,capture,note}.html",
       "apps/desktop/test/**",
-      "!apps/desktop/test/{ai,lens,bridge}/**",
-      "apps/desktop/e2e/{buddy,capture,pins,chat}-*",
+      "!apps/desktop/test/{ai,lens,bridge,chat,pins,capture}/**",
+      "apps/desktop/e2e/buddy-*",
       "apps/desktop/e2e/fixtures/**",
       "apps/desktop/e2e/helpers/**",
       "apps/desktop/package.json",
@@ -54,13 +59,22 @@
       "apps/desktop/scripts/**",
       "docs/status/d1.md"
     ],
-    "d2": ["packages/lens-dom/**", "apps/extension/**", "docs/status/d2.md"],
+    "d2": [
+      "packages/lens-dom/**",
+      "apps/extension/**",
+      "apps/desktop/src/main/capture/**",
+      "apps/desktop/src/renderer/capture/**",
+      "apps/desktop/src/renderer/capture.html",
+      "apps/desktop/test/capture/**",
+      "apps/desktop/e2e/capture-*",
+      "docs/status/d2.md"
+    ],
     "d3": [
       "packages/ui/**",
       "packages/pdf-view/**",
-      "apps/desktop/src/renderer/{studio,reader}/**",
-      "apps/desktop/src/renderer/{studio,reader}.html",
-      "apps/desktop/e2e/{studio,reader}-*",
+      "apps/desktop/src/renderer/{studio,reader,buddy}/**",
+      "apps/desktop/src/renderer/{studio,reader,buddy}.html",
+      "apps/desktop/e2e/{studio,reader,card}-*",
       "docs/status/d3.md"
     ]
   }

@@ -34,7 +34,8 @@ describe('ownership rules', () => {
   it('gives each builder its folders and nothing else', () => {
     expect(owns('d1', 'apps/desktop/src/main/windows/buddy.ts')).toBe(true)
     expect(owns('d1', 'apps/desktop/src/main/ai/gemini.ts')).toBe(false)
-    expect(owns('d1', 'apps/desktop/src/renderer/buddy/Card.tsx')).toBe(true)
+    expect(owns('d1', 'apps/desktop/src/main/context.ts')).toBe(true)
+    expect(owns('d1', 'apps/desktop/src/renderer/buddy/Card.tsx')).toBe(false)
     expect(owns('d1', 'apps/desktop/src/renderer/studio/App.tsx')).toBe(false)
     expect(owns('d1', 'packages/core/src/index.ts')).toBe(false)
 
@@ -49,6 +50,31 @@ describe('ownership rules', () => {
 
     expect(owns('c', 'apps/desktop/src/main/lens/engine.ts')).toBe(true)
     expect(owns('c', 'apps/desktop/src/main/windows/buddy.ts')).toBe(false)
+  })
+
+  it('follows the finish-plan reassignments (one owner per feature, d1 wires)', () => {
+    for (const p of [
+      'apps/desktop/src/main/chat/service.ts',
+      'apps/desktop/src/main/pins/index.ts',
+      'apps/desktop/src/renderer/note/App.tsx',
+      'apps/desktop/test/chat/service.test.ts'
+    ]) {
+      expect(owns('c', p)).toBe(true)
+      expect(owns('d1', p)).toBe(false)
+    }
+    for (const p of [
+      'apps/desktop/src/main/capture/index.ts',
+      'apps/desktop/src/renderer/capture/App.tsx',
+      'apps/desktop/e2e/capture-flow.spec.ts'
+    ]) {
+      expect(owns('d2', p)).toBe(true)
+      expect(owns('d1', p)).toBe(false)
+    }
+    expect(owns('d3', 'apps/desktop/src/renderer/buddy/App.tsx')).toBe(true)
+    expect(owns('d3', 'apps/desktop/e2e/card-stream.spec.ts')).toBe(true)
+    expect(owns('d1', 'apps/desktop/e2e/buddy-modes.spec.ts')).toBe(true)
+    expect(owns('c', 'apps/desktop/src/main/context.ts')).toBe(false)
+    for (const b of ['c', 'd1']) expect(owns(b, 'apps/desktop/electron-builder.yml')).toBe(true)
   })
 
   it('lets everyone touch the lockfile and only their own status file', () => {
