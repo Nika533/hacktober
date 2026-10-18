@@ -183,4 +183,13 @@
   .hoot-icon-btn[aria-pressed='true'] {
     border-color: Highlight;
   }
+  /* Disabled is a system pair too: a faded Highlight reads as a random colour. */
+  .hoot-btn:disabled,
+  .hoot-icon-btn:disabled {
+    forced-color-adjust: none;
+    background: Canvas;
+    color: GrayText;
+    border-color: GrayText;
+    opacity: 1;
+  }
 }

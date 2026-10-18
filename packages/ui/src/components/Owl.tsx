@@ -192,7 +192,7 @@ export function Owl({
         strokeWidth={2}
         style={{ opacity: ringO }}
       />
-      <circle cx={28} cy={28} r={27.5} fill={`url(#${discId})`} />
+      <circle cx={28} cy={28} r={27.5} fill={`url(#${discId})`} className="hoot-owl__disc" />
 
       <motion.g style={{ rotate: tilt, transformBox: 'fill-box', transformOrigin: '50% 60%' }}>
         <motion.g className="hoot-owl__tufts" style={{ y: tuftY }}>

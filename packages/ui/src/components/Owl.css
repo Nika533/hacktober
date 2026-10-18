@@ -5,6 +5,11 @@
   /* Brand artwork keeps its colours in high-contrast themes. */
   forced-color-adjust: none;
 }
+/* A faint rim keeps the disc from melting into dark backgrounds (Mica, Reader). */
+.hoot-owl__disc {
+  stroke: var(--owl-rim);
+  stroke-width: 1;
+}
 .hoot-owl__disc-1 {
   stop-color: var(--owl-disc-1);
 }

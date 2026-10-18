@@ -88,6 +88,7 @@
   /* ---- owl (brand illustration; not themed by forced colours) ---- */
   --owl-disc-1: light-dark(#fff7ea, #3a3026);
   --owl-disc-2: light-dark(#f5e6cc, #2a231c);
+  --owl-rim: light-dark(rgb(0 0 0 / 0.06), rgb(255 255 255 / 0.16));
   --owl-body-1: #8b5e3c;
   --owl-body-2: #6f4a2f;
   --owl-chevron: #5c3d27;
