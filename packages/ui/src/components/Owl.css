@@ -1,0 +1,46 @@
+.hoot-owl {
+  display: block;
+  flex: 0 0 auto;
+  overflow: visible;
+  /* Brand artwork keeps its colours in high-contrast themes. */
+  forced-color-adjust: none;
+}
+.hoot-owl__disc-1 {
+  stop-color: var(--owl-disc-1);
+}
+.hoot-owl__disc-2 {
+  stop-color: var(--owl-disc-2);
+}
+.hoot-owl__body-1 {
+  stop-color: var(--owl-body-1);
+}
+.hoot-owl__body-2 {
+  stop-color: var(--owl-body-2);
+}
+.hoot-owl__ring {
+  fill: none;
+  stroke: var(--accent);
+}
+.hoot-owl__tufts {
+  fill: var(--owl-body-2);
+}
+.hoot-owl__chevrons {
+  fill: none;
+  stroke: var(--owl-chevron);
+  opacity: 0.75;
+}
+.hoot-owl__face {
+  fill: var(--owl-face);
+}
+.hoot-owl__eye {
+  fill: var(--owl-eye);
+}
+.hoot-owl__pupil {
+  fill: var(--owl-pupil);
+}
+.hoot-owl__beak {
+  fill: var(--owl-beak);
+}
+.hoot-owl__beak-open {
+  fill: var(--owl-beak-open);
+}

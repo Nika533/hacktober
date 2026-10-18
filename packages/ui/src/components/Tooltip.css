@@ -1,0 +1,44 @@
+.hoot-tooltip-anchor {
+  display: contents;
+}
+
+.hoot-tooltip {
+  /* reset popover UA styles; JS sets top/left */
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 18rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-sm);
+  background: var(--surface-overlay);
+  color: var(--text-1);
+  box-shadow: var(--shadow-2);
+  font-family: var(--font-small);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  pointer-events: none;
+  overflow: visible;
+  opacity: 1;
+  translate: 0 0;
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    translate var(--dur-base) var(--ease-spring);
+}
+@starting-style {
+  .hoot-tooltip {
+    opacity: 0;
+  }
+  .hoot-tooltip[data-side='top'] {
+    translate: 0 calc(3px * var(--motion));
+  }
+  .hoot-tooltip[data-side='bottom'] {
+    translate: 0 calc(-3px * var(--motion));
+  }
+}
+.hoot-tooltip .hoot-kbd__key {
+  font-size: 0.6875rem;
+}

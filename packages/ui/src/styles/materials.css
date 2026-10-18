@@ -1,0 +1,46 @@
+/*
+ * Materials. Weight encodes hierarchy: chrome (sidebar) is the heaviest
+ * structural tint, the pane sits lighter over Mica, and floating surfaces get
+ * the most opaque fill plus a shadow that deepens with size. Never stack a
+ * translucent surface on another translucent surface.
+ */
+
+.hoot-material {
+  background: var(--surface);
+  border: 1px solid var(--stroke);
+  border-top-color: var(--edge-top);
+}
+
+/* Structural regions over Mica: no border box, no shadow. */
+.hoot-material--chrome {
+  background: var(--surface-chrome);
+  border: 0;
+}
+.hoot-material--pane {
+  background: var(--surface-pane);
+  border: 0;
+}
+
+/* Floating surfaces. */
+.hoot-material--chip {
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-1);
+}
+.hoot-material--popover {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  backdrop-filter: blur(24px) saturate(160%);
+}
+.hoot-material--card {
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-3);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .hoot-material--popover {
+    backdrop-filter: none;
+  }
+}
+:root[data-transparency='reduce'] .hoot-material--popover {
+  backdrop-filter: none;
+}
