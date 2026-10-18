@@ -52,6 +52,8 @@ export function createStudioWindow(deps: {
   store: Store
   windows: WindowRegistry
   log: Logger
+  /** A file dropped on the page → Reader (F-D1-6). */
+  onFileDrop?(path: string): void
 }): StudioWindow {
   const { store, windows, log } = deps
 
@@ -68,25 +70,29 @@ export function createStudioWindow(deps: {
       windowsBuild: windowsBuild(),
       highContrast: sys.highContrast
     })
-    const w = createSecureWindow('studio', {
-      x: saved?.x,
-      y: saved?.y,
-      width: saved?.width ?? undefined,
-      height: saved?.height ?? undefined,
-      minWidth: MIN_W,
-      minHeight: MIN_H,
-      show: false,
-      title: 'Hoot',
-      titleBarStyle: 'hidden',
-      titleBarOverlay: {
-        color: '#00000000',
-        symbolColor: symbolColor(sys.darkMode, sys.highContrast),
-        height: TITLEBAR_H
+    const w = createSecureWindow(
+      'studio',
+      {
+        x: saved?.x,
+        y: saved?.y,
+        width: saved?.width ?? undefined,
+        height: saved?.height ?? undefined,
+        minWidth: MIN_W,
+        minHeight: MIN_H,
+        show: false,
+        title: 'Hoot',
+        titleBarStyle: 'hidden',
+        titleBarOverlay: {
+          color: '#00000000',
+          symbolColor: symbolColor(sys.darkMode, sys.highContrast),
+          height: TITLEBAR_H
+        },
+        backgroundMaterial: material,
+        backgroundColor: material === 'none' ? surfaceColor(sys.darkMode) : '#00000000',
+        roundedCorners: true
       },
-      backgroundMaterial: material,
-      backgroundColor: material === 'none' ? surfaceColor(sys.darkMode) : '#00000000',
-      roundedCorners: true
-    })
+      { onFileDrop: deps.onFileDrop }
+    )
     win = w
     windows.set('studio', w)
 

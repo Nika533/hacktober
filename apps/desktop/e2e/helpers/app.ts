@@ -27,7 +27,8 @@ export const seedSettings = (dir: string, seed: Record<string, unknown>): void =
 
 export async function launchHoot(
   userData: string,
-  seed?: Record<string, unknown>
+  seed?: Record<string, unknown>,
+  args: string[] = []
 ): Promise<ElectronApplication> {
   if (seed !== undefined) seedSettings(userData, seed)
   const env: Record<string, string> = {}
@@ -35,7 +36,7 @@ export async function launchHoot(
   // Devin/Windsurf hosts export this; Electron would run as plain Node.
   delete env['ELECTRON_RUN_AS_NODE']
   const app = await electron.launch({
-    args: [MAIN],
+    args: [MAIN, ...args],
     env: {
       ...env,
       HOOT_TEST: '1',

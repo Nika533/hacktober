@@ -25,6 +25,14 @@ const THINKING: Record<ThinkingLevel, GeminiThinkingLevel> = {
 }
 
 const CHAT_THINKING: ThinkingLevel = 'low'
+
+/**
+ * Only the Flash-Lite models accept MINIMAL thinking; the others (3.8 Flash,
+ * Argon) reject it with a 400, so 'minimal' means their lowest level, LOW.
+ * A model that still rejects it is remembered and asked again at LOW.
+ */
+const MINIMAL_REJECTED = /thinking level minimal is not supported/i
+const acceptsMinimal = (model: string): boolean => /flash-lite/.test(model)
 const JSON_DEFAULTS = { maxTokens: 1024, thinking: 'minimal', timeoutMs: 8000, retries: 1 } as const
 
 /** Gemini calls the assistant role `model`; images travel as inline base64 parts. */
@@ -77,6 +85,11 @@ const sleep = (ms: number, signal?: AbortSignal): Promise<void> =>
 
 export function createGeminiProvider(apiKey: string): AiProvider {
   const ai = new GoogleGenAI({ apiKey })
+  const noMinimal = new Set<string>()
+  const thinkingFor = (model: string, level: ThinkingLevel): GeminiThinkingLevel =>
+    level === 'minimal' && (!acceptsMinimal(model) || noMinimal.has(model))
+      ? GeminiThinkingLevel.LOW
+      : THINKING[level]
 
   async function jsonAttempt<T>(req: JsonRequest<T>, signal: AbortSignal): Promise<T> {
     const response = await ai.models.generateContent({
@@ -85,7 +98,9 @@ export function createGeminiProvider(apiKey: string): AiProvider {
       config: {
         systemInstruction: req.system,
         maxOutputTokens: req.maxTokens ?? JSON_DEFAULTS.maxTokens,
-        thinkingConfig: { thinkingLevel: THINKING[req.thinking ?? JSON_DEFAULTS.thinking] },
+        thinkingConfig: {
+          thinkingLevel: thinkingFor(req.model, req.thinking ?? JSON_DEFAULTS.thinking)
+        },
         responseMimeType: 'application/json',
         responseJsonSchema: toResponseSchema(req.schema),
         abortSignal: signal
@@ -149,10 +164,19 @@ export function createGeminiProvider(apiKey: string): AiProvider {
         } catch (e) {
           if (req.signal?.aborted) throw req.signal.reason
           if (e instanceof AiOutputError || e instanceof AiError) throw e
+          const message = e instanceof Error ? e.message : String(e)
+          if (MINIMAL_REJECTED.test(message) && !noMinimal.has(req.model)) {
+            noMinimal.add(req.model)
+            attempt-- // a wrong thinking level isn't a failed attempt
+            continue
+          }
           const code = timeout.aborted ? 'busy' : isAbortError(e) ? 'network' : mapAiError(e)
-          const retryable = code === 'busy' || code === 'network'
+          // A timed-out request already waited its whole budget; asking again
+          // only queues again. Overload (503) and network errors fail fast, so
+          // one more try is cheap.
+          const retryable = !timeout.aborted && (code === 'busy' || code === 'network')
           if (!retryable || attempt >= retries) {
-            throw new AiError(code, e instanceof Error ? e.message : String(e))
+            throw new AiError(code, message)
           }
           await sleep(250 + Math.random() * 500, req.signal)
         }

@@ -34,6 +34,8 @@ export function createReaderWindow(deps: {
   log: Logger
   /** Screen DIP point whose display the window centres on (the owl's anchor). */
   anchor?: () => Point
+  /** A file dropped on the page → Reader (F-D1-6). */
+  onFileDrop?(path: string): void
 }): ReaderWindow {
   const { windows, log } = deps
   let win: BrowserWindow | null = null
@@ -47,13 +49,17 @@ export function createReaderWindow(deps: {
     const anchor = deps.anchor?.()
     const display = anchor ? screen.getDisplayNearestPoint(anchor) : screen.getPrimaryDisplay()
     loaded = false
-    win = createSecureWindow('reader', {
-      ...centreInWorkArea(display.workArea, SIZE),
-      minWidth: MIN_W,
-      minHeight: MIN_H,
-      title: 'Hoot Reader',
-      show: false
-    })
+    win = createSecureWindow(
+      'reader',
+      {
+        ...centreInWorkArea(display.workArea, SIZE),
+        minWidth: MIN_W,
+        minHeight: MIN_H,
+        title: 'Hoot Reader',
+        show: false
+      },
+      { onFileDrop: deps.onFileDrop }
+    )
     windows.set('reader', win)
     win.once('ready-to-show', () => {
       if (showWhenReady && win && !win.isDestroyed()) {

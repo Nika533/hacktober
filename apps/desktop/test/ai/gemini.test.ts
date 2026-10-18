@@ -232,6 +232,54 @@ describe('generateJson', () => {
     expect((err as AiError).code).toBe('busy')
   })
 
+  it('asks models without MINIMAL thinking for LOW instead', async () => {
+    const calls = stubFetch(json(answer('{"difficulty":0.5,"term":null}')))
+    await createGeminiProvider('k').generateJson({ ...jsonReq, model: 'gemini-3.8-flash' })
+    expect(calls[0]?.body).toMatchObject({
+      generationConfig: { thinkingConfig: { thinkingLevel: 'LOW' } }
+    })
+  })
+
+  it('remembers a model that rejects MINIMAL and asks it again at LOW, without using a retry', async () => {
+    const rejected = json(
+      apiError(
+        400,
+        'Thinking level MINIMAL is not supported for this model. Please retry with other thinking level.'
+      ),
+      400
+    )
+    const calls = stubFetch(
+      rejected,
+      json(answer('{"difficulty":0.5,"term":null}')),
+      json(answer('{"difficulty":0.6,"term":null}'))
+    )
+    const provider = createGeminiProvider('k')
+    const req = { ...jsonReq, model: 'gemini-9-flash-lite-preview', retries: 0 }
+    await expect(provider.generateJson(req)).resolves.toMatchObject({ difficulty: 0.5 })
+    await provider.generateJson(req)
+    const levels = calls.map(
+      (c) =>
+        (c.body['generationConfig'] as { thinkingConfig: { thinkingLevel: string } }).thinkingConfig
+          .thinkingLevel
+    )
+    expect(levels).toEqual(['MINIMAL', 'LOW', 'LOW'])
+  })
+
+  it('does not retry after a timeout (the request already waited its budget)', async () => {
+    let fetches = 0
+    vi.stubGlobal('fetch', (_url: string, init?: RequestInit) => {
+      fetches++
+      return new Promise((_resolve, reject) =>
+        init?.signal?.addEventListener('abort', () => reject(init.signal?.reason))
+      )
+    })
+    const err = await createGeminiProvider('k')
+      .generateJson({ ...jsonReq, timeoutMs: 20, retries: 1 })
+      .catch((e: unknown) => e)
+    expect((err as AiError).code).toBe('busy')
+    expect(fetches).toBe(1)
+  })
+
   it('surfaces caller cancellation as an AbortError, not a provider failure', async () => {
     const ac = new AbortController()
     vi.stubGlobal('fetch', async (_url: string, init?: RequestInit) => {

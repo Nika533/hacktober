@@ -34,7 +34,7 @@ that isn't, open a `contract: …` PR (additive; C reviews it first).
 - hoot-bridge reads the per-launch token from `bridgeTokenPath()` (`%LOCALAPPDATA%\Hoot\bridge\token` on Windows). It connects to `bridgePipePath()` and starts `Hoot.exe --hidden` if nothing is listening. Its first pipe frame is `bridge.auth { token, origin }`; after that it relays frames unchanged.
 - If there's no token, or the app never answers, the extension gets one `error { reqId: null, code: 'app_unavailable' }` and the port closes. The service worker treats a disconnect the same way.
 - The app (C-20) writes the token with user-only permissions at start, and rejects a pipe client whose first frame isn't a valid `bridge.auth`.
-- Packaging (d1, D1-30): ship `packages/bridge/dist/hoot-bridge.cjs` and `packages/bridge/launchers/hoot-bridge.cmd` in `resources/`. Register with `register-native-host.cjs --launcher <resources>\hoot-bridge.cmd` (or the same HKCU keys from NSIS).
+- Packaging (C, #52): `hoot-bridge.cjs`, `register-native-host.cjs` and `hoot-bridge.cmd` ship in `resources/`, where the launcher finds `..\Hoot.exe`. The per-user NSIS installer registers the host for Chrome, Edge, Chromium and Brave (HKCU) and removes it on uninstall (not during an update). A packaged first run repairs a stale registration (`ensureNativeHost`). `scripts/smoke-packaged.mjs` (CI job `packaged`) checks this path end to end.
 
 ## Dev / e2e transport (d2)
 
@@ -60,3 +60,19 @@ that isn't, open a `contract: …` PR (additive; C reviews it first).
 - The invoke reply can arrive **after** such patches: a store flush can run before Electron sends the reply. **Renderers must hold any patches that arrive before the snapshot, apply the snapshot, then replay the held patches.** Applying the snapshot last would roll the state back.
 - A delta is broadcast before any snapshot or patch that contains it (`mutate → chat:delta → patch`). Renderers ignore deltas until they hold a snapshot, because the snapshot already includes earlier ones.
 - Each patch replaces whole slices. Renderers keep only the slices they subscribed to.
+- Main also re-sends the subscribed slices once, on the next macrotask after the reply (#95), so a window converges even if it applied a stale snapshot. Holding early patches still matters: without it a stale snapshot shows for one tick.
+
+## Feature plug-ins (main)
+
+- Each feature folder exports `create<Feature>Service(deps)` and `create<Feature>Handlers(service)` from `apps/desktop/src/main/<feature>/index.ts` (chat, pins, capture, lens; the bridge server is `createBridgeServer`). d1 wires each one once in `AppContext`; feature owners never edit `context.ts`.
+- Handlers register through `registerHandlerMap` (invoke channels, arguments validated). When a handler must know which window called, the factory returns `{ invoke, send }` with the sender first, registered with `registerSenderHandlerMap` / `registerSenderSendMap` (pins: a note window acts only on its own pin).
+- Cross-feature calls go through `ctx.hooks`: `explain`, `showChatSurface`, `buddyAnchor`, `startCapture`, `takeClipboardSelection`, `setNotesVisible`, `openInReader`.
+
+## Feature hand-offs
+
+- **Capture → chat:** `addImageAttachment` saves `attachments/<id>.png` (`persistence.saveAttachment`) and appends to `chat.pendingAttachments`. `chat:send` takes every pending attachment and clears the list. `attachments:open` and `attachments:remove` belong to chat.
+- **Clipboard → chat:** `clipboard:arm` snapshots the text; `takeClipboardSelection()` returns it once and clears the hint. Chat wraps it with `clipboardTextBlock` (capped at 8,000 characters). Nothing copied is sent unless the user armed it.
+- **Explain more (Lens → chat):** `hooks.explain(message)` → `chat.startExplain(message)` stops a running answer, shows `text` and sends `sentText`.
+- **Chat → buddy:** `onActivity` reports `thinking` / `talking` / `done` / `stopped` / `error`; d1 maps them to the owl's mood and `answerReady`.
+- **Pins:** a note loads `note.html#<pinId>`. `pins:close`, `pins:openInHoot` and `pins:resize` act on the calling note's pin only. `pins:create` pins a finished answer of the open chat (a repeat shows the same note); `pins:createFromText` deduplicates on the exact text, which renders as Markdown.
+- **Lens requests:** `reqId`s must be unique across every caller (the extension through the bridge, the Reader over IPC), because the engine keeps one in-flight map: use `crypto.randomUUID()`. Lens settings changes reach `LensService.settingsChanged()` through the bridge server's `pushSettings`; finishing the cold start relaxes the profile at that moment.
