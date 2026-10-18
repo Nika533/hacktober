@@ -87,7 +87,7 @@ export function SettingsPane({
         </h1>
       </header>
       <div className="hoot-settings__scroll">
-        <Group title="Gemini API key">
+        <Group title="API key">
           <ApiKeyField
             hasKey={hasApiKey}
             keyStorage={keyStorage}

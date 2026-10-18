@@ -20,7 +20,15 @@ function submit(form: HTMLFormElement): void {
 }
 
 describe('ApiKeyField', () => {
-  const setup = (onSave: (key: string) => Promise<ApiKeyResult>, hasKey = false) => {
+  const setup = (
+    onSave: (key: string) => Promise<ApiKeyResult>,
+    hasKey = false
+  ): ReturnType<typeof render> & {
+    input: HTMLInputElement
+    form: HTMLFormElement
+    onOpenLink: Mock<(url: string) => void>
+    onSaved: Mock<() => void>
+  } => {
     const onOpenLink = vi.fn<(url: string) => void>()
     const onSaved = vi.fn<() => void>()
     const r = render(
