@@ -1,16 +1,30 @@
-import { app, safeStorage } from 'electron'
+import { app, dialog, safeStorage } from 'electron'
+import { randomBytes } from 'node:crypto'
 import { mkdir } from 'node:fs/promises'
+import os from 'node:os'
 import { join } from 'node:path'
-import type { Unsubscribe } from '@hoot/core'
+import {
+  bridgePipePath,
+  HOOT_API_ROUTES,
+  type BridgeEnv,
+  type ExplainMoreMessage,
+  type LensContext,
+  type Platform,
+  type Unsubscribe
+} from '@hoot/core'
 import type { AiProvider } from './ai'
 import { createFakeProvider, createGeminiProvider } from './ai'
+import { AnotherInstanceError, createBridgeServer, type BridgeServer } from './bridge'
 import type { AppEnv } from './env'
 import { handleInvoke } from './ipc/handle'
 import { registerDomains } from './ipc/register'
+import { applySettingsUpdate } from './ipc/settings'
+import { createFsLensStorage, createLensService, type LensService } from './lens'
 import { createFlushRegistry, type FlushRegistry } from './lifecycle'
 import { createLogger, type Logger } from './log'
 import { createSecretStore, type SecretStore } from './secrets'
 import { createBroadcaster, sinkFor, type Broadcaster } from './store/broadcast'
+import { watchLensSettings } from './store/lensWatch'
 import { watchPersistence } from './store/persist'
 import { createPersistence, PersistenceError, type Persistence } from './store/persistence'
 import { createStore, initialSlices, type Store } from './store/store'
@@ -31,8 +45,15 @@ export interface AppContext {
   writer: DebouncedWriter
   secrets: SecretStore
   studio: StudioWindow
-  /** Chat provider for D1-13: fake under HOOT_FAKE_AI, Gemini when a key exists, else null. */
+  /** Chat provider: fake under HOOT_FAKE_AI, Gemini when a key exists, else null. */
   ai: { createProvider(): AiProvider | null }
+  lens: LensService
+  bridge: BridgeServer
+  /** Feature seams filled in later (finish-plan §2). */
+  hooks: {
+    /** Lens "Explain more" → opens the card and sends; chat wires this in D1-23. */
+    explain(message: ExplainMoreMessage, ctx: LensContext): void
+  }
   /** False until the tray lands (D1-21); index.ts quits on window-all-closed. */
   keepAliveWithoutWindows: boolean
   onSecondInstance(argv: readonly string[]): void
@@ -118,8 +139,48 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     }
   }
 
+  // Lens: the service loads its files eagerly; the profile broadcast and the
+  // IPC handler map are wired in start() below.
+  const lens = await createLensService({
+    storage: createFsLensStorage(join(hootDir, 'lens')),
+    getLensSettings: () => store.get('settings').settings.lens,
+    getProvider: async () => ai.createProvider(),
+    fake: env.fakeLens,
+    onExplain: (message, lensCtx) => ctx.hooks.explain(message, lensCtx),
+    chooseExportPath: (name) =>
+      dialog
+        .showSaveDialog({ defaultPath: name })
+        .then((r) => (r.canceled || !r.filePath ? null : r.filePath)),
+    onError: (e) => log.error(`lens: ${String(e)}`)
+  })
+  flush.add('lens', () => lens.flush())
+
+  const devPairingCode = process.env['HOOT_DEV_BRIDGE_CODE'] ?? randomBytes(4).toString('hex')
+  const bridge = createBridgeServer({
+    lens,
+    appVersion: app.getVersion(),
+    platform: process.platform as Platform,
+    env: process.env as BridgeEnv,
+    pipePath: bridgePipePath(process.platform as Platform, os.userInfo().username, os.tmpdir()),
+    getLensSettings: () => store.get('settings').settings.lens,
+    patchLensSettings: async (patch) => {
+      applySettingsUpdate({ store }, { lens: patch })
+      return store.get('settings').settings.lens
+    },
+    devWebSocket: env.devBridge
+      ? {
+          port: Number(process.env['HOOT_DEV_BRIDGE_PORT'] ?? 7341),
+          pairingCode: devPairingCode
+        }
+      : null,
+    onStatus: (s) => store.set('lens', s),
+    log: (m) => log.info(m)
+  })
+  flush.add('bridge', () => bridge.stop())
+
   let unwatchSystem: Unsubscribe | undefined
   let unwatchPersist: Unsubscribe | undefined
+  let unwatchLens: Unsubscribe | undefined
   let started = false
 
   const registerIpc = (): void => {
@@ -142,6 +203,13 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     secrets,
     studio,
     ai,
+    lens,
+    bridge,
+    hooks: {
+      explain() {
+        log.info('explain requested before chat was wired')
+      }
+    },
     keepAliveWithoutWindows: false,
 
     onSecondInstance(argv) {
@@ -156,6 +224,22 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
       registerIpc()
       unwatchSystem = watchSystem(store)
       unwatchPersist = watchPersistence(store, persistence, writer)
+      unwatchLens = watchLensSettings(store, bridge)
+      lens.onProfile((snap) =>
+        broadcaster.emit(HOOT_API_ROUTES.lens.onProfile.channel, snap, 'lens')
+      )
+      // The bridge failing must not take the app down: a stale process (or a
+      // second instance that slipped past the lock) leaves Lens unavailable
+      // over the pipe but everything else keeps working.
+      try {
+        await bridge.start()
+        if (env.devBridge) log.info(`bridge dev pairing code: ${devPairingCode}`)
+      } catch (e) {
+        const lastError =
+          e instanceof AnotherInstanceError ? 'another Hoot owns the bridge pipe' : String(e)
+        log.warn(`bridge not started: ${lastError}`)
+        store.set('lens', { bridge: 'stopped', clients: 0, lastError })
+      }
       // Placeholder until the buddy lands (D1-14: this becomes the pill
       // summon). --hidden opens nothing (launch-at-login must never pop a
       // window); otherwise first run goes to onboarding.
@@ -169,6 +253,8 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
       unwatchSystem = undefined
       unwatchPersist?.()
       unwatchPersist = undefined
+      unwatchLens?.()
+      unwatchLens = undefined
     }
   }
 
