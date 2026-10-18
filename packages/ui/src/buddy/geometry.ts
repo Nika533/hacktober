@@ -22,13 +22,14 @@ const WINDOW: Record<BuddyMode, { width: number; height: number }> = {
 }
 
 /**
- * True when `layout` is main's layout for `mode`. Clamping to the work area
- * moves a window but never resizes it, so the size identifies the mode.
+ * True when `layout`'s window is big enough to hold `mode` around the owl:
+ * main's per-mode layout, or a fixed card-sized canvas (d1's buddy window).
+ * Clamping to the work area moves a window but never resizes it.
  */
 export function layoutFits(mode: BuddyMode, layout: ModeLayout | null): layout is ModeLayout {
   if (!layout) return false
   const size = WINDOW[mode]
-  return layout.bounds.width === size.width && layout.bounds.height === size.height
+  return layout.bounds.width >= size.width && layout.bounds.height >= size.height
 }
 
 /** The owl's square, window-local. */

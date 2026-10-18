@@ -56,6 +56,10 @@ describe('buddy geometry', () => {
     expect(layoutFits('pill', pill)).toBe(true)
     expect(layoutFits('card', pill)).toBe(false)
     expect(layoutFits('pill', null)).toBe(false)
+    // d1's window is one card-sized canvas for every mode.
+    const canvas = layoutForMode('card', ANCHOR, WA)
+    expect(layoutFits('pill', canvas)).toBe(true)
+    expect(layoutFits('dot', canvas)).toBe(true)
   })
 
   it('puts the capsule around the owl at the anchor-side end', () => {
@@ -167,6 +171,14 @@ describe('useBuddyTransitions', () => {
     emit({ id: 2, from: 'pill', to: 'card' })
     await wait(ACK_FALLBACK_MS + 100)
     expect(done).toHaveBeenCalledExactlyOnceWith(2)
+  })
+
+  it('mounts at once on a fixed card-sized canvas (d1’s window)', () => {
+    const { d, emit } = driver()
+    const canvas = layoutForMode('card', ANCHOR, WA)
+    const { container } = render(<Probe d={d} mode="dot" layout={canvas} />)
+    emit({ id: 1, from: 'dot', to: 'pill' })
+    expect(container.querySelector('p')?.dataset.surface).toBe('pill')
   })
 
   it('waits for main’s layout before mounting a bigger surface', async () => {
