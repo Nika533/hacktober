@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "Hoot Lens",
+  "version": "0.1.0",
+  "description": "Select text you don't understand: Hoot rewrites it in place, marks the change, and undoes it with one click.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArWPWgk2q8nT4aQekamof49iFT+0edal+kK1UKAQ/ufCCjNsOaYe0RbVMJoYrk1p5JAxcBapRBoQ9N6JvmgY/ubkw0UwNmAh5AzRdehoM226JQn7vQl4CBRUOgi5tzmY+b6jbNoSezRGh6qbqlhj+MOp/BWzvAtxnL5ceava5sjWrZoSu7ixkXUlh3vfegDPH5uSMGXlxW2Eh/L9tLR6pmf4vY6y6Q1rtsPxnRroK6wdUU/8YgAogihe5ix5/xHwmcBNxbXaHU+MIXkROzPE/9tTtVhREY1QxEgKV9kf02LC+UoiY1ajCSqeBF+ESzEXlOUxkssqSapcIEopp+K7ukQIDAQAB",
+  "minimum_chrome_version": "120",
+  "incognito": "not_allowed",
+  "background": {
+    "service_worker": "sw.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "permissions": ["storage", "nativeMessaging", "scripting", "webNavigation", "webRequest"],
+  "host_permissions": ["<all_urls>"],
+  "options_page": "options.html",
+  "action": {
+    "default_title": "Hoot Lens"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["viewer.html", "viewer.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

@@ -139,14 +139,16 @@ Keep the existing stack: Electron 44, electron-vite 6, React 19, TypeScript
 
 | Package | Version | Used for |
 |---|---|---|
-| `@google/genai` | 2.30.0 | Gemini; already in. Pin below 3.0, because 3.0 changes function calling and needs Node 22 or later |
-| `zod` | 4.6.7 | All boundary schemas |
+| `@google/genai` | 2.28.0 | Gemini. Pin below 3.0, because 3.0 changes function calling and needs Node 22 or later |
+| `zod` | 4.6.5 | All boundary schemas (one copy, forced by root `overrides`) |
 | `pdfjs-dist` | 6.4.299 | `pdf-view` |
 | `esbuild` | 0.28.2 | Building the extension and `hoot-bridge` |
-| `happy-dom` | 21.0.3 | Unit tests for `lens-dom` and `ui` |
-| `@axe-core/playwright` | 4.14.0 | Accessibility checks in e2e |
+| `happy-dom` | 20.14.6 | Unit tests for `lens-dom` and `ui` |
+| `@axe-core/playwright` | 4.13.0 | Accessibility checks in e2e |
 | `@types/chrome` | 0.3.5 | Extension types |
 | `ws` | 8.22.0 | Dev-only bridge transport |
+
+Every version is exact and was published at least 7 days before it was added (supply-chain rule, see `AGENTS.md`).
 
 ---
 

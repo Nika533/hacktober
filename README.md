@@ -1,69 +1,50 @@
 # Hoot
 
-**Hoot is your AI desktop buddy** — a little owl that lives in your Windows tray
-and floats on screen. Summon it, circle anything on your screen, and ask Claude
-about it. It starts as a small dot, grows into a pill, then a chat card, and
-unlocks into a full Studio workspace — one buddy, four sizes, shared state.
+**Hoot is an AI desktop buddy for Windows**: a little owl in your tray that
+floats on screen. Summon it, circle anything on your screen, and ask Gemini
+about it. It grows from a dot to a pill, a chat card and a full Studio.
 
-## Setup
+**Hoot Lens** is Hoot's reading aid. Select text you don't understand on a web
+page or in a PDF, and Hoot rewrites it in place so you can understand it. It
+marks every change, undoes it with one click, and learns from what you keep.
+
+> The repo is mid-rebuild. The design is in [`docs/hoot-lens.md`](docs/hoot-lens.md),
+> the team plan in [`docs/rebuild-plan.md`](docs/rebuild-plan.md), and the rules
+> for contributors in [`AGENTS.md`](AGENTS.md). The pre-rebuild app is tagged
+> `legacy-v0`.
+
+## Quick start (Windows, Node 24)
 
 ```powershell
 npm.cmd install
 npm.cmd run dev
 ```
 
-First run opens onboarding in Studio: add your Anthropic API key there (or later
-in Settings → API key). Get a key at https://console.anthropic.com/settings/keys.
+Add a Google Gemini API key in Studio (get one at
+https://aistudio.google.com/apikey), or set `GEMINI_API_KEY` for development.
+To run without a key, set `HOOT_FAKE_AI=1` and `HOOT_FAKE_LENS=1`.
 
-## Hotkeys
+The browser extension builds into `apps/extension/dist`
+(`npm.cmd run build -w @hoot/extension`). Load it unpacked from
+`chrome://extensions` with Developer mode on.
 
-| Hotkey            | Action                                                    |
-| ----------------- | --------------------------------------------------------- |
-| `Ctrl+Shift+Space` | Summon Hoot / hide it (locks Studio back to the card)    |
-| `Ctrl+Alt+Space`   | Circle something — lasso / rectangle / full screen capture |
-| `Ctrl+L`           | Card ↔ Studio                                             |
-| `Ctrl+N`           | New chat                                                  |
-| `Esc`              | Card → pill → hidden; cancels a capture                   |
+## Repository
 
-Both global hotkeys are re-recordable in Settings.
-
-## Features
-
-- **Dot → Pill → Card → Studio.** The owl idles to a dot, grows on hover, opens
-  a chat card on click, and unlocks into Studio (sessions sidebar, settings,
-  onboarding). Drag it anywhere; it flicks, snaps to edges, and remembers.
-- **Circle anything.** A desktop overlay dims the screen; lasso or drag a
-  rectangle (Shift forces rect, F = full screen) — the crop is attached to your
-  message. Up to 4 captures per message, with Explain / Extract text /
-  Translate / Summarize / Fix-this quick actions.
-- **Clipboard chip.** If you copied new text or an image since the last summon,
-  a chip offers to include it — it never sends by itself.
-- **Sticky pins.** Pin any answer to the desktop as a floating note; notes
-  restore on launch (toggle in Settings or the tray).
-- **Streaming Claude** answers with Markdown, code copy, stop and regenerate.
-- **History.** Chats persist locally, grouped Today / Yesterday / Previous 7
-  days / Older in the Studio sidebar, with rename and 5-second undo delete.
-
-## Build the installer
-
-```powershell
-npm.cmd run build:win
-```
-
-Produces an NSIS installer under `dist/` (and an unpacked build in
-`dist/win-unpacked`).
+| Path | What |
+|---|---|
+| `apps/desktop` | The Electron app |
+| `apps/extension` | The Hoot Lens browser extension (Chrome, Edge) |
+| `packages/core` | Shared contracts and pure logic ([CONTRACTS.md](packages/core/CONTRACTS.md)) |
+| `packages/ui` | Design system and shared chat UI |
+| `packages/lens-dom` | In-page Lens: selection, rendering, marks |
+| `packages/pdf-view` | PDF view used by the extension and the Reader |
+| `packages/bridge` | hoot-bridge, the native messaging host linking the extension to the app |
 
 ## Privacy
 
-Chat history, captures, pins, and settings are stored **locally** under
-`%APPDATA%\hoot`. Your API key is encrypted at rest with Windows DPAPI via
-Electron `safeStorage`. Text and images are sent to Anthropic **only** when you
-send a message — captures and clipboard content are attached explicitly by you,
-never silently.
-
-## Dev note
-
-If your IDE exports `ELECTRON_RUN_AS_NODE=1` (Windsurf/Devin hosts do),
-`electron.exe` would run in plain Node mode. `npm.cmd run dev` and
-`npm.cmd run start` go through `scripts/run-electron.mjs`, which strips it for
-the child process. `npm.cmd run e2e` handles it too.
+Chats, captures, pins, settings and the Lens reading profile are stored
+**locally** under `%APPDATA%\hoot`. The Gemini API key is encrypted at rest
+with Windows DPAPI (Electron `safeStorage`) and never leaves the app. Text
+and images go to Google's Gemini API **only** when you send a message, or,
+with Lens turned on, when Lens rewrites a selection. Lens sends only the
+selected text, its paragraph, the page title and headings.

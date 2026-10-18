@@ -9,3 +9,5 @@ test-results
 .DS_Store
 .eslintcache
 *.log*
+apps/desktop/evals/reports
+*.pem

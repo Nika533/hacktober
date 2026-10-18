@@ -1,15 +1,19 @@
-import { resolve } from 'path'
 import { defineConfig } from 'vitest/config'
 
+// Each workspace folder with a vitest config is its own project.
 export default defineConfig({
-  resolve: {
-    alias: {
-      '@main': resolve('src/main'),
-      '@shared': resolve('src/shared')
-    }
-  },
   test: {
-    include: ['tests/**/*.test.ts'],
-    environment: 'node'
+    projects: [
+      'packages/*',
+      'apps/*',
+      {
+        test: {
+          name: 'tooling',
+          include: ['scripts/**/*.test.mjs'],
+          environment: 'node'
+        }
+      }
+    ],
+    passWithNoTests: true
   }
 })
