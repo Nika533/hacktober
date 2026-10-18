@@ -153,6 +153,8 @@ export function createHootClient(opts: HootClientOptions): HootClient {
       drop(s, new LensBackendError(message.code, message.message))
       return
     }
+    // The page link is for browser extensions; VS Code never says it has a page.
+    if (message.type === 'page.read' || message.type === 'page.marks') return
     const entry = pending.get(message.reqId as string)
     if (!entry) return
     pending.delete(message.reqId as string)

@@ -112,6 +112,12 @@ export const HOOT_API_ROUTES = {
     tagStates: invoke('code:tagStates'),
     onChange: event('code:changed')
   },
+  voice: {
+    start: invoke('voice:start'),
+    finish: invoke('voice:finish'),
+    stop: invoke('voice:stop'),
+    speak: invoke('voice:speak')
+  },
   app: { openExternal: invoke('app:openExternal') }
 } as const satisfies { [N in keyof HootApi]: { [M in keyof HootApi[N]]-?: Route } }
 

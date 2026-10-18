@@ -103,6 +103,13 @@ export interface CaptureDeps {
   codeWindow?(): CodeWindowInfo | null
   /** Live mode: the code note for that window's next message; null falls back to a screen grab. */
   codeNote?(windowId: string): Promise<string | null>
+  /**
+   * Live mode: the browser tab in front when the overlay opens (the page
+   * link). Messages then also carry its page as text, next to the screen grab.
+   */
+  browserPage?(): { id: number; title: string } | null
+  /** Live mode: the page note for that browser's next message; null when it didn't answer. */
+  pageNote?(peerId: number): Promise<string | null>
   /** Seams for tests; the defaults use Electron. */
   grabber?: ScreenGrabber
   overlay?: OverlayHost
@@ -163,6 +170,8 @@ interface Open {
   focus: Rect | null
   /** Live mode: the VS Code window Hoot reads instead of the screen; null when there's none. */
   code: CodeWindowInfo | null
+  /** Live mode: the browser whose page goes along with the screen; null when there's none. */
+  page: { id: number; title: string } | null
 }
 
 /** Where to put things back: Studio on its view, or the surfaces hook. */
@@ -368,6 +377,7 @@ export function createCaptureService(deps: CaptureDeps): CaptureService {
       busy = true
       // Before anything of ours takes focus: was VS Code in front?
       const code = live ? (deps.codeWindow?.() ?? null) : null
+      const page = live && !code ? (deps.browserPage?.() ?? null) : null
       try {
         hidden = await hide()
         await wait(HIDE_DELAY_MS)
@@ -390,6 +400,7 @@ export function createCaptureService(deps: CaptureDeps): CaptureService {
           regionText: null,
           focus: null,
           code,
+          page,
           init: {
             // Live: '' tells the overlay to show the real screen, not a still.
             imageDataUrl: live ? '' : grab.image.toJpegDataUrl(90),
@@ -398,7 +409,13 @@ export function createCaptureService(deps: CaptureDeps): CaptureService {
             mode,
             accentColor: store.get('system').accentColor,
             pendingCount: store.get('chat').pendingAttachments.length,
-            ...(live ? { owlAt: owlOn(bounds), code: code && { name: code.name } } : {})
+            ...(live
+              ? {
+                  owlAt: owlOn(bounds),
+                  code: code && { name: code.name },
+                  page: page && { title: page.title }
+                }
+              : {})
           }
         }
         overlay.show(bounds)
@@ -509,12 +526,18 @@ export function createCaptureService(deps: CaptureDeps): CaptureService {
           return [note, text?.trim() ? screenTextBlock(text) : null].filter(Boolean).join('\n\n')
         log.warn('capture: VS Code didn’t answer; sending the screen instead')
       }
-      const [framed, text] = await Promise.all([attachFrame(current), regionText])
+      const page = current.page
+      const [framed, text, pageText] = await Promise.all([
+        attachFrame(current),
+        regionText,
+        page && deps.pageNote ? deps.pageNote(page.id).catch(() => null) : null
+      ])
       if (open !== current) return null
       const region = current.focus && screenBoxFor(current.focus, current.grab.display.bounds)
       const notes = [
         framed ? liveScreenNote(region) : null,
-        text?.trim() ? screenTextBlock(text) : null
+        text?.trim() ? screenTextBlock(text) : null,
+        pageText
       ].filter(Boolean)
       return notes.length ? notes.join('\n\n') : null
     },

@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import {
   bridgePipePath,
   HOOT_API_ROUTES,
+  voiceNote,
   type BridgeEnv,
   type ExplainMoreMessage,
   type LensContext,
@@ -35,6 +36,7 @@ import { createFsLensStorage, createLensService, type LensService } from './lens
 import { createFlushRegistry, type FlushRegistry } from './lifecycle'
 import { reconcileLoginItem } from './login'
 import { createLogger, type Logger } from './log'
+import { createPageService, type PageService } from './page'
 import { createNoteWindows, createPinsService, type NoteWindows, type PinsService } from './pins'
 import { createReaderService, type ReaderService } from './services/reader'
 import { createSecretStore, type SecretStore } from './secrets'
@@ -59,6 +61,13 @@ import { createReaderWindow } from './windows/reader'
 import { createStudioWindow, type StudioWindow } from './windows/studio'
 import { watchPower } from './powerWatch'
 import { createTextAccess, type TextAccess } from './textAccess'
+import {
+  createFakeSpeechEngine,
+  createVoiceService,
+  createWindowsSpeechEngine,
+  unavailableEngine,
+  type VoiceService
+} from './voice'
 
 /** The live overlay reads VS Code if it was in front this recently (a click on Hoot blurs it). */
 const CODE_FOCUS_GRACE_MS = 5000
@@ -94,6 +103,10 @@ export interface AppContext {
   anywhere: AnywhereService
   /** The code link: VS Code's code as text instead of screenshots, highlights and edits back. */
   code: CodeService
+  /** The page link: the browser page in front as text (the extension), highlights back. */
+  pages: PageService
+  /** The voice chat: Windows speech in and out, driving the active chat. */
+  voice: VoiceService
   /**
    * Feature seams later PRs reassign (finish-plan §2): kept mutable on
    * purpose so late-landing features can re-point them.
@@ -215,6 +228,28 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
       })
   })
   flush.add('code', () => code.stop())
+
+  // The page link: the browser extension (over the Lens bridge) hands over the
+  // page in front as text when the user chats right after being in the
+  // browser, and highlights the passages an answer points at. A question
+  // asked from the extension's popup lands in the chat (aloud when spoken).
+  const pages = createPageService({
+    store,
+    log,
+    onAsk: async ({ text, voice: spoken, sameChat, note }) => {
+      if (!sameChat) {
+        await chat.stop()
+        clipboardWatcher.dismiss()
+        await chat.newChat()
+      }
+      ctx.hooks.showChatSurface()
+      const replies = store.get('settings').settings.voiceReplies
+      const notes = [note(), spoken ? voiceNote(replies) : null].filter((n) => n !== null)
+      await chat.send({ text }, { context: false, notes })
+      if (spoken) voice.answerAloud()
+    }
+  })
+  flush.add('pages', async () => pages.stop())
 
   // A file dropped on any Hoot surface opens in the Reader (F-D1-6). ctx is
   // assigned below; the guard can't fire before a page loads anyway.
@@ -343,18 +378,38 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     getProvider: async () => ai.createProvider(),
     takeClipboardSelection: () => ctx.hooks.takeClipboardSelection(),
     // The live capture overlay sends the current screen (or VS Code's code)
-    // with every message; any other chat gets VS Code's code when that was
-    // the app the user was just in.
+    // with every message; any other chat gets VS Code's code or the browser's
+    // page, whichever app the user was just in.
     beforeSend: async () => {
       const live = await capture.attachLiveScreen()
       if (live !== null || (capture.isCapturing() && !capture.isMinimized())) return live
       const window = code.chatWindow()
-      return window ? code.note(window) : null
+      const browser = pages.activePeer()
+      if (window && (!browser || code.activeAt(window) >= pages.activeAt(browser.id))) {
+        return code.note(window)
+      }
+      return browser ? pages.note(browser.id) : null
     },
     onActivity: (a) => applyChatActivity(store, a),
     openPath: (p) => shell.openPath(p).then(() => undefined)
   })
   flush.add('chat', () => chat.flush())
+
+  // Voice chats: Windows speech (System.Speech through a PowerShell helper),
+  // the scripted fake under HOOT_FAKE_VOICE, nothing in e2e runs.
+  const voice = createVoiceService({
+    store,
+    log,
+    engine: env.fakeVoice
+      ? createFakeSpeechEngine()
+      : !env.test && process.platform === 'win32'
+        ? createWindowsSpeechEngine({ log })
+        : unavailableEngine,
+    send: (text) =>
+      chat.send({ text }, { notes: [voiceNote(store.get('settings').settings.voiceReplies)] }),
+    stopAnswer: () => chat.stop()
+  })
+  flush.add('voice', async () => voice.dispose())
 
   // notes before pins (pins needs the windows), pins inside the callbacks
   // (notes need the service) — the reference resolves at call time.
@@ -419,6 +474,11 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     // Starting a capture from Hoot's own UI blurs VS Code a moment earlier.
     codeWindow: () => code.focusedWindow(CODE_FOCUS_GRACE_MS),
     codeNote: (id) => code.note(id),
+    browserPage: () => {
+      const browser = pages.activePeer(CODE_FOCUS_GRACE_MS)
+      return browser?.page ? { id: browser.id, title: browser.page.title } : null
+    },
+    pageNote: (id) => pages.note(id),
     surfaces: {
       hide: () => buddy.hide(),
       restore: (added) => buddy.request(added ? 'card' : 'pill'),
@@ -469,7 +529,8 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
         }
       : null,
     onStatus: (s) => store.set('lens', s),
-    log: (m) => log.info(m)
+    log: (m) => log.info(m),
+    pages
   })
   flush.add('bridge', () => bridge.stop())
 
@@ -512,6 +573,8 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     textAccess,
     anywhere,
     code,
+    pages,
+    voice,
     hooks: {
       explain(message) {
         ctx.hooks.showChatSurface()
@@ -552,6 +615,7 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
       unwatchSystem = watchSystem(store)
       unwatchPersist = watchPersistence(store, persistence, writer)
       unwatchLens = watchLensSettings(store, bridge)
+      pages.start()
       lens.onProfile((snap) =>
         broadcaster.emit(HOOT_API_ROUTES.lens.onProfile.channel, snap, 'lens')
       )

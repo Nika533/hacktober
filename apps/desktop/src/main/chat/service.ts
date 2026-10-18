@@ -50,8 +50,16 @@ export interface ChatDeps {
   checkpointMs?: number
 }
 
+/** Main-side extras for a send (renderers only ever send a SendPayload). */
+export interface SendOptions {
+  /** Appended to what's sent (never shown), after the `beforeSend` note. */
+  notes?: string[]
+  /** false: skip `beforeSend`, the caller attached the context itself. */
+  context?: boolean
+}
+
 export interface ChatService {
-  send(payload: SendPayload): Promise<void>
+  send(payload: SendPayload, opts?: SendOptions): Promise<void>
   stop(): Promise<void>
   regenerate(): Promise<void>
   newChat(): Promise<void>
@@ -320,19 +328,20 @@ export function createChatService(deps: ChatDeps): ChatService {
   }
 
   return {
-    async send(payload) {
+    async send(payload, opts = {}) {
       // One stream at a time, and one send being prepared: a double click must
       // not grab a second frame that would be left pending.
       if (active || preparing) return
       preparing = true
-      let note: string | null = null
+      let found: string | null = null
       try {
-        note = (await deps.beforeSend?.()) ?? null
+        if (opts.context !== false) found = (await deps.beforeSend?.()) ?? null
       } catch (e) {
         log.warn(`chat: beforeSend failed: ${e instanceof Error ? e.message : String(e)}`)
       } finally {
         preparing = false
       }
+      const note = [found, ...(opts.notes ?? [])].filter(Boolean).join('\n\n') || null
       const settings = store.get('settings').settings
       let display = payload.text?.trim() ?? ''
       let sent: string | undefined
@@ -353,7 +362,10 @@ export function createChatService(deps: ChatDeps): ChatService {
     },
 
     async stop() {
-      active?.abort.abort()
+      // Resolves once the stopped answer is written, so a send right after isn't refused as busy.
+      const running = active
+      running?.abort.abort()
+      await running?.done
     },
 
     async regenerate() {

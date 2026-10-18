@@ -38,6 +38,10 @@ export interface Settings {
   clipboardHint: boolean
   translateTo: string
   collapseToDotAfterMs: number
+  /** Voice chats: Hoot reads its answers aloud (off: it only listens). */
+  voiceReplies: boolean
+  /** Speaking speed, VOICE_RATES.min … max (0 is Windows' normal speed). */
+  voiceRate: number
   /** Managed by main (window placement); not renderer-editable. */
   pillAnchor: Point | null
   studioBounds: Rect | null
@@ -71,6 +75,8 @@ export const DEFAULT_SETTINGS: Settings = {
   clipboardHint: true,
   translateTo: 'English',
   collapseToDotAfterMs: 5000,
+  voiceReplies: true,
+  voiceRate: 1,
   pillAnchor: null,
   studioBounds: null,
   onboardingDone: false,
@@ -100,5 +106,7 @@ export type SettingsPatch = Partial<
     | 'clipboardHint'
     | 'translateTo'
     | 'collapseToDotAfterMs'
+    | 'voiceReplies'
+    | 'voiceRate'
   >
 > & { lens?: LensSettingsPatch }

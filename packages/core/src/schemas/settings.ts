@@ -7,6 +7,7 @@ import {
   type Settings,
   type SettingsPatch
 } from '../types/settings'
+import { VOICE_RATES } from '../types/voice'
 import { LangSchema, PointSchema, RectSchema, SiteSchema, TimestampSchema } from './common'
 
 export const SiteRuleSchema = z.enum(['always', 'paused', 'never'])
@@ -50,6 +51,8 @@ export const SettingsSchema = z.object({
   clipboardHint: z.boolean(),
   translateTo: z.string().trim().min(1).max(40),
   collapseToDotAfterMs: z.number().int().min(0).max(600_000),
+  voiceReplies: z.boolean(),
+  voiceRate: z.number().int().min(VOICE_RATES.min).max(VOICE_RATES.max),
   pillAnchor: PointSchema.nullable(),
   studioBounds: RectSchema.nullable(),
   onboardingDone: z.boolean(),
@@ -87,6 +90,8 @@ export const SettingsPatchSchema = z.strictObject({
   clipboardHint: z.boolean().optional(),
   translateTo: SettingsSchema.shape.translateTo.optional(),
   collapseToDotAfterMs: SettingsSchema.shape.collapseToDotAfterMs.optional(),
+  voiceReplies: z.boolean().optional(),
+  voiceRate: SettingsSchema.shape.voiceRate.optional(),
   lens: LensSettingsPatchSchema.optional()
 })
 

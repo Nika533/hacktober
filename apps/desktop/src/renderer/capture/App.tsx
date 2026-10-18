@@ -1,6 +1,7 @@
 import '@hoot/ui/styles.css'
 import './capture.css'
 import {
+  parsePageAnswer,
   type CaptureMode,
   type HootApi,
   type Message,
@@ -20,7 +21,10 @@ import {
   Markdown,
   Segmented,
   useHootState,
-  useReducedMotion
+  useReducedMotion,
+  VoiceButton,
+  VoiceStatus,
+  type VoiceControls
 } from '@hoot/ui'
 import { parseCodeAnswer } from '@hoot/core/code'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -52,8 +56,8 @@ import { createPanelMotion, growFrom, shrinkInto, type Frame, type PanelMotion }
 import { paint, type ScreenMark } from './paint'
 import { bounds, commitFor, rectBetween, type Shape } from './shape'
 
-/** The chat slice too: the live overlay shows the conversation about what was circled. */
-const SLICES: readonly SliceName[] = ['system', 'chat']
+/** The chat (and voice) slices too: the live overlay shows the conversation about what was circled. */
+const SLICES: readonly SliceName[] = ['system', 'chat', 'voice']
 const MAX_PENDING = 4
 /** The glass chat box (DIP); the height is the most it grows to. */
 const CHAT_BOX = { width: 380, height: 440 }
@@ -413,8 +417,20 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
   )
   /** The code link's [[line]] / [[edit]] tags: listed under the answer with Show / Apply. */
   const coded = useMemo(
-    () => parseCodeAnswer(parsed.text, { streaming: answering }),
+    () =>
+      parseCodeAnswer(parsePageAnswer(parsed.text, { streaming: answering, refs: true }).text, {
+        streaming: answering
+      }),
     [parsed.text, answering]
+  )
+  const voice = state?.voice
+  const talk: VoiceControls = useMemo(
+    () => ({
+      start: () => void hoot?.voice.start().catch(() => undefined),
+      finish: () => void hoot?.voice.finish().catch(() => undefined),
+      stop: () => void hoot?.voice.stop().catch(() => undefined)
+    }),
+    [hoot]
   )
 
   const marks = useMemo((): ScreenMark[] => {
@@ -1029,7 +1045,11 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
           <header className="capture__chat-head" title="Drag to move" {...panelHandlers('chat')}>
             <span className="capture__chat-title">
               <span className="capture__live-dot" aria-hidden />{' '}
-              {init.code ? 'Hoot reads your code in VS Code' : 'Hoot sees your screen'}
+              {init.code
+                ? 'Hoot reads your code in VS Code'
+                : init.page
+                  ? 'Hoot sees your screen and reads this page'
+                  : 'Hoot sees your screen'}
             </span>
             <button
               type="button"
@@ -1220,6 +1240,7 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
               </button>
             ))}
           </div>
+          {voice && <VoiceStatus voice={voice} controls={talk} className="capture__voice" />}
           <form
             className="capture__composer"
             onSubmit={(e) => {
@@ -1242,6 +1263,9 @@ function Overlay({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element {
                 }
               }}
             />
+            {voice && (
+              <VoiceButton voice={voice} controls={talk} size="md" className="capture__voice-btn" />
+            )}
             {streaming ? (
               <button
                 type="button"

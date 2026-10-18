@@ -207,6 +207,21 @@ export interface HootApi {
     /** Something changed (an edit applied, VS Code came or went): ask again. */
     onChange(cb: () => void): Unsubscribe
   }
+  /**
+   * The voice chat (Windows speech): main listens, sends what it heard to the
+   * active chat, reads the answer aloud and listens again. Its state is the
+   * `voice` slice.
+   */
+  voice: {
+    /** Start a voice chat; while Hoot is speaking, cut it off and listen now. */
+    start(): Promise<void>
+    /** Done talking: send what Hoot heard so far, without waiting for a pause. */
+    finish(): Promise<void>
+    /** End the voice chat: stop listening and speaking. */
+    stop(): Promise<void>
+    /** Read one assistant message of the active chat aloud. */
+    speak(messageId: string): Promise<void>
+  }
   app: {
     /** Opens http(s) URLs on the allowlist in the default browser. */
     openExternal(url: string): Promise<void>

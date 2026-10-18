@@ -26,6 +26,8 @@ export interface Helper {
 
 export interface HelperOptions {
   log: Logger
+  /** Log prefix; defaults to 'textAccess'. */
+  name?: string
   spawn?: () => HelperChild
   readyTimeoutMs?: number
   /** Crashes in a row before giving up for the session. */
@@ -42,7 +44,8 @@ const POWERSHELL = process.env['SystemRoot']
   ? join(process.env['SystemRoot'], 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
   : 'powershell.exe'
 
-const spawnPowerShell = (): HelperChild =>
+/** A spawner for Windows PowerShell 5.1 running `script`, with `env` added (e.g. its C# half). */
+export const powerShell = (script: string, env: Record<string, string>) => (): HelperChild =>
   spawn(
     POWERSHELL,
     [
@@ -52,10 +55,12 @@ const spawnPowerShell = (): HelperChild =>
       '-ExecutionPolicy',
       'Bypass',
       '-EncodedCommand',
-      encodeCommand(HELPER_SCRIPT)
+      encodeCommand(script)
     ],
-    { windowsHide: true, stdio: 'pipe', env: { ...process.env, [HELPER_TYPES_ENV]: HELPER_TYPES } }
+    { windowsHide: true, stdio: 'pipe', env: { ...process.env, ...env } }
   )
+
+const spawnPowerShell = powerShell(HELPER_SCRIPT, { [HELPER_TYPES_ENV]: HELPER_TYPES })
 
 const isRecord = (v: unknown): v is Reply =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -77,6 +82,7 @@ interface Pending {
 export function createHelper(opts: HelperOptions): Helper {
   const {
     log,
+    name = 'textAccess',
     spawn: spawnChild = spawnPowerShell,
     readyTimeoutMs = 15_000,
     maxFailures = 4,
@@ -111,13 +117,13 @@ export function createHelper(opts: HelperOptions): Helper {
 
   const arm = (id: number, p: Pending): void => {
     p.timer = later(p.timeoutMs, () => {
-      log.warn(`textAccess: ${p.cmd} timed out after ${p.timeoutMs} ms`)
+      log.warn(`${name}: ${p.cmd} timed out after ${p.timeoutMs} ms`)
       settle(id, null)
       const proc = child
       hungTimer ??= later(hungMs, () => {
         hungTimer = undefined
         if (!proc || child !== proc) return
-        log.warn('textAccess: helper hung, killing it')
+        log.warn(`${name}: helper hung, killing it`)
         gone(proc, false)
         proc.kill()
       })
@@ -128,7 +134,7 @@ export function createHelper(opts: HelperOptions): Helper {
     failures += 1
     if (failures >= maxFailures) {
       broken = true
-      log.warn('textAccess: UI Automation helper unavailable; text reads return null this session')
+      log.warn(`${name}: helper unavailable; giving up for this session`)
       return
     }
     restartTimer = later(backoffMs * 2 ** (failures - 1), () => {
@@ -160,7 +166,7 @@ export function createHelper(opts: HelperOptions): Helper {
     if (msg['ready'] === true) {
       ready = true
       clearTimeout(readyTimer)
-      log.info(`textAccess: helper ready in ${Date.now() - started} ms`)
+      log.info(`${name}: helper ready in ${Date.now() - started} ms`)
       for (const [id, p] of pending) arm(id, p)
     }
     if (typeof msg['id'] !== 'number') {
@@ -168,7 +174,7 @@ export function createHelper(opts: HelperOptions): Helper {
         try {
           listener(msg)
         } catch (e) {
-          log.warn(`textAccess: helper listener threw: ${String(e)}`)
+          log.warn(`${name}: helper listener threw: ${String(e)}`)
         }
       }
       return
@@ -181,7 +187,7 @@ export function createHelper(opts: HelperOptions): Helper {
       failures = 0
       settle(msg['id'], msg)
     } else {
-      log.warn(`textAccess: ${p.cmd} failed: ${String(msg['error'])}`)
+      log.warn(`${name}: ${p.cmd} failed: ${String(msg['error'])}`)
       settle(msg['id'], null)
     }
   }
@@ -195,7 +201,7 @@ export function createHelper(opts: HelperOptions): Helper {
     try {
       proc = spawnChild()
     } catch (e) {
-      log.warn(`textAccess: helper spawn failed: ${String(e)}`)
+      log.warn(`${name}: helper spawn failed: ${String(e)}`)
       countFailure()
       return null
     }
@@ -216,19 +222,19 @@ export function createHelper(opts: HelperOptions): Helper {
     proc.stderr.setEncoding('utf8')
     proc.stderr.on('data', (chunk: string) => {
       for (const l of chunk.split(/\r?\n/)) {
-        if (l.trim() && errLines++ < 5) log.warn(`textAccess helper: ${l.trim()}`)
+        if (l.trim() && errLines++ < 5) log.warn(`${name} helper: ${l.trim()}`)
       }
     })
     proc.on('error', (e) => {
-      if (child === proc) log.warn(`textAccess: helper error: ${e.message}`)
+      if (child === proc) log.warn(`${name}: helper error: ${e.message}`)
       gone(proc, true)
     })
     proc.on('exit', (code) => {
-      if (child === proc && !disposed) log.warn(`textAccess: helper exited (${code})`)
+      if (child === proc && !disposed) log.warn(`${name}: helper exited (${code})`)
       gone(proc, true)
     })
     readyTimer = later(readyTimeoutMs, () => {
-      log.warn(`textAccess: helper not ready after ${readyTimeoutMs} ms`)
+      log.warn(`${name}: helper not ready after ${readyTimeoutMs} ms`)
       gone(proc, true)
       proc.kill()
     })

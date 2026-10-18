@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Hoot Lens",
   "version": "0.1.0",
-  "description": "Select text you don't understand: Hoot rewrites it in place, marks the change, and undoes it with one click.",
+  "description": "Select text you don't understand: Hoot rewrites it in place. Ask Hoot about any page, typed or by voice.",
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",
@@ -30,12 +30,19 @@
   "host_permissions": ["<all_urls>"],
   "options_page": "options.html",
   "action": {
-    "default_title": "Hoot Lens",
+    "default_title": "Ask Hoot about this page",
+    "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",
       "48": "icons/icon-48.png",
       "128": "icons/icon-128.png"
+    }
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": { "default": "Alt+Shift+H" },
+      "description": "Ask Hoot about this page (type or talk)"
     }
   }
 }

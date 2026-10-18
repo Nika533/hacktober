@@ -10,6 +10,9 @@ import {
   type LensEvent,
   type LensSettings,
   type LensSettingsPatch,
+  type PageInfo,
+  type PageMark,
+  type PageSnapshot,
   type ProfileSnapshot,
   type RewriteOutcome,
   type RewriteRequest
@@ -43,6 +46,10 @@ export type BridgeEvent =
   | { type: 'settings'; lens: LensSettings }
   | { type: 'profile'; profile: ProfileSnapshot }
   | { type: 'status'; status: BridgeStatus }
+  /** The page link: the app wants the page in front (answer with `pageSnapshot`). */
+  | { type: 'page.read'; reqId: string }
+  /** The page link: highlight passages in a tab (empty clears). */
+  | { type: 'page.marks'; tab: number; marks: PageMark[] }
 
 export interface BridgeClient extends Upstream {
   /** Connects (once) and says hello; rejects with `LensBackendError` when the app can't be reached. */
@@ -51,6 +58,12 @@ export interface BridgeClient extends Upstream {
   status(): BridgeStatus
   getSettings(): Promise<LensSettings>
   patchSettings(patch: LensSettingsPatch): Promise<LensSettings>
+  /** The page link: which tab is in front. Only while connected; never connects. */
+  pageFocus(focused: boolean, page: PageInfo | null): Promise<void>
+  /** The page link: the answer to the app's `page.read`. */
+  pageSnapshot(reqId: string, snapshot: PageSnapshot | null): void
+  /** The page link: a question from the popup; connects if needed. */
+  pageAsk(text: string, voice: boolean, snapshot: PageSnapshot | null): Promise<void>
   subscribe(listener: (event: BridgeEvent) => void): () => void
   close(): void
 }
@@ -129,6 +142,14 @@ export function createBridgeClient(options: BridgeClientOptions): BridgeClient {
     }
     if (message.type === 'profile.changed') {
       emit({ type: 'profile', profile: message.profile })
+      return
+    }
+    if (message.type === 'page.read') {
+      emit({ type: 'page.read', reqId: message.reqId })
+      return
+    }
+    if (message.type === 'page.marks') {
+      emit({ type: 'page.marks', tab: message.tab, marks: message.marks })
       return
     }
     if (message.type === 'error' && message.reqId === null) {
@@ -280,6 +301,17 @@ export function createBridgeClient(options: BridgeClientOptions): BridgeClient {
       const reply = expect(await ask({ type: 'settings.patch', patch }), 'settings')
       settings = reply.lens
       return reply.lens
+    },
+    async pageFocus(focused: boolean, page: PageInfo | null): Promise<void> {
+      if (!transport || status.state !== 'connected') return
+      // An app without the page link refuses this; that's fine.
+      await send({ type: 'page.focus', focused, page }).catch(() => undefined)
+    },
+    pageSnapshot(reqId: string, snapshot: PageSnapshot | null): void {
+      transport?.send({ type: 'page.snapshot', reqId, snapshot })
+    },
+    async pageAsk(text: string, voice: boolean, snapshot: PageSnapshot | null): Promise<void> {
+      expect(await ask({ type: 'page.ask', text, voice, snapshot }), 'ack')
     },
     subscribe(listener) {
       listeners.add(listener)

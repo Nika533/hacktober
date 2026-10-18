@@ -9,7 +9,7 @@ import { springs } from '../motion/springs'
 import { useHootState } from '../state/useHootState'
 import { createFakeBuddyMain } from './fakeBuddyMain'
 
-const SLICES = ['buddy', 'chat'] as const
+const SLICES = ['buddy', 'chat', 'voice'] as const
 const DESKTOP = { x: 0, y: 0, width: 960, height: 700 }
 const INSET = 40
 const CORNERS = {
@@ -136,7 +136,13 @@ export function BuddyDemo(): React.JSX.Element {
             transition={move}
             style={{ width: bounds.width, height: bounds.height }}
           >
-            <Buddy host={main.hoot} buddy={buddy} chat={chat} captureHotkey="Control+Alt+Space" />
+            <Buddy
+              host={main.hoot}
+              buddy={buddy}
+              chat={chat}
+              voice={state?.voice}
+              captureHotkey="Control+Alt+Space"
+            />
             {showHits &&
               hits.map((r, i) => (
                 <span

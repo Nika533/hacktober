@@ -1,5 +1,6 @@
 import {
   CHAT_MODELS,
+  VOICE_RATES,
   type ApiKeyResult,
   type ChatModelId,
   type Settings,
@@ -11,6 +12,7 @@ import { Button } from '../components/Button'
 import { useConfirm } from '../components/confirmContext'
 import { IconButton } from '../components/IconButton'
 import { Segmented } from '../components/Segmented'
+import { Slider } from '../components/Slider'
 import { Switch } from '../components/Switch'
 import { TextField } from '../components/TextField'
 import { useToast } from '../components/toastContext'
@@ -175,6 +177,31 @@ export function SettingsPane({
             onKeyDown={(e) => {
               if (e.key === 'Enter') commitTranslate()
             }}
+          />
+        </Group>
+
+        <Group title="Voice">
+          <p className="hoot-settings__note">
+            Press the mic in a chat and talk. Hoot sends what you said when you pause, and listens
+            again after it answers. Windows speech does the listening on this PC.
+          </p>
+          <Switch
+            label="Read answers aloud"
+            description="Off: Hoot still listens, and answers in writing only."
+            checked={s.voiceReplies}
+            onChange={(voiceReplies) => onUpdate({ voiceReplies })}
+          />
+          <Slider
+            label="Speaking speed"
+            min={VOICE_RATES.min}
+            max={VOICE_RATES.max}
+            value={s.voiceRate}
+            disabled={!s.voiceReplies}
+            showValue={false}
+            minLabel="Slower"
+            maxLabel="Faster"
+            formatValue={(v) => (v === 0 ? 'Normal' : v < 0 ? `${-v} slower` : `${v} faster`)}
+            onChange={(voiceRate) => onUpdate({ voiceRate })}
           />
         </Group>
 

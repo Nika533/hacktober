@@ -1,4 +1,5 @@
 import { stripCodeTags } from '../code/tags'
+import { stripPageTags } from '../page/tags'
 import type { Greeting, QuickActionId } from '../types/app'
 
 export const SYSTEM_PROMPT = `You are Hoot, a friendly owl who lives on the user's Windows desktop as a helpful AI buddy.
@@ -11,6 +12,7 @@ How you answer:
 - For step-by-step help with an app (Excel, Zoom, Windows settings, and so on), give numbered steps that name the exact buttons and menus.
 - You cannot see the screen unless the user attaches a capture, and you cannot send emails, upload files, or post on the user's behalf.
 - When a message carries the user's code read from VS Code (it starts with "[VS Code:"), that is the live editor content as of that message, not a screenshot: answer from it, cite its line numbers, and point or propose changes only with the [[line]] and [[edit]] tags it describes (never screen coordinates). Hoot asks the user before any change lands, so never claim you edited a file.
+- When a message carries a web page read from the user's browser (it starts with "[Browser:"), that is the page's text as of that message, not a screenshot: answer from it and point at passages only with the [[find]] tags it describes. You can't click, type or scroll on the page.
 - When a message says a live screen is attached, the last image is the user's whole screen right now and any earlier image is what they circled. When they circled part of the screen, that part is what they are asking about: answer about it, not the rest of the screen, unless they ask; use the rest only for context or to show where to click. Act like an on-screen agent, not a manual:
   - When they want to find something or reach a goal that takes clicks, guide them ONE step at a time. Give a one-sentence explanation and mark ONLY the single next thing to click on the current screen. Do not list future steps yet — once that spot is clicked, Hoot automatically grabs the new screen and asks you for the next step, until the goal is reached. When the goal is already on screen, say so and stop giving [[action]] tags.
   - Point at things with tags in normalized 0–1000 coordinates of that full-screen image, each on its own line after the sentence it belongs to. x is the distance from the LEFT edge and y from the TOP edge, always x first (0,0 is the top-left corner, 1000,0 the top-right, 0,1000 the bottom-left). Never put the tags in backticks or code blocks.
@@ -26,18 +28,20 @@ const ANNOTATION_TAG = /`?\[\[\s*(?:point|box|action)\s*:[^\]]*\]\]`?/gi
 /**
  * The answer without the live overlay's on-screen tags, for every other place
  * that shows it (the card, Studio): a line that held only tags goes away.
- * Code tags become readable references (`stripCodeTags`).
+ * Code and page tags become readable references (`stripCodeTags`, `stripPageTags`).
  */
 export function stripAnnotationTags(text: string): string {
-  return stripCodeTags(
-    text
-      .split('\n')
-      .flatMap((line) => {
-        const out = line.replace(ANNOTATION_TAG, '')
-        return out !== line && out.trim() === '' ? [] : [out]
-      })
-      .join('\n')
-      .replace(/\n{3,}/g, '\n\n')
+  return stripPageTags(
+    stripCodeTags(
+      text
+        .split('\n')
+        .flatMap((line) => {
+          const out = line.replace(ANNOTATION_TAG, '')
+          return out !== line && out.trim() === '' ? [] : [out]
+        })
+        .join('\n')
+        .replace(/\n{3,}/g, '\n\n')
+    )
   )
 }
 
@@ -47,6 +51,15 @@ export function stripAnnotationTags(text: string): string {
  */
 export const LIVE_SCREEN_NOTE =
   '[Live screen attached: the last image is my whole screen right now. If this needs clicks, give ONLY the next step with one [[action: x1, y1, x2, y2, "label"]] around what to click; use [[point]] or [[box]] to point things out.]'
+
+/**
+ * Appended to what's sent (not shown) for a message the user spoke in a
+ * voice chat. `replies`: Hoot reads the answer aloud.
+ */
+export const voiceNote = (replies: boolean): string =>
+  replies
+    ? '[I said this aloud (speech recognition, so read it for what I most likely meant). Hoot reads your answer to me aloud: answer like you would out loud, in a few short sentences, without tables or long lists unless I ask; put any code in a code block.]'
+    : '[I said this aloud (speech recognition, so read it for what I most likely meant).]'
 
 /** A circled region in normalized 0–1000 coordinates of the full-screen image. */
 export interface ScreenBox {

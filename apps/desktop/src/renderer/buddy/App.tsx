@@ -32,6 +32,7 @@ function BuddyWindow({ hoot }: { hoot: HootApi | undefined }): React.JSX.Element
       host={hoot}
       buddy={state.buddy}
       chat={state.chat}
+      voice={state.voice}
       captureHotkey={state.settings.settings.captureHotkey}
     />
   )

@@ -5,6 +5,8 @@ import type {
   LensEvent,
   LensSettings,
   LensSettingsPatch,
+  PageBlocked,
+  PageInfo,
   ProfileSnapshot,
   RewriteOutcome,
   RewriteRequest
@@ -29,6 +31,18 @@ export type ContentMessage =
   | { type: 'lens.explain'; ctx: LensContext }
   | { type: 'lens.status' }
   | { type: 'lens.pdf.native'; url: string }
+  /** The popup: ask Hoot about the page in front (typed, or spoken with `voice`). */
+  | { type: 'page.ask'; text: string; voice: boolean }
+  /** The popup: the page it would ask about, and whether Hoot may read it. */
+  | { type: 'page.current' }
+
+/**
+ * The tab the popup asks about; `blocked` says why Hoot won't read it ('off':
+ * the page link is turned off on the options page).
+ */
+export interface CurrentPage extends PageInfo {
+  blocked: PageBlocked | 'off' | null
+}
 
 export interface ReplyValues {
   'lens.settings.get': LensSettings
@@ -41,6 +55,8 @@ export interface ReplyValues {
   'lens.explain': null
   'lens.status': BridgeStatus
   'lens.pdf.native': null
+  'page.ask': null
+  'page.current': CurrentPage | null
 }
 
 export type PushMessage =

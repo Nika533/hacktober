@@ -522,6 +522,35 @@ body,
   color: #93c5fd;
 }
 
+/* Voice: the shared mic and status line, in the glass chat's colours. */
+.capture__voice-btn {
+  flex: none;
+  border: 1px solid rgba(92, 200, 255, 0.5);
+  border-radius: 999px;
+  color: #e0f2fe;
+  --accent-subtle: rgba(56, 189, 248, 0.32);
+  --accent-text: #bae6fd;
+}
+.capture__voice-btn[data-phase='listening'] {
+  border-color: var(--glow);
+}
+.capture__voice {
+  background: rgba(56, 189, 248, 0.14);
+  border: 1px solid rgba(92, 200, 255, 0.35);
+  --accent-text: #7dd3fc;
+}
+.capture__voice .hoot-voice__text {
+  color: #bae6fd;
+}
+.capture__voice .hoot-voice__text--heard,
+.capture__voice.hoot-voice--problem .hoot-voice__text {
+  color: #f0f9ff;
+}
+.capture__voice .hoot-btn,
+.capture__voice .hoot-icon-btn {
+  color: #e0f2fe;
+}
+
 .capture__input:focus-visible {
   outline: none;
   border-color: var(--glow-soft);
@@ -548,7 +577,9 @@ body,
   .capture__chat,
   .capture__permission,
   .capture__pill,
-  .capture__input {
+  .capture__input,
+  .capture__voice,
+  .capture__voice-btn {
     border-color: CanvasText;
   }
 

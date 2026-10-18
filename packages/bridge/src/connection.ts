@@ -4,11 +4,15 @@ import {
   type AppToExt,
   type AssessResult,
   type BridgeErrorCode,
+  type Browser,
   type ExtToApp,
   type LensContext,
   type LensEvent,
   type LensSettings,
   type LensSettingsPatch,
+  type PageInfo,
+  type PageMark,
+  type PageSnapshot,
   type ProfileSnapshot,
   type RewriteOutcome,
   type RewriteRequest
@@ -38,15 +42,31 @@ export interface BridgeConnection {
   handle(raw: unknown): void
   pushSettings(lens: LensSettings): void
   pushProfile(profile: ProfileSnapshot): void
+  /** The page link: the page in the extension's front tab, or null when it doesn't say in time. */
+  readPage(timeoutMs: number): Promise<PageSnapshot | null>
+  /** The page link: highlight passages in a tab (an empty list clears them). */
+  pushMarks(tab: number, marks: PageMark[]): void
   /** The peer went away: cancel everything in flight and stop sending. */
   close(): void
   readonly ready: boolean
+  /** The browser `hello` named; null before it. */
+  readonly browser: Browser | null
+}
+
+/** The page link's messages from one extension (the app's page service). */
+export interface BridgePageHooks {
+  /** Which tab is in front, and whether the browser has focus. */
+  focus(focused: boolean, page: PageInfo | null): void
+  /** The user asked from the extension's popup (typed or spoken). */
+  ask(text: string, voice: boolean, snapshot: PageSnapshot | null): Promise<void>
 }
 
 export interface BridgeConnectionOptions {
   app: BridgeApp
   send(message: AppToExt): void
   onError?(e: unknown): void
+  /** Without it, page messages are refused (`bad_request`). */
+  page?: BridgePageHooks
 }
 
 function codeOf(e: unknown): BridgeErrorCode {
@@ -76,8 +96,12 @@ export function createBridgeConnection(opts: BridgeConnectionOptions): BridgeCon
   const { app } = opts
   const onError = opts.onError ?? (() => {})
   const pending = new Set<string>()
+  /** The app's own `page.read` requests, by reqId. */
+  const reads = new Map<string, (snapshot: PageSnapshot | null) => void>()
+  let readSeq = 0
   let ready = false
   let closed = false
+  let browser: Browser | null = null
 
   const send = (message: AppToExt): void => {
     if (closed) return
@@ -117,6 +141,7 @@ export function createBridgeConnection(opts: BridgeConnectionOptions): BridgeCon
           return
         }
         ready = true
+        browser = msg.browser
         answer(msg.reqId, async () => ({
           type: 'welcome',
           reqId: msg.reqId,
@@ -181,6 +206,26 @@ export function createBridgeConnection(opts: BridgeConnectionOptions): BridgeCon
           lens: await app.patchLensSettings(msg.patch)
         }))
         return
+      case 'page.snapshot': {
+        const resolve = reads.get(msg.reqId)
+        reads.delete(msg.reqId)
+        resolve?.(msg.snapshot)
+        return
+      }
+      case 'page.focus':
+      case 'page.ask': {
+        const page = opts.page
+        if (!page) {
+          fail(msg.reqId, 'bad_request', 'this app has no page link')
+          return
+        }
+        answer(msg.reqId, async () => {
+          if (msg.type === 'page.focus') page.focus(msg.focused, msg.page)
+          else await page.ask(msg.text, msg.voice, msg.snapshot)
+          return { type: 'ack', reqId: msg.reqId }
+        })
+        return
+      }
     }
   }
 
@@ -205,7 +250,7 @@ export function createBridgeConnection(opts: BridgeConnectionOptions): BridgeCon
         fail(msg.reqId, 'unauthorized', 'send hello first')
         return
       }
-      if (msg.type !== 'cancel' && pending.has(msg.reqId)) {
+      if (msg.type !== 'cancel' && msg.type !== 'page.snapshot' && pending.has(msg.reqId)) {
         fail(msg.reqId, 'bad_request', 'duplicate reqId')
         return
       }
@@ -217,11 +262,32 @@ export function createBridgeConnection(opts: BridgeConnectionOptions): BridgeCon
     pushProfile(profile) {
       if (ready) send({ type: 'profile.changed', profile })
     },
+    readPage(timeoutMs) {
+      if (!ready || closed) return Promise.resolve(null)
+      const reqId = `page-${(++readSeq).toString(36)}`
+      return new Promise((resolve) => {
+        const timer = setTimeout(() => settle(null), timeoutMs)
+        function settle(snapshot: PageSnapshot | null): void {
+          clearTimeout(timer)
+          reads.delete(reqId)
+          resolve(snapshot)
+        }
+        reads.set(reqId, settle)
+        send({ type: 'page.read', reqId })
+      })
+    },
+    pushMarks(tab, marks) {
+      if (ready) send({ type: 'page.marks', tab, marks })
+    },
     close() {
       if (closed) return
       closed = true
       for (const reqId of pending) app.cancel(reqId)
       pending.clear()
+      for (const settle of [...reads.values()]) settle(null)
+    },
+    get browser() {
+      return browser
     }
   }
 }

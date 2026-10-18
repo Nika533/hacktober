@@ -84,6 +84,10 @@ export const INVOKE_ARGS = {
   'code:apply': z.tuple([IdSchema, z.number().int().min(0).max(100)]),
   'code:reveal': z.tuple([IdSchema, z.number().int().min(0).max(100)]),
   'code:tagStates': z.tuple([IdSchema]),
+  'voice:start': none,
+  'voice:finish': none,
+  'voice:stop': none,
+  'voice:speak': z.tuple([IdSchema]),
   'app:openExternal': z.tuple([z.url({ protocol: /^https?$/ }).max(2048)])
 } satisfies Record<InvokeChannel, z.ZodType>
 

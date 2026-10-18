@@ -51,7 +51,9 @@ const builds = [
     entryPoints: {
       sw: join(root, 'src/sw.ts'),
       options: join(root, 'src/options/index.tsx'),
-      viewer: join(root, 'src/viewer/index.tsx')
+      viewer: join(root, 'src/viewer/index.tsx'),
+      popup: join(root, 'src/popup/index.tsx'),
+      mic: join(root, 'src/popup/mic.tsx')
     },
     format: 'esm'
   }

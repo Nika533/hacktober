@@ -17,6 +17,7 @@ export interface BuddyProps {
   host: BuddyHost
   buddy: StateSlices['buddy']
   chat: StateSlices['chat']
+  voice?: StateSlices['voice']
   /** The circle-anything accelerator from settings, e.g. 'Control+Alt+Space'. */
   captureHotkey: string
 }
@@ -49,7 +50,7 @@ const OWL_LABEL = { dot: 'Open Hoot', pill: 'Chat with Hoot', card: 'Close chat'
  * Main owns the mode and the window; this animates each `buddy:transition`,
  * acks it, and reports which pixels are clickable.
  */
-export function Buddy({ host, buddy, chat, captureHotkey }: BuddyProps): React.JSX.Element {
+export function Buddy({ host, buddy, chat, voice, captureHotkey }: BuddyProps): React.JSX.Element {
   const reduced = useReducedMotion() ?? false
   const t = useBuddyTransitions(host.buddy, buddy.mode, buddy.layout)
   const drag = useOwlDrag(host.buddy)
@@ -75,21 +76,24 @@ export function Buddy({ host, buddy, chat, captureHotkey }: BuddyProps): React.J
   const [composerFocused, setComposerFocused] = useState(false)
   const [composerEmpty, setComposerEmpty] = useState(true)
   const streaming = chat.stream !== null
+  const talking = (voice?.phase ?? 'off') !== 'off'
 
   // Window keys: Esc steps back, Ctrl+N / Ctrl+L in the card, type-to-ask on the pill.
-  const live = useRef({ mode: t.mode, streaming })
+  const live = useRef({ mode: t.mode, streaming, talking })
   useEffect(() => {
-    live.current = { mode: t.mode, streaming }
+    live.current = { mode: t.mode, streaming, talking }
   })
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      const { mode, streaming } = live.current
+      const { mode, streaming, talking } = live.current
       if (e.defaultPrevented || mode === 'hidden') return
       // Only keys meant for the Buddy (the gallery shares its document with other demos).
       const focus = document.activeElement
       if (focus && focus !== document.body && !root.current?.contains(focus)) return
       if (e.key === 'Escape') {
-        if (mode === 'card' && streaming) fire(host.chat.stop())
+        // A voice chat ends first; the answer keeps streaming as text.
+        if (mode === 'card' && talking) fire(host.voice.stop())
+        else if (mode === 'card' && streaming) fire(host.chat.stop())
         else host.buddy.requestMode(mode === 'card' ? 'pill' : 'hidden')
       } else if (mode === 'card' && e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) {
         const k = e.key.toLowerCase()
@@ -133,7 +137,13 @@ export function Buddy({ host, buddy, chat, captureHotkey }: BuddyProps): React.J
   // Positions come from the layout as inline styles, which the observers skip.
   useEffect(remeasure, [layout, remeasure])
   const mood: OwlMood =
-    t.mode === 'card' && composerFocused && composerEmpty && !streaming ? 'listening' : buddy.mood
+    voice?.phase === 'listening'
+      ? 'listening'
+      : voice?.phase === 'speaking'
+        ? 'talking'
+        : t.mode === 'card' && composerFocused && composerEmpty && !streaming
+          ? 'listening'
+          : buddy.mood
   const captureShortcut = formatAccelerator(captureHotkey)
   const ready = buddy.answerReady && t.mode !== 'card'
 
@@ -194,6 +204,7 @@ export function Buddy({ host, buddy, chat, captureHotkey }: BuddyProps): React.J
                   host={host}
                   layout={layout}
                   chat={chat}
+                  voice={voice}
                   greeting={buddy.greeting}
                   captureShortcut={captureShortcut}
                   composerSeed={seed}

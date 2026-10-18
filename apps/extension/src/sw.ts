@@ -6,6 +6,7 @@ import { DEFAULT_LENS_SETTINGS, type Browser, type LensSettings } from '@hoot/co
 import { LensSettingsSchema } from '@hoot/core/schemas'
 import type { PushMessage } from './messages'
 import { TransportError, createBridgeClient, type Connect } from './sw/bridge'
+import { PAGE_ENABLED_KEY, createPageLink } from './sw/page'
 import { FILE_ASKED_KEY, PDF_ENABLED_KEY, createPdfRouter } from './sw/pdf'
 import { createRouter } from './sw/router'
 import { SETTINGS_KEY, createSettingsStore } from './sw/settings'
@@ -84,6 +85,32 @@ chrome.webNavigation.onBeforeNavigate.addListener((details) => void pdf.onNaviga
   url: [{ schemes: ['file'] }]
 })
 
+// The page link: Hoot reads the page in front when the user chats right after
+// being here, highlights what it points at, and takes questions from the popup.
+const pageLink = createPageLink({
+  bridge,
+  settings: () => sync.settings.get(),
+  enabled: async () => (await stored(PAGE_ENABLED_KEY)) !== false,
+  frontTab: async () =>
+    (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0] ?? null,
+  browserFocused: async () => (await chrome.windows.getLastFocused()).focused,
+  ask: (tab, request) => chrome.tabs.sendMessage(tab, request, { frameId: 0 }),
+  warm: () => sync.warm()
+})
+
+chrome.windows.onFocusChanged.addListener((id) =>
+  pageLink.focusChanged(id !== chrome.windows.WINDOW_ID_NONE)
+)
+chrome.tabs.onActivated.addListener(() => pageLink.focusChanged())
+chrome.tabs.onUpdated.addListener((_id, change, tab) => {
+  if (tab.active && (change.url !== undefined || change.title !== undefined)) {
+    pageLink.focusChanged()
+  }
+})
+chrome.storage.onChanged.addListener((changes) => {
+  if (PAGE_ENABLED_KEY in changes) pageLink.focusChanged()
+})
+
 const router = createRouter({
   extensionId: chrome.runtime.id,
   upstream: () => bridge,
@@ -91,7 +118,9 @@ const router = createRouter({
   profile: () => sync.profile(),
   status: (connectNow) => sync.status(connectNow),
   warm: () => sync.warm(),
-  allowNativePdf: (url) => pdf.allowNative(url)
+  allowNativePdf: (url) => pdf.allowNative(url),
+  pageAsk: (text, voice) => pageLink.ask(text, voice),
+  pageCurrent: () => pageLink.current()
 })
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

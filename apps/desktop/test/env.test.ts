@@ -37,6 +37,7 @@ describe('readEnv', () => {
         HOOT_FAKE_AI: '1',
         HOOT_FAKE_LENS: '1',
         HOOT_DEV_BRIDGE: '1',
+        HOOT_FAKE_VOICE: '1',
         HOOT_USER_DATA: 'C:\\tmp\\hoot'
       } as NodeJS.ProcessEnv,
       true
@@ -47,6 +48,7 @@ describe('readEnv', () => {
       fakeAi: true,
       fakeLens: true,
       devBridge: true,
+      fakeVoice: true,
       userDataOverride: 'C:\\tmp\\hoot',
       isDev: false
     })

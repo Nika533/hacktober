@@ -18,6 +18,8 @@ export interface ChatPaneProps extends Omit<TranscriptProps, 'empty' | 'label' |
   onEmptySend?: () => void
   /** Chips, attachments, clipboard suggestion: shown above the composer. */
   composerTop?: ReactNode
+  /** Extra buttons left of Send (the mic). */
+  composerActions?: ReactNode
   /** Remount key for the composer (to pre-fill it, e.g. Explain more). */
   composerKey?: string
   composerSeed?: string
@@ -36,6 +38,7 @@ export function ChatPane({
   onLock,
   onEmptySend,
   composerTop,
+  composerActions,
   composerKey,
   composerSeed,
   composerRef,
@@ -83,6 +86,7 @@ export function ChatPane({
           onSend={onSend}
           onStop={onStop}
           onEmptySend={onEmptySend}
+          actions={composerActions}
         />
       </div>
     </section>

@@ -1,4 +1,11 @@
-import type { Settings, SliceName, StatePatch, StateSlices, Unsubscribe } from '@hoot/core'
+import {
+  VOICE_OFF,
+  type Settings,
+  type SliceName,
+  type StatePatch,
+  type StateSlices,
+  type Unsubscribe
+} from '@hoot/core'
 
 export interface Store {
   get<K extends SliceName>(name: K): StateSlices[K]
@@ -76,6 +83,7 @@ export function initialSlices(input: {
     chat: { session: null, stream: null, pendingAttachments: [], clipboardHint: null },
     sessions: { list: [], pendingDelete: null },
     pins: { pins: [] },
-    lens: { bridge: 'stopped', clients: 0, lastError: null }
+    lens: { bridge: 'stopped', clients: 0, lastError: null },
+    voice: VOICE_OFF
   }
 }

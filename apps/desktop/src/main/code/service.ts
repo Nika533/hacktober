@@ -46,6 +46,8 @@ export interface CodeService {
    * else the focused one, else the one the user left less than `recentMs` ago.
    */
   chatWindow(): string | null
+  /** When the user was last in that window (now, while it has focus); 0 when it's gone. */
+  activeAt(windowId: string): number
   /**
    * What goes with the next message instead of a screenshot: a fresh read of
    * `windowId`, said relative to what this chat was already shown. Null when
@@ -241,6 +243,12 @@ export function createCodeService(deps: CodeServiceDeps): CodeService {
         .filter((p) => now() - p.focusAt <= recentMs)
         .sort((a, b) => b.focusAt - a.focusAt)[0]
       return recent?.window.id ?? null
+    },
+
+    activeAt(windowId) {
+      const peer = peerById(windowId)
+      if (!peer) return 0
+      return peer.focused ? now() : peer.focusAt
     },
 
     async note(windowId) {

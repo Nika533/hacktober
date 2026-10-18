@@ -122,7 +122,7 @@ without touching your real data.
 |---|---|
 | Any letter (on the pill) | Opens the card with that letter already typed |
 | `Enter` / `Shift+Enter` | Send / new line |
-| `Esc` | Stop a streaming answer; otherwise card → pill → hidden |
+| `Esc` | End a voice chat; else stop a streaming answer; otherwise card → pill → hidden |
 | `Ctrl+N` | New chat |
 | `Ctrl+L` | Open the chat in Studio |
 
@@ -163,6 +163,7 @@ without touching your real data.
 | Sticky note | `Esc` | Close (deletes the note) |
 | Hoot Reader | `Ctrl+O` | Open a PDF |
 | Hoot Reader (Pages view) | `Ctrl+=` / `Ctrl+-` / `Ctrl+0` | Zoom in / out / fit width |
+| Chrome or Edge | `Alt+Shift+H` | Ask Hoot about this page (the toolbar popup: type or talk) |
 | VS Code | `Ctrl+Alt+H` | Hoot: Make this clearer |
 | VS Code | `Ctrl+Alt+J` | Hoot: Explain in Hoot chat |
 
@@ -233,14 +234,61 @@ stays still.
 - **Header**: the chat's title, **New chat** (`Ctrl+N`), **Open in Studio**
   (`Ctrl+L`) and **Close** (`Esc`).
 - **Ask box**: `Enter` sends, `Shift+Enter` adds a line. While an answer streams,
-  the send button becomes **Stop**. The pencil button starts *Circle anything*.
+  the send button becomes **Stop**. The mic button starts a voice chat (see
+  [Talk to Hoot](#talk-to-hoot-voice)); the pencil button starts *Circle anything*.
 - **Answers** stream in as formatted Markdown. Code blocks have their own
   **Copy** button; links open in your browser.
-- **On each answer**: **Copy**, **Pin as note** (a sticky note, see
-  [§7](#7-sticky-notes)), and **Regenerate** on the latest answer. **Jump to
+- **On each answer**: **Copy**, **Read aloud**, **Pin as note** (a sticky note,
+  see [§7](#7-sticky-notes)), and **Regenerate** on the latest answer. **Jump to
   latest** appears when you scroll up during an answer.
 - **Errors** say what went wrong and how to fix it (for example, an **Add key**
   button when no Claude key is set).
+
+### Talk to Hoot (voice)
+
+Press the **mic** in the card, in Studio or in the live overlay's chat, and just
+talk. Windows speech recognition listens on your PC:
+
+1. **Listening**: the mic glows with your voice and the line above the ask box
+   shows what Hoot hears so far.
+2. Pause for about a second and Hoot sends what you said (or press the mic,
+   now **Done talking**, to send right away).
+3. **Thinking**, then **speaking**: Hoot reads its answer aloud sentence by
+   sentence while it writes it. Code isn't read out ("The code is in the chat").
+4. Then it **listens again**, so you can keep talking hands-free.
+
+| To | Do |
+|---|---|
+| Cut Hoot off and talk | Press the mic while it speaks |
+| End the voice chat | **End** on the voice line, or `Esc` in the card. The answer keeps writing |
+| Type instead | Type and send as usual: Hoot reads that answer aloud too, then listens |
+| Hear an older answer | **Read aloud** under it |
+
+The voice chat ends on its own if you say nothing for 8 seconds. Settings →
+**Voice**: **Read answers aloud** (off: Hoot still listens but answers in writing
+only) and **Speaking speed**. The voice is your Windows default voice
+(Settings → Time & language → Speech).
+
+If the mic says Windows speech isn't set up, add a speech language in Windows
+settings (English works best). If it can't hear a microphone, check that one is
+connected and that desktop apps may use it (Settings → Privacy & security →
+Microphone).
+
+### Hoot reads the web page you were on
+
+With the browser extension loaded (see [§8](#8-hoot-lens-in-the-browser)), a
+message you send right after reading a page in Chrome or Edge also carries that
+page **as text**: what's on screen, what you selected, the main text and the
+headings. Ask "what does this paragraph mean?" or "summarize this" without
+copying anything. Hoot can point at passages: they light up on the page and it
+scrolls to the first one. Later messages in the same chat only send what
+changed.
+
+"Right after" means the browser was the last app you were in (in the last two
+minutes); if VS Code was more recent, Hoot reads your code instead. Banking,
+email, chat and password-manager sites, pages with a password field and sites
+set to **Never** are never read: Hoot is only told that the page is private.
+Turn it off on the extension's options page (**Let Hoot read the page you're on**).
 
 ### Choose a model
 
@@ -363,6 +411,15 @@ installed, see [§11](#11-vs-code-extension)), the header says **Hoot reads your
 code in VS Code**. Hoot then reads the code as text instead of taking
 screenshots, and its answer can list places **In VS Code** with **Show** (jump
 there) and **Apply** (make the proposed change) buttons.
+
+### With a web page in front
+
+If you start the overlay with Chrome or Edge in front (and the extension
+loaded), the header says **Hoot sees your screen and reads this page**: each
+message carries the screen and also the page as text, so quotes and numbers are
+exact. Passages Hoot points at light up on the page.
+
+The mic works here too: talk about what you circled.
 
 ---
 
@@ -543,10 +600,28 @@ Hoot Lens → **Details** → **Extension options**). It shows:
 
 - **Hoot app** connection: *Connected to Hoot 1.0.0*, *Hoot isn't running*,
   *Hoot isn't installed* or *Hoot needs an update*, with **Try again**
+- **Let Hoot read the page you're on** (see
+  [Hoot reads the web page you were on](#hoot-reads-the-web-page-you-were-on))
 - **Lens** on/off (available once you've turned Lens on in Studio) and **Mode**
 - **Sites**: the same site rules as Studio
 
 Deeper settings (languages, profile, glossary) live in Studio.
+
+### Ask Hoot about the page (toolbar button)
+
+Click the Hoot icon in the toolbar (or press `Alt+Shift+H`) to ask about the
+page you're on:
+
+- **Type** a question and press `Enter`, or
+- press the **mic** and **talk**: the browser's speech recognition turns it into
+  text, and the question goes as soon as you stop. Hoot then answers **aloud** on
+  your desktop and keeps listening (Windows speech), like a voice chat.
+
+The question opens in Hoot's chat on your desktop with the page attached as text
+(a new chat, unless the open chat is already about this page). The first time you
+press the mic, the extension opens a tab that asks for the microphone once; after
+that the popup can listen. Brave has no speech recognition, so it shows only the
+text box.
 
 ---
 
@@ -764,6 +839,16 @@ A left click shows or hides the owl. Closing every window doesn't quit Hoot; use
   title and headings, and a short summary of your reading profile. In Ask first
   mode, only after you click the chip; in Auto mode, also to check whether a
   selection needs help.
+- You chat right after reading a web page, or ask from the toolbar popup: the
+  page's address, title and text (on screen, selected, main text, headings), read
+  at that moment. Never from private sites (see
+  [§4](#hoot-reads-the-web-page-you-were-on)), never form fields.
+
+**Voice**: what you say to Hoot on the desktop is recognized by Windows on your
+PC; only the text is sent. The toolbar popup's mic uses the browser's speech
+recognition, which sends your audio to the browser maker (Google for Chrome,
+Microsoft for Edge) to turn it into text. Answers are read aloud by Windows,
+on your PC.
 
 **Never sent by Lens**: form fields, the rest of the page, cookies or full web
 addresses (site rules keep only names like `example.com`). Lens skips the
@@ -799,6 +884,11 @@ delete it.
 | Electron starts as plain Node / no window | Your shell exports `ELECTRON_RUN_AS_NODE=1`. Start through `npm.cmd run dev`, which strips it |
 | The owl is off-screen | Studio → Settings → Data → **Reset position** |
 | The key isn't remembered after a restart | Windows encryption wasn't available, so the key was kept for this session only. Set `ANTHROPIC_API_KEY` instead, or add it again |
+| The mic says Windows speech isn't set up | Add a speech language in Windows: Settings → Time & language → Speech (English works best) |
+| The mic says it can't hear a microphone | Connect one, and allow desktop apps to use it: Settings → Privacy & security → Microphone |
+| Hoot mishears me | Speak close to the mic and pause briefly at the end; or press **Done talking** and fix it by typing next time |
+| Hoot didn't read the page I was on | The browser must be the last app you were in (within two minutes), with the extension connected; private sites and sites set to Never aren't read; check **Let Hoot read the page you're on** on the extension's options page |
+| The popup's mic asks for permission every time | Allow the microphone in the tab it opens; if you blocked it, click the icon at the right of that tab's address bar |
 
 ---
 
@@ -809,6 +899,7 @@ delete it.
 | `ANTHROPIC_API_KEY` | Used when no key is saved in the app |
 | `HOOT_FAKE_AI=1` | Deterministic chat answers: no key, no network |
 | `HOOT_FAKE_LENS=1` | Deterministic Lens rewrites |
+| `HOOT_FAKE_VOICE=1` | A scripted voice chat: Hoot "hears" set phrases and says nothing aloud (offline demos, tests) |
 | `HOOT_USER_DATA=<dir>` | Use another data folder (a fresh profile) |
 | `HOOT_FAKE_CAPTURE=<png>` | Circle anything uses this image instead of the screen (offline demos) |
 | `HOOT_NO_CAPTURE_EXCLUDE=1` | Keep the live overlay visible in screen recordings |

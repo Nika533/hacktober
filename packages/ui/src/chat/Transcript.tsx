@@ -1,5 +1,5 @@
 import { useReducedMotion } from 'motion/react'
-import { ArrowDown, Check, Copy, Pin, RotateCcw } from 'lucide-react'
+import { ArrowDown, Check, Copy, Pin, RotateCcw, Volume2 } from 'lucide-react'
 import {
   useCallback,
   useEffect,
@@ -27,6 +27,8 @@ export interface TranscriptProps {
   onRegenerate?: () => void
   /** Pin an answer as a sticky note. */
   onPin?: (messageId: string) => void
+  /** Read an answer aloud. */
+  onSpeak?: (messageId: string) => void
   onAddKey?: () => void
   onOpenSettings?: () => void
   /** Copy for messages and code blocks; defaults to the Clipboard API. */
@@ -53,6 +55,7 @@ export function Transcript({
   onRetry,
   onRegenerate,
   onPin,
+  onSpeak,
   onAddKey,
   onOpenSettings,
   onCopy = copyText,
@@ -195,6 +198,11 @@ export function Transcript({
                             onClick={() => copy(m)}
                           >
                             {copiedId === m.id ? <Check /> : <Copy />}
+                          </IconButton>
+                        )}
+                        {onSpeak && m.text && (
+                          <IconButton size="sm" label="Read aloud" onClick={() => onSpeak(m.id)}>
+                            <Volume2 />
                           </IconButton>
                         )}
                         {onPin && m.text && (

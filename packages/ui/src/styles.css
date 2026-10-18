@@ -17,6 +17,7 @@
 @import './chat/Transcript.css';
 @import './chat/Composer.css';
 @import './chat/chips.css';
+@import './chat/Voice.css';
 @import './settings/HotkeyRecorder.css';
 @import './studio/studio.css';
 @import './settings/settings.css';

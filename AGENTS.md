@@ -33,6 +33,8 @@ Read in this order before writing code:
 | `apps/extension` | MV3 extension: content script, service worker, options, PDF viewer | d2 |
 | `apps/vscode` | VS Code extension: Lens in the editor, and the code link (`src/code`: Hoot reads the code on screen as text, highlights, applies accepted edits) | not in `ownership.json` yet |
 | `apps/desktop/src/main/code` | Code link pipe server + code service (VS Code snapshots instead of screenshots, highlights, Apply) | d1 (per `ownership.json`) |
+| `apps/desktop/src/main/voice` | Voice chat: Windows speech helper (System.Speech via PowerShell, like `textAccess`), fake engine, the listen → send → speak loop | d1 (per `ownership.json`) |
+| `apps/desktop/src/main/page` | Page link service: the browser page in front as text for the chat, `[[find]]` highlights back (over the Lens bridge) | d1 (per `ownership.json`) |
 
 The exact rules are in `scripts/ownership.json`, and CI enforces them on PRs
 from `c/`, `d1/`, `d2/` and `d3/` branches. Everyone may change
@@ -114,6 +116,14 @@ One workspace: `npm.cmd run <script> -w @hoot/desktop` (or `@hoot/extension`,
   selections before anything else sees them.
 - `nativeTheme.themeSource` may or may not flip `prefers-color-scheme` in a
   sandboxed renderer. The `system.darkMode` slice is the source of truth.
+- Voice: Chromium's Web Speech recognition doesn't work in Electron, so main
+  runs System.Speech (Windows PowerShell 5.1, C# 5 in `Add-Type`: no `?.`, no
+  `$""`). The helper is up in ~0.5 s. Windows dictation makes words out of room
+  noise (a fan became "It into a total of", confidence 0.00), so the service
+  drops phrases with a peak level under 0.05 or confidence under 0.1. It never
+  listens while it speaks (it would hear itself).
+- Extension popups can't show the microphone permission prompt: the popup opens
+  `mic.html` in a tab once, then `webkitSpeechRecognition` works in the popup.
 
 ### Environment variables
 
@@ -122,6 +132,7 @@ One workspace: `npm.cmd run <script> -w @hoot/desktop` (or `@hoot/extension`,
 | `ANTHROPIC_API_KEY` | Dev fallback when no key is stored (`<userData>/hoot/claude-key.bin`) |
 | `HOOT_FAKE_AI=1` | Deterministic chat provider, no key or network |
 | `HOOT_FAKE_LENS=1` | Lens engine answers with `@hoot/core/testing` fakes |
+| `HOOT_FAKE_VOICE=1` | Scripted speech engine: voice chats "hear" set phrases and say nothing aloud (e2e, offline demos). Without it, e2e (`HOOT_TEST`) has no voice and dev uses Windows speech |
 | `HOOT_TEST=1` | e2e build only: test hooks, no global hotkeys |
 | `HOOT_USER_DATA=<dir>` | Redirects `app.getPath('userData')` |
 | `HOOT_DEV_BRIDGE=1` | Dev-only WebSocket bridge transport (pairing code required); `HOOT_DEV_BRIDGE_PORT` (default 7341) and `HOOT_DEV_BRIDGE_CODE` pin the port and code |

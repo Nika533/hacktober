@@ -7,6 +7,7 @@ import { createChatHandlers } from '../chat'
 import { createCodeHandlers } from '../code'
 import { createLensHandlers } from '../lens'
 import { createPinsHandlers } from '../pins'
+import { createVoiceHandlers } from '../voice'
 import { registerAppIpc } from './app'
 import { registerBuddyIpc } from './buddy'
 import { registerClipboardIpc } from './clipboard'
@@ -98,6 +99,7 @@ export function registerDomains(ctx: AppContext): void {
   registerHandlerMap(createChatHandlers(ctx.chat))
   registerHandlerMap(createCaptureHandlers(ctx.capture))
   registerHandlerMap(createCodeHandlers(ctx.code))
+  registerHandlerMap(createVoiceHandlers(ctx.voice))
   const pinsHandlers = createPinsHandlers(ctx.pins)
   registerSenderHandlerMap(pinsHandlers.invoke)
   registerSenderSendMap(pinsHandlers.send)

@@ -56,6 +56,11 @@ export interface OverlayInit {
    * from the editor instead of grabbing the screen (`name`: the workspace).
    */
   code?: { name: string } | null
+  /**
+   * Live overlay: a browser with the Hoot extension was in front when it
+   * opened, so each message also carries that page as text (`title`: the tab).
+   */
+  page?: { title: string } | null
 }
 
 /** Live overlay: a minimized chat comes back out of the owl. */

@@ -4,6 +4,7 @@ import {
   project,
   QUICK_ACTIONS,
   snapToEdges,
+  VOICE_OFF,
   type Attachment,
   type BuddyMode,
   type BuddyTransition,
@@ -72,7 +73,8 @@ export function createFakeBuddyMain(opts: FakeBuddyMainOptions): FakeBuddyMain {
   const wa = opts.workArea
   let anchor = opts.anchor
   const mode0 = opts.mode ?? 'dot'
-  const slices: Pick<StateSlices, 'buddy' | 'chat'> = {
+  const slices: Pick<StateSlices, 'buddy' | 'chat' | 'voice'> = {
+    voice: VOICE_OFF,
     buddy: {
       mode: mode0,
       layout: layoutForMode(mode0, anchor, wa),
@@ -104,6 +106,10 @@ export function createFakeBuddyMain(opts: FakeBuddyMainOptions): FakeBuddyMain {
   const setChat = (p: Partial<StateSlices['chat']>): void => {
     slices.chat = { ...slices.chat, ...p }
     patches.emit({ chat: slices.chat })
+  }
+  const setVoice = (p: Partial<StateSlices['voice']>): void => {
+    slices.voice = { ...slices.voice, ...p }
+    patches.emit({ voice: slices.voice })
   }
 
   // ---- mode machine ----------------------------------------------------------
@@ -356,6 +362,28 @@ export function createFakeBuddyMain(opts: FakeBuddyMainOptions): FakeBuddyMain {
       openReader: () => resolved
     },
     app: { openExternal: () => resolved },
+    // A scripted voice turn: listen, "hear" a question, send it, then stop.
+    voice: {
+      start: () => {
+        const asked = 'What does this chart show?'
+        setVoice({ phase: 'listening', heard: '', level: 0.2, problem: null })
+        later(500, () => setVoice({ heard: 'What does this', level: 0.7 }))
+        later(1000, () => setVoice({ heard: asked, level: 0.5 }))
+        later(1700, () => {
+          if (slices.voice.phase !== 'listening') return
+          setVoice({ phase: 'thinking', heard: asked, level: 0 })
+          send(asked)
+          later(2500, () => setVoice(VOICE_OFF))
+        })
+        return resolved
+      },
+      finish: () => resolved,
+      stop: () => {
+        setVoice(VOICE_OFF)
+        return resolved
+      },
+      speak: () => resolved
+    },
     buddy: {
       requestMode,
       transitionDone,

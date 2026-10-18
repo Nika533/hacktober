@@ -53,6 +53,7 @@ export { Composer, type ComposerProps } from './chat/Composer'
 export { AttachmentsRow, type AttachmentsRowProps } from './chat/AttachmentsRow'
 export { QuickChips, type QuickChipsProps } from './chat/QuickChips'
 export { ClipboardChip, type ClipboardChipProps } from './chat/ClipboardChip'
+export { VoiceButton, VoiceStatus, type VoiceControls } from './chat/Voice'
 
 // Settings pieces (D3-12)
 export {
