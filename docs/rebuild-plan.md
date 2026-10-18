@@ -259,7 +259,7 @@ Task IDs are referenced in PR titles (`D1-13: per-stream abort controller`).
 
 **M4:** **C-40** latency, cost and privacy review of what leaves the machine; **C-41** rewrite `AGENTS.md`, README and `packages/core/CONTRACTS.md`.
 
-**All the time:** merge captain. Review PRs within about 30 minutes, keep `main` green, run each gate's integration check.
+**All the time:** keeper of `main`. Review CODEOWNERS-gated PRs (contracts, security, dependencies, tooling) within about 30 minutes, skim other merged diffs and revert anything that breaks `main`, run each gate's integration check.
 
 ### d1: desktop shell (Devin, Windows)
 
@@ -375,23 +375,24 @@ Task IDs are referenced in PR titles (`D1-13: per-stream abort controller`).
 
 **Git**
 
-- `main` is protected. Branches use the builder prefix: `c/…`, `d1/…`, `d2/…`, `d3/…`. PRs stay small (aim under about 400 changed lines). CI must be green. C merges. If C hasn't responded within 30 minutes, an author whose PR touches only their own paths may merge it after CI passes.
-- Rebase on `main` at least every couple of hours. **Lockfile conflicts:** take `main`'s `package-lock.json`, then run `npm.cmd install`. Never hand-merge it.
+- `main` is protected: no direct pushes, required CI checks, review only where `.github/CODEOWNERS` asks (core contracts, security boundary, dependencies, tooling). Branches use the builder prefix: `c/…`, `d1/…`, `d2/…`, `d3/…`.
+- **Merge on green:** open the PR with auto-merge on; it merges when CI passes. C reviews merged diffs afterwards and reverts anything that breaks `main`. About 400 changed lines is a guideline, not a rule.
+- Don't stack PRs; branch from `main`. **Lockfile conflicts:** take `main`'s `package-lock.json`, then run `npm.cmd install`. Never hand-merge it.
 - Commit messages: `<TASK-ID>: <what>`.
 
 **Ownership** (enforced by `scripts/check-ownership.mjs`)
 
 - Paths belong to the builder shown in section 2. Root config, `packages/core` and `docs/rebuild-plan.md` belong to C.
 - Need a change in someone else's path? Write it under "Requests" in your status file and in the PR description. Don't edit it yourself.
-- `docs/status/<you>.md` is the only shared-folder file you edit. Update it with every PR, under the headings **Now / Next / Blocked on / Requests / Notes**.
+- `docs/status/<you>.md` is the only shared-folder file you edit. Update it when your plan or blockers change (at least daily), under the headings **Now / Next / Blocked on / Requests / Notes**.
 - `.devin/` is managed by the tooling. Never delete or overwrite it.
 
 **Definition of done for a task**
 
-1. typecheck, lint and unit tests pass; e2e for any user-visible flow.
+1. CI green: typecheck, lint, unit; e2e for any user-visible flow; `ui-shots` (axe clean) for UI.
 2. Runs with `HOOT_FAKE_AI=1` / `HOOT_FAKE_LENS=1` and no key.
-3. Meets the quality bar in section 1, with screenshots for UI.
-4. Status file updated. If behaviour or commands changed, a note in `AGENTS.md` (sent to C as a request).
+3. Meets the quality bar in section 1. For UI, CI's `ui-screenshots` artifact is the screenshot evidence.
+4. Status file current if your plan or blockers changed. If behaviour or commands changed, a note in `AGENTS.md` (sent to C as a request).
 
 **Environment** (Windows builders): use `npm.cmd` and `npx.cmd`, not
 `npm`/`npx`. `ELECTRON_RUN_AS_NODE` is stripped by `scripts/run-electron.mjs`.
@@ -469,7 +470,7 @@ PR title `<TASK-ID>: <summary>`. Every PR has to meet the plan's quality bar and
 definition of done (zod-validated IPC, sandboxed windows, tests, light and dark
 screenshots for UI). Use HOOT_FAKE_AI=1; never commit an API key.
 
-After each PR, update docs/status/d1.md (Now / Next / Blocked on / Requests / Notes).
+When your plan or blockers change, update docs/status/d1.md (Now / Next / Blocked on / Requests / Notes).
 If you are blocked on another builder, switch to your next unblocked task;
 don't work around their code. Stop and report when M2's tasks are merged, or
 if CI on main is red because of your change and you can't fix it in 30 minutes.
@@ -497,7 +498,7 @@ branch and one PR per task: branch `d2/<task-id>-<slug>`, PR title
 editable or code content, keyboard and screen-reader support, reduced motion,
 tests.
 
-After each PR, update docs/status/d2.md (Now / Next / Blocked on / Requests / Notes).
+When your plan or blockers change, update docs/status/d2.md (Now / Next / Blocked on / Requests / Notes).
 If you are blocked, switch to your next unblocked task. Stop and report when
 M2's tasks are merged, or if CI on main is red because of your change and you
 can't fix it in 30 minutes.
@@ -527,7 +528,7 @@ Keys come from aistudio.google.com/apikey. One branch and one PR per task: branc
 and dark screenshots and passes axe. No raw colours outside tokens, no
 window.confirm.
 
-After each PR, update docs/status/d3.md (Now / Next / Blocked on / Requests / Notes).
+When your plan or blockers change, update docs/status/d3.md (Now / Next / Blocked on / Requests / Notes).
 If you are blocked, switch to your next unblocked task. Stop and report when
 M2's tasks are merged, or if CI on main is red because of your change and you
 can't fix it in 30 minutes.

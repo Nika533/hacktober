@@ -1,5 +1,9 @@
 name: CI
 
+# Required checks on main (branch protection): ownership, checks (ubuntu-latest),
+# checks (windows-latest), e2e, ui-shots. A job skipped by its `if` counts as
+# passing, so docs-only PRs don't wait for e2e and non-UI PRs skip ui-shots.
+
 on:
   pull_request:
   push:
@@ -13,6 +17,34 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+      ui: ${{ steps.diff.outputs.ui }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: diff
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.base_ref }}
+        run: |
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            echo "ui=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          files=$(git diff --name-only "origin/$BASE...HEAD")
+          echo "$files"
+          code=false; ui=false
+          if echo "$files" | grep -qvE '^(docs/.*|.*\.md)$'; then code=true; fi
+          if echo "$files" | grep -qE '^(packages/ui/|apps/desktop/src/renderer/)'; then ui=true; fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "ui=$ui" >> "$GITHUB_OUTPUT"
+
   ownership:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -42,12 +74,14 @@ jobs:
       # No Electron binary needed for these steps.
       - run: npm ci --ignore-scripts
       - run: npm run typecheck
+      # Fails on errors only; warnings never block a merge.
       - run: npm run lint
       - run: npm test
       - run: npm run build
 
   e2e:
-    needs: checks
+    needs: [changes, checks]
+    if: needs.changes.outputs.code == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
@@ -72,3 +106,25 @@ jobs:
             apps/desktop/test-results
             apps/extension/test-results
           retention-days: 7
+
+  # Gallery screenshots (light, dark, high contrast) + axe. Fails on any axe
+  # violation; the screenshots artifact stands in for PR screenshots.
+  ui-shots:
+    needs: changes
+    if: needs.changes.outputs.ui == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install chromium
+      - run: npm run shots -w @hoot/ui
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-screenshots
+          path: packages/ui/screenshots
+          retention-days: 14
