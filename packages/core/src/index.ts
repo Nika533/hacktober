@@ -27,6 +27,9 @@ export * from './util/clipboard'
 export * from './util/geometry'
 
 export * from './lens/cacheKey'
+export * from './lens/guardrails'
+export * from './lens/profile'
+export * from './lens/prompts'
 export * from './lens/transforms'
 
 export * from './protocol/backend'

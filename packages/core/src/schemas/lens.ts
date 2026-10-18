@@ -93,7 +93,8 @@ export const LensEventSchema = z.object({
   spanWords: z.number().int().nonnegative(),
   p: UnitSchema,
   difficulty: UnitSchema.nullable(),
-  latencyMs: z.number().nonnegative()
+  latencyMs: z.number().nonnegative(),
+  cacheKey: z.string().max(64).optional()
 })
 
 const PerSiteSchema = z.record(
