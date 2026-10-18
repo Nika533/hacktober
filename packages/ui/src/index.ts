@@ -81,5 +81,17 @@ export { ShortcutFields, type ShortcutFieldsProps } from './settings/ShortcutFie
 export { OnboardingPane, type OnboardingPaneProps } from './onboarding/OnboardingPane'
 export { ONBOARDING_STEPS } from './onboarding/steps'
 
+// Buddy (F-D3-1)
+export { Buddy, GREETING_MS, type BuddyProps } from './buddy/Buddy'
+export { BuddyCard, type BuddyCardProps } from './buddy/BuddyCard'
+export type { BuddyHost } from './buddy/host'
+export { capsuleRect, isGrow, layoutFits, measureHitRegions, owlRect } from './buddy/geometry'
+export {
+  ACK_FALLBACK_MS,
+  useBuddyTransitions,
+  type BuddyPart,
+  type BuddyTransitions
+} from './buddy/useBuddyTransitions'
+
 // Lens (D3-13, D3-20)
 export { ExtensionStatus, type ExtensionStatusProps } from './lens/ExtensionStatus'

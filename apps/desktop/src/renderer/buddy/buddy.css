@@ -1,0 +1,10 @@
+/* Buddy window: transparent and frameless; only the owl and its surfaces paint. */
+html,
+body,
+#root {
+  position: relative;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+}
